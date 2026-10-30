@@ -98,3 +98,28 @@ class SkillInventoryTests(TestCase):
         snapshot=SkillFileSnapshot.objects.get(path='link.txt')
         self.assertEqual(snapshot.kind,'link')
         self.assertNotIn(b'private outside content',bytes(snapshot.blob.content))
+    def test_admin_archive_diff_download_and_permissions(self):
+        import io,zipfile
+        from accounts.models import User
+        from django.urls import reverse
+        scan_skills();old=Installation.objects.get().version_id
+        self.file.write_text('<script>alert(1)</script>\nnew',encoding='utf-8');scan_skills()
+        current=Installation.objects.get().version_id
+        admin_user=User.objects.create_user(username='mesuef',role='supervisor',is_staff=True,is_superuser=True)
+        self.client.force_login(admin_user)
+        url=reverse('admin:skill_archive',args=[current])
+        response=self.client.get(url,{'compare':str(old)})
+        self.assertEqual(response.status_code,200)
+        self.assertContains(response,'&lt;script&gt;')
+        self.assertNotContains(response,'<script>alert(1)</script>')
+        response=self.client.get(reverse('admin:skill_archive',args=[old]),{'download':'1'})
+        self.assertEqual(response.status_code,200)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+            self.assertIn(b'Version one',archive.read('files/SKILL.md'))
+        other=Installation.objects.get().version.service.__class__.objects.create(key='unrelated',name='Other',kind='skill')
+        from registry.models import ServiceVersion
+        unrelated=ServiceVersion.objects.create(service=other,sha256='0'*64,source='test')
+        self.assertEqual(self.client.get(url,{'compare':str(unrelated.pk)}).status_code,404)
+        self.client.logout();self.assertEqual(self.client.get(url,{'download':'1'}).status_code,302)
+        admin_user.is_superuser=False;admin_user.save(update_fields=['is_superuser'])
+        self.client.force_login(admin_user);self.assertEqual(self.client.get(url).status_code,403)

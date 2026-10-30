@@ -143,3 +143,5 @@ class SkillFileChangeAdmin(ReadOnlyRegistryAdmin):
     search_fields = ('path','change__installation__version__service__name')
     list_filter = ('action','created_at')
     list_select_related = ('change__installation__version__service',)
+
+from . import admin_skill_archive  # Register authenticated archive tools after base admins.
