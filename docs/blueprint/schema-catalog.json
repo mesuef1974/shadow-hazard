@@ -1,0 +1,372 @@
+[
+  {
+    "name": "الحسابات والتخطيط",
+    "tables": [
+      {
+        "name": "User",
+        "fields": "username, display_name, role, is_active",
+        "relation": "حسابات sufyan/saud/mubarak فقط؛ تخزين كلمات المرور عبر Django"
+      },
+      {
+        "name": "Project",
+        "fields": "name, purpose, scope, status",
+        "relation": "المشروع الحالي؛ لا يفتح إنشاء مشاريع إضافية في الواجهة أولًا"
+      },
+      {
+        "name": "Membership",
+        "fields": "project_id, user_id, role",
+        "relation": "Project N:M User؛ unique(project,user)"
+      },
+      {
+        "name": "Phase",
+        "fields": "project_id, title, order, status",
+        "relation": "Project 1:N Phase"
+      },
+      {
+        "name": "Milestone",
+        "fields": "phase_id, title, acceptance, status",
+        "relation": "Phase 1:N Milestone"
+      },
+      {
+        "name": "PlanBaseline",
+        "fields": "project_id, version, approved_by, approved_at",
+        "relation": "نسخة خطة مقبولة غير قابلة للتحرير"
+      },
+      {
+        "name": "ScheduleEntry",
+        "fields": "baseline_id, task_id, planned_start, planned_end, weight",
+        "relation": "Baseline 1:N Entry؛ unique(baseline,task)"
+      },
+      {
+        "name": "Task",
+        "fields": "phase_id, milestone_id?, title, acceptance, status, priority, actual_start?, actual_end?",
+        "relation": "Phase 1:N Task؛ Milestone اختياري"
+      },
+      {
+        "name": "TaskAssignment",
+        "fields": "task_id, user_id, assigned_by, assigned_at",
+        "relation": "Task N:M User؛ unique(task,user)"
+      },
+      {
+        "name": "TaskDependency",
+        "fields": "predecessor_id, successor_id, kind",
+        "relation": "Task N:M Task؛ منع العلاقة بالنفس والدورات"
+      },
+      {
+        "name": "TaskUpdate",
+        "fields": "task_id, author_id, summary, next_step, hours?, created_at",
+        "relation": "Task 1:N Update؛ الساعات اختيارية وغير سالبة"
+      },
+      {
+        "name": "Blocker",
+        "fields": "phase_id, task_id?, owner_id, description, impact, status, resolved_at?",
+        "relation": "Phase/Task 1:N Blocker"
+      },
+      {
+        "name": "WorkSession",
+        "fields": "phase_id, title, agenda, minutes, scheduled_at, held_at?, status",
+        "relation": "Phase 1:N Session؛ جلسات الفريق الهندسية"
+      },
+      {
+        "name": "Attendance",
+        "fields": "session_id, user_id, attendance_status",
+        "relation": "Session N:M User؛ unique(session,user)"
+      },
+      {
+        "name": "Comment",
+        "fields": "author_id, task_id?, session_id?, deliverable_id?, body",
+        "relation": "هدف واحد فقط بقيد CHECK؛ لا GenericForeignKey"
+      },
+      {
+        "name": "Announcement",
+        "fields": "project_id, author_id, title, body, published_at?",
+        "relation": "Project 1:N Announcement"
+      }
+    ]
+  },
+  {
+    "name": "البحث والمتطلبات والقرارات",
+    "tables": [
+      {
+        "name": "ResearchSource",
+        "fields": "project_id, kind, title, url?, authors, publication_date?, accessed_at, summary, visibility",
+        "relation": "دراسة سوق أو بحث أو براءة أو مصدر داخلي"
+      },
+      {
+        "name": "Alternative",
+        "fields": "project_id, source_id?, name, mechanism, limitations, price?, currency?, price_date?",
+        "relation": "حل منافس/بديل؛ السعر المجهول NULL لا صفر"
+      },
+      {
+        "name": "ComparisonCriterion",
+        "fields": "project_id, name, unit?, definition",
+        "relation": "معيار مقارنة معرف قبل التقييم"
+      },
+      {
+        "name": "ComparisonFinding",
+        "fields": "alternative_id, criterion_id, source_id, finding, value?, uncertainty",
+        "relation": "دليل لكل نتيجة مقارنة؛ لا اعتبار الدعاية قياسًا"
+      },
+      {
+        "name": "Requirement",
+        "fields": "phase_id, code, statement, acceptance, verification_method, status",
+        "relation": "unique(project-scope code) عبر تحقق نطاق المشروع"
+      },
+      {
+        "name": "Idea",
+        "fields": "project_id, author_id, title, rationale, status, created_at",
+        "relation": "فكرة إبداعية مؤرخة؛ رفض/تأجيل مع سبب"
+      },
+      {
+        "name": "Decision",
+        "fields": "phase_id, session_id?, idea_id?, title, alternatives, rationale, status, supersedes_id?",
+        "relation": "قرار قابل للمراجعة؛ لا اعتماد تلقائي"
+      },
+      {
+        "name": "ChangeRequest",
+        "fields": "project_id, proposer_id, reason, scope_impact, cost_impact?, schedule_impact, status, approved_by?",
+        "relation": "طلب تغيير مع أثر واعتماد"
+      },
+      {
+        "name": "Risk",
+        "fields": "project_id, owner_id, description, likelihood, impact, mitigation, status",
+        "relation": "خطر محتمل؛ مستقل عن العائق الواقع"
+      }
+    ]
+  },
+  {
+    "name": "الملفات والإنتاج",
+    "tables": [
+      {
+        "name": "FileAsset",
+        "fields": "storage_key, original_name, media_type, bytes, sha256, visibility, uploaded_by",
+        "relation": "ملف خاص؛ التحقق من النوع والحجم وسياسة الوصول"
+      },
+      {
+        "name": "Deliverable",
+        "fields": "phase_id, task_id?, title, kind, status",
+        "relation": "مخرج مرحلة أو مهمة؛ acceptance محفوظ"
+      },
+      {
+        "name": "DeliverableVersion",
+        "fields": "deliverable_id, version, file_id?, text_snapshot?, author_id, submitted_at, accepted_by?, accepted_at?",
+        "relation": "unique(deliverable,version)؛ محتوى نصي أو ملف أو كلاهما"
+      },
+      {
+        "name": "RequirementEvidence",
+        "fields": "requirement_id, deliverable_version_id, run_id?, verdict, reviewer_id?",
+        "relation": "ربط المتطلب بدليل محدد وإقرار المراجعة"
+      }
+    ]
+  },
+  {
+    "name": "المكونات والمشتريات",
+    "tables": [
+      {
+        "name": "ComponentType",
+        "fields": "project_id, name, kind, specifications, interface, voltage?, unit, safety_notes",
+        "relation": "تعريف نوع قطعة؛ المواصفات المتغيرة JSON محدود موثق"
+      },
+      {
+        "name": "InventoryItem",
+        "fields": "component_type_id, label, serial?, ownership, condition, location",
+        "relation": "قطعة أو دفعة فعلية، بما فيها المعارة/المملوكة مسبقًا"
+      },
+      {
+        "name": "StockMovement",
+        "fields": "inventory_item_id, task_id?, quantity_delta, reason, actor_id, occurred_at",
+        "relation": "دفتر حركة؛ الرصيد مشتق؛ الحجز مستقل عن الاستهلاك"
+      },
+      {
+        "name": "ResourceReservation",
+        "fields": "inventory_item_id, task_id, quantity, from_at, to_at?, status",
+        "relation": "حجز/إرجاع معدات؛ لا يعد استهلاكًا"
+      },
+      {
+        "name": "Supplier",
+        "fields": "name, contact?, url?",
+        "relation": "الحد الأدنى من بيانات المورد"
+      },
+      {
+        "name": "Quote",
+        "fields": "component_type_id, supplier_id, quantity, unit_price, currency, shipping, tax, valid_until?, evidence_file_id?",
+        "relation": "السعر ومصدره وتاريخه؛ Decimal"
+      },
+      {
+        "name": "PurchaseOrder",
+        "fields": "project_id, supplier_id, status, currency, approved_by?, ordered_at?",
+        "relation": "طلب شراء لا ينفذ دفعًا آليًا"
+      },
+      {
+        "name": "PurchaseLine",
+        "fields": "purchase_order_id, component_type_id, quote_id?, quantity, unit_price",
+        "relation": "Order 1:N Lines"
+      },
+      {
+        "name": "Receipt",
+        "fields": "purchase_line_id, inventory_item_id, quantity, received_by, received_at",
+        "relation": "استلام جزئي أو كامل؛ لا يتجاوز الطلب دون تعديل معتمد"
+      },
+      {
+        "name": "BudgetLine",
+        "fields": "phase_id, category, planned_amount, currency, baseline_id?",
+        "relation": "ميزانية مرحلية؛ فصل العملات"
+      },
+      {
+        "name": "Expense",
+        "fields": "purchase_order_id?, budget_line_id, amount, currency, paid_at, proof_file_id?",
+        "relation": "مصروف فعلي؛ لا تكرار جمع مبلغ الطلب معه"
+      }
+    ]
+  },
+  {
+    "name": "البرمجيات والذكاء الاصطناعي والنموذج",
+    "tables": [
+      {
+        "name": "SoftwareComponent",
+        "fields": "project_id, name, kind, purpose, repository_url?, license, alternatives",
+        "relation": "لغة/مكتبة/وحدة/خدمة/كونكتر"
+      },
+      {
+        "name": "SoftwareRelease",
+        "fields": "component_id, version, git_sha?, artifact_file_id?, environment, approved_at?",
+        "relation": "إصدار مثبت؛ Git مرجع الكود"
+      },
+      {
+        "name": "ConnectorContract",
+        "fields": "software_release_id, source, destination, transport, schema_version, units, clock_policy, failure_policy",
+        "relation": "واجهة اتصال محددة الإصدار؛ أسرارها خارج DB"
+      },
+      {
+        "name": "DatasetVersion",
+        "fields": "project_id, name, version, manifest_file_id, provenance, license, split_policy",
+        "relation": "تقسيم وتوثيق البيانات؛ لا فيديوهات داخل DB"
+      },
+      {
+        "name": "ModelVersion",
+        "fields": "project_id, name, version, weights_file_id?, dataset_version_id?, training_run_id?, license, configuration",
+        "relation": "مصدر الأوزان والتدريب؛ المستورد لا يتطلب TrainingRun"
+      },
+      {
+        "name": "TrainingRun",
+        "fields": "dataset_version_id, software_release_id, parameters, seed?, environment, status, metrics, log_file_id?",
+        "relation": "تجربة تدريب محددة؛ JSON للإعدادات فقط"
+      },
+      {
+        "name": "PrototypeRevision",
+        "fields": "project_id, version, description, status, approved_by?",
+        "relation": "نسخة مجسم مثبتة قابلة لإعادة التشغيل"
+      },
+      {
+        "name": "BOMLine",
+        "fields": "prototype_revision_id, component_type_id, quantity, purpose",
+        "relation": "قائمة مواد التصميم؛ غير المخزون الفعلي"
+      },
+      {
+        "name": "PrototypeSoftware",
+        "fields": "prototype_revision_id, software_release_id",
+        "relation": "Prototype N:M SoftwareRelease"
+      },
+      {
+        "name": "PrototypeModel",
+        "fields": "prototype_revision_id, model_version_id",
+        "relation": "Prototype N:M ModelVersion"
+      },
+      {
+        "name": "SensorInstallation",
+        "fields": "prototype_revision_id, inventory_item_id, sensor_key, position, coordinate_frame",
+        "relation": "موضع مصدر الرصد وإطاره المرجعي"
+      },
+      {
+        "name": "Calibration",
+        "fields": "installation_id, version, parameters_file_id, measured_at, valid_until?, approved_by?",
+        "relation": "نسخة معايرة محددة؛ لا استبدال صامت"
+      },
+      {
+        "name": "WiringConnection",
+        "fields": "prototype_revision_id, from_item_id, from_port, to_item_id, to_port, signal, diagram_file_id?",
+        "relation": "توصيل موثق وقطع مثبتة على النسخة"
+      }
+    ]
+  },
+  {
+    "name": "التجارب والتشغيل والعرض",
+    "tables": [
+      {
+        "name": "Scenario",
+        "fields": "project_id, name, objective, expected_behavior",
+        "relation": "سيناريو الحجب/الضوء/الانقطاع/التأخر"
+      },
+      {
+        "name": "ScenarioVersion",
+        "fields": "scenario_id, version, configuration_file_id, seed?, ground_truth_file_id?",
+        "relation": "تثبيت السيناريو والحقيقة المرجعية"
+      },
+      {
+        "name": "ExperimentRun",
+        "fields": "scenario_version_id, prototype_revision_id, operator_id, mode, started_at, ended_at?, environment, status",
+        "relation": "LIVE/SIMULATION/REPLAY؛ نسخة النموذج لا تعدل بعد التشغيل"
+      },
+      {
+        "name": "RunCalibration",
+        "fields": "run_id, calibration_id",
+        "relation": "المعايرات المستخدمة فعليًا لا آخر معايرة فقط"
+      },
+      {
+        "name": "MetricDefinition",
+        "fields": "project_id, code, definition, unit, aggregation, direction",
+        "relation": "تعريف البسط/المقام ومرجع زمن الإنذار"
+      },
+      {
+        "name": "MetricResult",
+        "fields": "run_id, metric_id, value?, sample_count, uncertainty?, evidence_file_id?",
+        "relation": "القيمة غير المتوفرة NULL؛ شروط القياس موثقة"
+      },
+      {
+        "name": "RunFile",
+        "fields": "run_id, file_id, role",
+        "relation": "ملفات القياسات والفيديو والسجلات؛ فهرس لا تدفق خام في DB"
+      },
+      {
+        "name": "AlertEvent",
+        "fields": "run_id, sensor_installation_id?, observed_at, received_at, kind, confidence?, reason, source_event_id",
+        "relation": "قيد منع التكرار؛ زمن الرصد منفصل عن الاستلام"
+      },
+      {
+        "name": "ExhibitionRelease",
+        "fields": "project_id, version, title, approved_by?, approved_at?, disclosure_id?",
+        "relation": "عرض منقح ومقبول؛ وضع المشرف افتراضي"
+      },
+      {
+        "name": "ExhibitionItem",
+        "fields": "release_id, deliverable_version_id?, run_id?, display_order",
+        "relation": "هدف واحد؛ لا تضمين ملف خاص تلقائيًا"
+      }
+    ]
+  },
+  {
+    "name": "المساهمات والحقوق والتدقيق",
+    "tables": [
+      {
+        "name": "Contribution",
+        "fields": "project_id, user_id, kind, description, occurred_at, evidence_version_id?",
+        "relation": "سجل مساهمة؛ ليس حكمًا بصفة المخترع"
+      },
+      {
+        "name": "IPRecord",
+        "fields": "project_id, kind, title, status, owner_claim?, agreement_file_id?, reviewer?, next_due?",
+        "relation": "معرفة سابقة/ترخيص/اتفاق/إجراء براءة؛ الادعاء ليس حسمًا"
+      },
+      {
+        "name": "Disclosure",
+        "fields": "project_id, title, audience, disclosed_at?, status, approved_by?, evidence_file_id?",
+        "relation": "موافقة قبل كشف تفاصيل حساسة"
+      },
+      {
+        "name": "AuditEvent",
+        "fields": "actor_id?, action, target_type, target_id, timestamp, safe_diff, correlation_id",
+        "relation": "append-only؛ معرف الهدف مرجع تاريخي عمدًا لا FK؛ يستثني الأسرار"
+      }
+    ]
+  }
+]

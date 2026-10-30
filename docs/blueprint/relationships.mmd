@@ -1,0 +1,27 @@
+erDiagram
+    User ||--o{ Membership : joins
+    Project ||--o{ Membership : includes
+    Project ||--o{ Phase : plans
+    Phase ||--o{ Task : contains
+    Phase ||--o{ WorkSession : holds
+    Task ||--o{ TaskAssignment : assigns
+    User ||--o{ TaskAssignment : executes
+    Task ||--o{ TaskUpdate : records
+    Phase ||--o{ Requirement : defines
+    Requirement ||--o{ RequirementEvidence : proves
+    Deliverable ||--o{ DeliverableVersion : versions
+    DeliverableVersion ||--o{ RequirementEvidence : supports
+    ExperimentRun ||--o{ RequirementEvidence : measures
+    Project ||--o{ PrototypeRevision : builds
+    PrototypeRevision ||--o{ BOMLine : specifies
+    ComponentType ||--o{ BOMLine : needed
+    ComponentType ||--o{ InventoryItem : available
+    InventoryItem ||--o{ StockMovement : changes
+    PrototypeRevision ||--o{ ExperimentRun : evaluated
+    ScenarioVersion ||--o{ ExperimentRun : defines
+    ExperimentRun ||--o{ MetricResult : produces
+    MetricDefinition ||--o{ MetricResult : interprets
+    Project ||--o{ Idea : proposes
+    Project ||--o{ Decision : chooses
+    Project ||--o{ IPRecord : documents
+    Project ||--o{ ExhibitionRelease : presents
