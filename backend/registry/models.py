@@ -193,6 +193,7 @@ class RegistryEvent(Entity):
         verbose_name_plural = "أحداث السجل"
     def __str__(self): return f"{self.action} — {self.key}"
 class PythonPackage(Entity):
+    explanation = models.TextField('شرح مبسط', blank=True)
     name = models.CharField('اسم المكتبة', max_length=200, unique=True)
     version = models.CharField('الإصدار', max_length=100)
     summary = models.TextField('الوصف', blank=True)
@@ -206,3 +207,15 @@ class PythonPackage(Entity):
         verbose_name = 'مكتبة Python'
         verbose_name_plural = 'مكتبات Python'
     def __str__(self): return f'{self.name} — {self.version}'
+class PythonPackageEvent(Entity):
+    package = models.ForeignKey(PythonPackage, on_delete=PROTECT, verbose_name='المكتبة')
+    action = models.CharField('الإجراء', max_length=30, choices=[('installed','تثبيت مرصود'),('updated','تحديث مرصود'),('removed','حذف مرصود'),('used','استخدام موثق')])
+    old_version = models.CharField('الإصدار السابق', max_length=100, blank=True)
+    new_version = models.CharField('الإصدار الجديد', max_length=100, blank=True)
+    actor = models.ForeignKey(Actor, null=True, blank=True, on_delete=PROTECT, verbose_name='المنفذ')
+    task = models.ForeignKey(RegistryTask, null=True, blank=True, on_delete=PROTECT, verbose_name='المهمة')
+    reason = models.TextField('السبب', default='تغيير مرصود آليًا؛ السبب والمنفذ غير معلومين')
+    class Meta:
+        verbose_name = 'حدث مكتبة'
+        verbose_name_plural = 'تاريخ المكتبات واستخدامها'
+    def __str__(self): return f'{self.package.name} — {self.get_action_display()}'

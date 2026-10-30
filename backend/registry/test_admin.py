@@ -80,3 +80,18 @@ class AdminPresentationTests(TestCase):
         call_command('inventory_python_packages', stdout=StringIO())
         self.assertEqual(before,set(models.PythonPackage.objects.values_list('name','pk')))
         self.assertTrue(models.PythonPackage.objects.filter(name='django',is_installed=True).exists())
+    def test_package_changes_are_audited_once(self):
+        from unittest.mock import patch
+        from importlib.metadata import distributions
+        command='registry.management.commands.inventory_python_packages.distributions'
+        installed=list(distributions())
+        with patch(command, return_value=[]):
+            call_command('inventory_python_packages', stdout=StringIO())
+            count=models.PythonPackageEvent.objects.filter(action='removed').count()
+            self.assertGreater(count,0)
+            call_command('inventory_python_packages', stdout=StringIO())
+            self.assertEqual(count,models.PythonPackageEvent.objects.filter(action='removed').count())
+        with patch(command, return_value=installed):
+            call_command('inventory_python_packages', stdout=StringIO())
+        self.assertTrue(models.PythonPackage.objects.get(name='django').is_installed)
+        self.assertTrue(models.PythonPackageEvent.objects.filter(action='removed',actor=None,task=None).exists())

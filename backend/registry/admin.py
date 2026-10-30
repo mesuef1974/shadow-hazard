@@ -105,6 +105,13 @@ for model, columns, search, filters, related in TABLES:
 
 @admin.register(models.PythonPackage)
 class PythonPackageAdmin(ReadOnlyRegistryAdmin):
-    list_display = ('name', 'version', 'summary', 'is_installed', 'observed_at')
+    list_display = ('name', 'version', 'explanation', 'is_installed', 'observed_at')
     search_fields = ('name', 'version', 'summary')
     list_filter = ('is_installed', 'python_version')
+
+@admin.register(models.PythonPackageEvent)
+class PackageEventAdmin(ReadOnlyRegistryAdmin):
+    list_display = ('package','action','old_version','new_version','actor','task','reason','created_at')
+    search_fields = ('package__name','reason','actor__name','task__title')
+    list_filter = ('action','created_at')
+    list_select_related = ('package','actor','task')
