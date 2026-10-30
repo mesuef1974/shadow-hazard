@@ -49,7 +49,7 @@ class RegistryIntegrityTests(TestCase):
         self.assertEqual(response.status_code,302)
         self.assertIn("/admin/login/",response.url)
     def test_admin_registry_cannot_mutate_usage(self):
-        user=User.objects.create(username="sufyan",role="supervisor",is_staff=True,is_superuser=True)
+        user=User.objects.create(username="mesuef",role="supervisor",is_staff=True,is_superuser=True)
         request=RequestFactory().get("/admin/");request.user=user
         admin=ReadOnlyRegistryAdmin(UsageEvent,AdminSite())
         self.assertTrue(admin.has_view_permission(request))
