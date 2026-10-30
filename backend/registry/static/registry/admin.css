@@ -1,0 +1,19 @@
+/* Neutral admin presentation; no proposed project identity is adopted. */
+.registry-swatch { display:inline-block; width:2.5rem; height:1.5rem; border:1px solid var(--body-quiet-color); border-radius:4px; vertical-align:middle; margin-inline-end:.5rem; }
+.registry-preview { display:block; max-width:200px; max-height:130px; object-fit:contain; border:1px solid var(--hairline-color); background:var(--body-bg); border-radius:4px; }
+.form-row .registry-preview { max-width:min(100%, 720px); max-height:480px; }
+#result_list td { max-width:28rem; overflow-wrap:anywhere; }
+.field-path, .field-relative_path, .field-sha256, .field-hex_value { unicode-bidi:plaintext; }
+#result_list { min-width:620px; }
+#result_list .field-swatch, #result_list .field-hex_value { white-space:nowrap; }
+#result_list th.field-name, #result_list .field-direction { min-width:8rem; }
+@media (max-width:1100px) {
+  #nav-sidebar, #toggle-nav-sidebar { display:none; }
+  .main > #nav-sidebar + .content, .main.shifted > #nav-sidebar + .content { max-width:100%; }
+  #changelist { flex-direction:column; gap:1rem; }
+  #changelist .changelist-form-container { width:100%; }
+  #changelist #changelist-filter { width:100%; flex:0 0 auto; margin:0; }
+}
+
+#result_list .field-kind, #result_list .field-status, #result_list .field-state { min-width:7rem; overflow-wrap:normal; }
+#result_list .field-preview { min-width:200px; }
