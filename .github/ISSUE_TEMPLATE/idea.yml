@@ -1,0 +1,27 @@
+name: اقتراح فكرة أو تحسين
+description: ناقش تحسينًا أو سؤالًا قبل التنفيذ.
+title: "[اقتراح]: "
+labels: ["needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: المشكلة أو الفرصة
+      description: ما الحاجة التي لاحظها الفريق؟
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: الاقتراح
+      description: ما التغيير المقترح، وما أثره على المشروع؟
+    validations:
+      required: true
+  - type: checkboxes
+    id: review
+    attributes:
+      label: مراجعات لازمة
+      options:
+        - label: قد يمس السلامة أو طريقة إصدار التنبيه.
+        - label: يتضمن بيانات أو تصويرًا أو خدمة خارجية.
+        - label: يحتاج عتادًا أو شراءً.
