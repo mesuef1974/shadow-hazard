@@ -1,0 +1,82 @@
+[
+  {
+    "event_id": "94fa8ca4a9c684f52b50",
+    "installation_id": "24fa3da837c2278b",
+    "skill_sha256": "df35ffbe0dd8aa92b192871f7a6de3d7f053f72e499d35512ca319bc9817a503",
+    "task_id": "brand-directions-and-capability-inventory",
+    "session_id": "01a18e02-0487-7180-9aa0-f932b22c8ef4",
+    "actor": "Codex assistant",
+    "actor_model": "gpt-6-astra (session declared)",
+    "recorded_at": "2026-10-30T20:04:11.261695+00:00",
+    "used_at_exact": null,
+    "time_evidence": "recorded during task; invocation timestamp not reconstructed",
+    "purpose": "تطوير ثلاثة اتجاهات للشعار والتوصية",
+    "method": "read guidance and apply to concept proposal",
+    "outputs": [
+      "docs/brand/index.html",
+      "docs/brand/directions.json"
+    ],
+    "status": "applied_to_draft",
+    "human_approval": "pending"
+  },
+  {
+    "event_id": "f8a9af52415823f44c29",
+    "installation_id": "c928f2641b4e2675",
+    "skill_sha256": "b98dbbce99205a700afa2f02b61b3caecdaa229b78b6af0b6cdcab9cfc90c66a",
+    "task_id": "brand-directions-and-capability-inventory",
+    "session_id": "01a18e02-0487-7180-9aa0-f932b22c8ef4",
+    "actor": "Codex assistant",
+    "actor_model": "gpt-6-astra (session declared)",
+    "recorded_at": "2026-10-30T20:04:11.261695+00:00",
+    "used_at_exact": null,
+    "time_evidence": "recorded during task; invocation timestamp not reconstructed",
+    "purpose": "تحديد ثلاث شخصيات تميمة وأسلوب العرض",
+    "method": "read guidance and apply to concept proposal",
+    "outputs": [
+      "docs/brand/index.html",
+      "docs/brand/directions.json"
+    ],
+    "status": "applied_to_draft",
+    "human_approval": "pending"
+  },
+  {
+    "event_id": "d7afaf24a7bbfe134edb",
+    "installation_id": "a038cc69bd560da1",
+    "skill_sha256": "88aadd21220542083a455e373bd162ffe7843266a71f06f4d837bb3b34f9c9c7",
+    "task_id": "brand-directions-and-capability-inventory",
+    "session_id": "01a18e02-0487-7180-9aa0-f932b22c8ef4",
+    "actor": "Codex assistant",
+    "actor_model": "gpt-6-astra (session declared)",
+    "recorded_at": "2026-10-30T20:04:11.261695+00:00",
+    "used_at_exact": null,
+    "time_evidence": "recorded during task; invocation timestamp not reconstructed",
+    "purpose": "استعلام التصميم مرتين؛ أخذ ضوابط وضوح حالة البث والوصول، ورفض ما لا يلائم العربية",
+    "method": "read guidance and apply to concept proposal",
+    "outputs": [
+      "docs/brand/index.html",
+      "docs/brand/directions.json"
+    ],
+    "status": "applied_to_draft",
+    "human_approval": "pending"
+  },
+  {
+    "event_id": "1472b4bbb787f4a46ebd",
+    "installation_id": "95ed2e13db10d862",
+    "skill_sha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+    "task_id": "brand-directions-and-capability-inventory",
+    "session_id": "01a18e02-0487-7180-9aa0-f932b22c8ef4",
+    "actor": "Codex assistant",
+    "actor_model": "gpt-6-astra (session declared)",
+    "recorded_at": "2026-10-30T20:04:11.261695+00:00",
+    "used_at_exact": null,
+    "time_evidence": "recorded during task; invocation timestamp not reconstructed",
+    "purpose": "تصميم صفحة مقارنة مستقلة؛ استُخدمت تعليمات مقروءة سابقًا في هذه المحادثة",
+    "method": "read guidance and apply to concept proposal",
+    "outputs": [
+      "docs/brand/index.html",
+      "docs/brand/directions.json"
+    ],
+    "status": "applied_to_draft",
+    "human_approval": "pending"
+  }
+]

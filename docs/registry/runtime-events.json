@@ -1,0 +1,153 @@
+{
+  "session_id": "01a18e02-0487-7180-9aa0-f932b22c8ef4",
+  "task_id": "brand-directions-and-capability-inventory",
+  "events": [
+    {
+      "event_id": "brand-review-web-font-django-sources",
+      "service_key": "tool:web.run",
+      "name": "Web research",
+      "kind": "tool",
+      "version": {
+        "label": "provider version unavailable",
+        "source": "web.run tool in current session"
+      },
+      "purpose": "التحقق من مصادر الخطوط وإصدار Django المدعوم",
+      "method": "Search primary Google Fonts and Django documentation",
+      "result": "Font source URLs and local OFL files retained; Django 5.2 LTS selected",
+      "status": "completed"
+    },
+    {
+      "event_id": "brand-review-local-browser-blocked",
+      "service_key": "tool:cua_repl",
+      "name": "Computer/browser use",
+      "kind": "tool",
+      "version": {
+        "label": "provider version unavailable",
+        "source": "mcp__cua_repl.js in current session"
+      },
+      "purpose": "معاينة صفحة المقارنة المحلية",
+      "method": "Attempt open local file URL in in-app browser",
+      "result": "Blocked by browser URL policy; no browser screenshot or alternative navigation attempted",
+      "status": "blocked",
+      "failure": {
+        "symptom": "Local file protocol rejected by browser policy",
+        "cause": "Browser tool permits HTTP(S), did not authorize this file URL",
+        "correction": "Deliver local HTML link and perform only static document checks",
+        "prevention": "Do not repeat or bypass blocked browser navigation; use an authorized preview path in a future task",
+        "evidence": "Browser policy rejection during current task"
+      }
+    },
+    {
+      "event_id": "brand-review-local-build",
+      "service_key": "tool:local-execution",
+      "name": "Local PowerShell/Python orchestration",
+      "kind": "tool",
+      "version": {
+        "label": "Python 3.12 / PowerShell 7 (environment reported)",
+        "source": "functions.exec_command"
+      },
+      "purpose": "جرد الملفات وإنشاء الأصول وتشغيل الهجرات والاستيراد والاختبارات",
+      "method": "Scoped local scripts in project workspace and isolated virtual environment",
+      "result": "Registry persisted locally; 8 meaningful integrity tests passed",
+      "status": "completed"
+    },
+    {
+      "event_id": "dependency:asgiref:3.13.0",
+      "service_key": "dependency:asgiref",
+      "name": "asgiref",
+      "kind": "dependency",
+      "version": {
+        "label": "3.13.0",
+        "source": "https://pypi.org/project/asgiref/3.13.0/"
+      },
+      "purpose": "اعتماد مباشر أو انتقالي لنواة Django المحلية",
+      "method": "Installed in project .venv; exact version frozen in backend/requirements.txt",
+      "result": "Supports registry ORM/auth/timezone/SQL and PostgreSQL adapter; PostgreSQL integration not yet exercised",
+      "status": "installed_for_local_registry"
+    },
+    {
+      "event_id": "dependency:django:5.2.18",
+      "service_key": "dependency:django",
+      "name": "Django",
+      "kind": "dependency",
+      "version": {
+        "label": "5.2.18",
+        "source": "https://pypi.org/project/Django/5.2.18/"
+      },
+      "purpose": "اعتماد مباشر أو انتقالي لنواة Django المحلية",
+      "method": "Installed in project .venv; exact version frozen in backend/requirements.txt",
+      "result": "Supports registry ORM/auth/timezone/SQL and PostgreSQL adapter; PostgreSQL integration not yet exercised",
+      "status": "installed_for_local_registry"
+    },
+    {
+      "event_id": "dependency:psycopg:3.3.6",
+      "service_key": "dependency:psycopg",
+      "name": "psycopg",
+      "kind": "dependency",
+      "version": {
+        "label": "3.3.6",
+        "source": "https://pypi.org/project/psycopg/3.3.6/"
+      },
+      "purpose": "اعتماد مباشر أو انتقالي لنواة Django المحلية",
+      "method": "Installed in project .venv; exact version frozen in backend/requirements.txt",
+      "result": "Supports registry ORM/auth/timezone/SQL and PostgreSQL adapter; PostgreSQL integration not yet exercised",
+      "status": "installed_for_local_registry"
+    },
+    {
+      "event_id": "dependency:psycopg-binary:3.3.6",
+      "service_key": "dependency:psycopg-binary",
+      "name": "psycopg-binary",
+      "kind": "dependency",
+      "version": {
+        "label": "3.3.6",
+        "source": "https://pypi.org/project/psycopg-binary/3.3.6/"
+      },
+      "purpose": "اعتماد مباشر أو انتقالي لنواة Django المحلية",
+      "method": "Installed in project .venv; exact version frozen in backend/requirements.txt",
+      "result": "Supports registry ORM/auth/timezone/SQL and PostgreSQL adapter; PostgreSQL integration not yet exercised",
+      "status": "installed_for_local_registry"
+    },
+    {
+      "event_id": "dependency:sqlparse:0.6.0",
+      "service_key": "dependency:sqlparse",
+      "name": "sqlparse",
+      "kind": "dependency",
+      "version": {
+        "label": "0.6.0",
+        "source": "https://pypi.org/project/sqlparse/0.6.0/"
+      },
+      "purpose": "اعتماد مباشر أو انتقالي لنواة Django المحلية",
+      "method": "Installed in project .venv; exact version frozen in backend/requirements.txt",
+      "result": "Supports registry ORM/auth/timezone/SQL and PostgreSQL adapter; PostgreSQL integration not yet exercised",
+      "status": "installed_for_local_registry"
+    },
+    {
+      "event_id": "dependency:typing_extensions:4.16.0",
+      "service_key": "dependency:typing_extensions",
+      "name": "typing_extensions",
+      "kind": "dependency",
+      "version": {
+        "label": "4.16.0",
+        "source": "https://pypi.org/project/typing_extensions/4.16.0/"
+      },
+      "purpose": "اعتماد مباشر أو انتقالي لنواة Django المحلية",
+      "method": "Installed in project .venv; exact version frozen in backend/requirements.txt",
+      "result": "Supports registry ORM/auth/timezone/SQL and PostgreSQL adapter; PostgreSQL integration not yet exercised",
+      "status": "installed_for_local_registry"
+    },
+    {
+      "event_id": "dependency:tzdata:2026.6",
+      "service_key": "dependency:tzdata",
+      "name": "tzdata",
+      "kind": "dependency",
+      "version": {
+        "label": "2026.6",
+        "source": "https://pypi.org/project/tzdata/2026.6/"
+      },
+      "purpose": "اعتماد مباشر أو انتقالي لنواة Django المحلية",
+      "method": "Installed in project .venv; exact version frozen in backend/requirements.txt",
+      "result": "Supports registry ORM/auth/timezone/SQL and PostgreSQL adapter; PostgreSQL integration not yet exercised",
+      "status": "installed_for_local_registry"
+    }
+  ]
+}
