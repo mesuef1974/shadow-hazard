@@ -52,3 +52,49 @@ class SkillInventoryTests(TestCase):
         self.assertEqual(UsageEvent.objects.count(),1)
         self.assertEqual(UsageEvent.objects.get().version_id,original)
         with self.assertRaises(CommandError):call_command('record_skill_use',**dict(args,event='bad',actor='someone-else'))
+    def test_support_files_versions_content_and_removal(self):
+        from registry.models import SkillFileSnapshot, SkillFileChange, SkillBlob
+        script=self.file.parent/'scripts'/'run.py';script.parent.mkdir()
+        script.write_bytes(b'original script')
+        reference=self.file.parent/'.hidden-reference';reference.write_bytes(b'\x00\xffbinary')
+        scan_skills();item=Installation.objects.get();first=item.version
+        self.assertEqual(SkillFileSnapshot.objects.filter(version=first).count(),3)
+        old=SkillFileSnapshot.objects.get(version=first,path='scripts/run.py')
+        script.write_bytes(b'updated script')
+        scan_skills();item.refresh_from_db()
+        self.assertNotEqual(first.pk,item.version_id)
+        self.assertEqual(bytes(old.blob.content),b'original script')
+        self.assertTrue(SkillFileChange.objects.filter(path='scripts/run.py',action='modified').exists())
+        count=SkillBlob.objects.count();scan_skills();self.assertEqual(count,SkillBlob.objects.count())
+        script.unlink();scan_skills()
+        self.assertTrue(SkillFileChange.objects.filter(path='scripts/run.py',action='removed').exists())
+        self.assertEqual(bytes(SkillFileSnapshot.objects.get(pk=old.pk).blob.content),b'original script')
+
+    def test_bundle_limit_preserves_previous_snapshot(self):
+        scan_skills();version=Installation.objects.get().version_id
+        with override_settings(SKILL_BUNDLE_MAX_BYTES=1):scan_skills()
+        self.assertEqual(Installation.objects.get().version_id,version)
+        self.assertFalse(SkillScan.objects.get().success)
+
+    def test_snapshot_export_keeps_historical_binary_content(self):
+        import zipfile
+        from registry.models import SkillFileSnapshot
+        blob=self.file.parent/'binary.dat';blob.write_bytes(b'\x00\xfforiginal')
+        scan_skills();version=Installation.objects.get().version_id
+        blob.write_bytes(b'new');scan_skills()
+        with override_settings(BASE_DIR=self.root/'export-backend'):
+            result=StringIO();call_command('export_skill_snapshot',str(version),stdout=result)
+            with zipfile.ZipFile(result.getvalue().strip()) as archive:
+                self.assertEqual(archive.read('files/binary.dat'),b'\x00\xfforiginal')
+                self.assertIn('manifest.json',archive.namelist())
+
+    def test_link_target_is_archived_without_following_it(self):
+        from registry.models import SkillFileSnapshot
+        outside=self.root/'outside.txt';outside.write_text('private outside content',encoding='utf-8')
+        link=self.file.parent/'link.txt'
+        try:link.symlink_to(outside)
+        except OSError:self.skipTest('OS does not permit creating test symlinks')
+        scan_skills()
+        snapshot=SkillFileSnapshot.objects.get(path='link.txt')
+        self.assertEqual(snapshot.kind,'link')
+        self.assertNotIn(b'private outside content',bytes(snapshot.blob.content))

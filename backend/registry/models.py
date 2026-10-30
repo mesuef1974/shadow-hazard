@@ -225,7 +225,7 @@ class PythonPackageEvent(Entity):
 
 class SkillChange(Entity):
     installation = models.ForeignKey(Installation, on_delete=PROTECT, verbose_name='المهارة المثبتة')
-    action = models.CharField('التغيير', max_length=20, choices=[('discovered','اكتشاف'),('updated','تحديث'),('removed','حذف مرصود'),('restored','عودة الملف')])
+    action = models.CharField('التغيير', max_length=20, choices=[('discovered','اكتشاف'),('updated','تحديث'),('removed','حذف مرصود'),('restored','عودة الملف'),('baseline','بدء مراقبة جميع الملفات')])
     old_version = models.ForeignKey(ServiceVersion, null=True, blank=True, on_delete=PROTECT, related_name='+', verbose_name='النسخة السابقة')
     new_version = models.ForeignKey(ServiceVersion, null=True, blank=True, on_delete=PROTECT, related_name='+', verbose_name='النسخة المرصودة')
     reason = models.TextField('سياق الرصد', default='رصد آلي للملفات؛ منفذ التغيير وسببه ووقته الدقيق غير معلومين')
@@ -245,3 +245,33 @@ class SkillScan(Entity):
         verbose_name = 'حالة فحص المهارات'
         verbose_name_plural = 'حالة مراقبة المهارات'
     def __str__(self): return self.root_alias
+class SkillBlob(models.Model):
+    sha256 = models.CharField('بصمة المحتوى', max_length=64, primary_key=True)
+    content = models.BinaryField('محتوى النسخة المحفوظة')
+    size = models.PositiveBigIntegerField('الحجم بالبايت')
+    class Meta:
+        verbose_name = 'محتوى ملف مهارة'
+        verbose_name_plural = 'محتويات ملفات المهارات'
+    def __str__(self): return self.sha256[:16]
+
+class SkillFileSnapshot(Entity):
+    version = models.ForeignKey(ServiceVersion, on_delete=PROTECT, verbose_name='نسخة المهارة')
+    path = models.TextField('المسار داخل المهارة')
+    kind = models.CharField('النوع', max_length=16, choices=[('file','ملف'),('link','رابط دون تتبع')])
+    blob = models.ForeignKey(SkillBlob, on_delete=PROTECT, verbose_name='المحتوى المحفوظ')
+    class Meta:
+        verbose_name = 'ملف نسخة مهارة'
+        verbose_name_plural = 'ملفات نسخ المهارات'
+        constraints = [models.UniqueConstraint(fields=['version','path'],name='unique_skill_snapshot_path')]
+    def __str__(self): return f'{self.version.service} — {self.path}'
+
+class SkillFileChange(Entity):
+    change = models.ForeignKey(SkillChange, on_delete=PROTECT, verbose_name='حدث المهارة')
+    path = models.TextField('المسار داخل المهارة')
+    action = models.CharField('التغيير', max_length=16, choices=[('added','إضافة'),('modified','تعديل'),('removed','حذف'),('baseline','أول نسخة محفوظة')])
+    old_blob = models.ForeignKey(SkillBlob, null=True, blank=True, on_delete=PROTECT, related_name='+', verbose_name='المحتوى السابق')
+    new_blob = models.ForeignKey(SkillBlob, null=True, blank=True, on_delete=PROTECT, related_name='+', verbose_name='المحتوى الجديد')
+    class Meta:
+        verbose_name = 'تغيير ملف مهارة'
+        verbose_name_plural = 'تاريخ تغييرات ملفات المهارات'
+    def __str__(self): return f'{self.path} — {self.get_action_display()}'

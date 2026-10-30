@@ -130,3 +130,16 @@ class SkillScanAdmin(ReadOnlyRegistryAdmin):
     list_display = ('root_alias','success','files_count','scanned_at','succeeded_at','error')
     search_fields = ('root_alias','error')
     list_filter = ('success',)
+@admin.register(models.SkillFileSnapshot)
+class SkillFileSnapshotAdmin(ReadOnlyRegistryAdmin):
+    list_display = ('path','version','kind','blob')
+    search_fields = ('path','version__service__name','blob__sha256')
+    list_filter = ('kind',)
+    list_select_related = ('version__service',)
+
+@admin.register(models.SkillFileChange)
+class SkillFileChangeAdmin(ReadOnlyRegistryAdmin):
+    list_display = ('path','action','change','old_blob','new_blob','created_at')
+    search_fields = ('path','change__installation__version__service__name')
+    list_filter = ('action','created_at')
+    list_select_related = ('change__installation__version__service',)
