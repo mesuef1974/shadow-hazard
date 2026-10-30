@@ -30,7 +30,7 @@ nav a[aria-current=location]{color:var(--brand-primary);background:var(--soft);b
 nav button{background:var(--brand-primary);color:var(--brand-background);border-color:var(--brand-primary)}
 nav button:hover{background:var(--brand-secondary);color:white}
 main{max-width:1248px;margin:auto;padding:24px;min-width:0}
-section{background:var(--surface);margin:24px 0;padding:32px;border:1px solid var(--line);border-radius:8px;scroll-margin-top:calc(var(--nav-height) + 20px);min-width:0}
+section{background:var(--surface);margin:24px 0;padding:32px;border:1px solid var(--line);border-radius:8px;scroll-margin-top:0;min-width:0}
 h2{font-size:27px;font-weight:600;line-height:1.5;margin:0 0 24px;color:var(--brand-primary)}
 h3{font-size:21px;font-weight:600;border-inline-start:4px solid var(--brand-accent);padding-inline-start:12px;margin:32px 0 16px;line-height:1.6}
 p{max-width:85ch;overflow-wrap:anywhere}
@@ -64,14 +64,15 @@ svg{display:block;width:100%;min-width:780px;font-family:var(--brand-font-ar)}
 footer{padding:32px 20px;text-align:center;background:var(--brand-primary);color:var(--brand-background);border-top:4px solid var(--brand-accent);font-size:15px}
 footer a{color:var(--brand-accent);display:inline-flex;min-height:44px;align-items:center;margin-inline-start:24px}
 footer a:focus-visible{outline-color:var(--brand-accent)}
-@media(max-width:700px){.report-cover{grid-template-columns:minmax(0,1fr);gap:24px}
+@media(max-width:700px){html{scroll-padding-top:16px}
+.report-cover{grid-template-columns:minmax(0,1fr);gap:24px}
 .report-mascot img{max-width:165px}
 .report-brandbar{align-items:center;gap:16px;flex-wrap:wrap}
 .report-logo{width:240px;max-width:100%}
 .report-edition{text-align:right}
 header{padding:24px 20px 32px}
 nav{position:static;padding:12px;gap:8px}
-section{padding:20px;scroll-margin-top:16px}
+section{padding:20px;scroll-margin-top:0}
 main{padding:12px}
 h2{font-size:25px}
 table,td[dir=ltr]{font-size:15px}

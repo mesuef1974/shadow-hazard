@@ -54,14 +54,24 @@ document.getElementById('print-report').addEventListener('click', () => window.p
 const nav = document.querySelector('nav');
 const links = [...nav.querySelectorAll('a[href^="#"]')];
 const sections = links.map(link => document.querySelector(link.getAttribute('href')));
-new ResizeObserver(() => document.documentElement.style.setProperty('--nav-height', `${nav.offsetHeight}px`)).observe(nav);
+new ResizeObserver(() => {
+  document.documentElement.style.setProperty('--nav-height', `${nav.offsetHeight}px`);
+  updateNavigation();
+}).observe(nav);
 let scheduled = false;
 function updateNavigation() {
-  const boundary = getComputedStyle(nav).position === 'sticky' ? nav.offsetHeight + 40 : 40;
+  // Use the same anchor offset as CSS; allow subpixel scroll rounding.
+  const boundary = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) + 1;
   let current = sections[0];
   sections.forEach(section => {if (section.getBoundingClientRect().top <= boundary) current = section;});
+  // The final section may be too short to reach the anchor line.
+  if (window.scrollY > 0 && window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1) {
+    current = sections.at(-1);
+  }
   links.forEach(link => {if (link.hash === `#${current.id}`) link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');});
   scheduled = false;
 }
 window.addEventListener('scroll', () => {if (!scheduled) {scheduled = true;requestAnimationFrame(updateNavigation);}}, {passive:true});
+window.addEventListener('hashchange', updateNavigation);
+window.addEventListener('resize', updateNavigation);
 updateNavigation();
