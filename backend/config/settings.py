@@ -51,3 +51,10 @@ CSRF_COOKIE_SECURE = PRODUCTION
 SECURE_SSL_REDIRECT = PRODUCTION
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+# Read-only local skill roots; deployment may override these explicitly.
+SKILL_INVENTORY_ROOTS = {
+    'codex_skills': Path.home() / '.codex' / 'skills',
+    'agent_skills': Path.home() / '.agents' / 'skills',
+    'plugin_cache': Path.home() / '.codex' / 'plugins' / 'cache',
+}

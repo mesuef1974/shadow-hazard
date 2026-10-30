@@ -14,6 +14,8 @@ admin.site.site_title = 'إدارة ظل الخطر'
 admin.site.index_title = 'سجل المشروع والهوية'
 
 class ReadOnlyRegistryAdmin(admin.ModelAdmin):
+    @admin.display(description='المنفّذ')
+    def usage_actor(self, obj): return obj.session.actor
     list_per_page = 30
     ordering = ('-created_at',)
     readonly_fields = ('created_at',)
@@ -86,11 +88,11 @@ class BrandAssetAdmin(ReadOnlyRegistryAdmin):
 TABLES = [
     (models.Service, ('name','kind','state','purpose','created_at'), ('name','key','purpose'), ('kind','state'), ()),
     (models.ServiceVersion, ('service','version_label','source','created_at'), ('service__name','version_label','source','sha256'), ('service__kind',), ('service',)),
-    (models.Installation, ('version','root_alias','relative_path','presence','client_enabled','observed_at'), ('version__service__name','relative_path','external_key'), ('root_alias','presence','client_enabled'), ('version__service',)),
+    (models.Installation, ('version','explanation','explanation_reviewed','root_alias','relative_path','presence','observed_at'), ('version__service__name','explanation','source_description','relative_path','external_key'), ('root_alias','presence','explanation_reviewed'), ('version__service',)),
     (models.Actor, ('name','kind','user'), ('name','key','user__username'), ('kind',), ('user',)),
     (models.ExecutionSession, ('name','actor','client','model','charter_status','created_at'), ('name','external_key','actor__name','model'), ('client','charter_status'), ('actor',)),
     (models.RegistryTask, ('title','purpose','created_at'), ('title','key','purpose'), ('created_at',), ()),
-    (models.UsageEvent, ('version','task','session','status','recorded_at'), ('event_key','version__service__name','task__title','purpose','method','result'), ('status','version__service__kind','recorded_at'), ('version__service','task','session')),
+    (models.UsageEvent, ('version','usage_actor','task','session','purpose','status','recorded_at'), ('event_key','version__service__name','task__title','purpose','method','result'), ('status','version__service__kind','recorded_at'), ('version__service','task','session__actor')),
     (models.BrandDirection, ('name','english_name','mascot_name','status','approved_by','approved_at'), ('name','english_name','mascot_name','story'), ('status',), ('approved_by',)),
     (models.BrandTypography, ('family','direction','script','font_version'), ('family','direction__name'), ('direction','script'), ('direction','font_version__service')),
     (models.FailureRecord, ('symptom','task','correction','created_at'), ('key','symptom','cause','correction','prevention','task__title'), ('session','created_at'), ('task','session')),
@@ -115,3 +117,16 @@ class PackageEventAdmin(ReadOnlyRegistryAdmin):
     search_fields = ('package__name','reason','actor__name','task__title')
     list_filter = ('action','created_at')
     list_select_related = ('package','actor','task')
+
+@admin.register(models.SkillChange)
+class SkillChangeAdmin(ReadOnlyRegistryAdmin):
+    list_display = ('installation','action','old_version','new_version','created_at')
+    search_fields = ('installation__version__service__name','installation__relative_path','reason')
+    list_filter = ('action','installation__root_alias','created_at')
+    list_select_related = ('installation__version__service','old_version__service','new_version__service')
+
+@admin.register(models.SkillScan)
+class SkillScanAdmin(ReadOnlyRegistryAdmin):
+    list_display = ('root_alias','success','files_count','scanned_at','succeeded_at','error')
+    search_fields = ('root_alias','error')
+    list_filter = ('success',)

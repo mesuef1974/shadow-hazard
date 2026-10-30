@@ -30,7 +30,7 @@ class Command(BaseCommand):
         for row in inv["installations"]:
             service,_=Service.objects.get_or_create(key=row.get("service_key", "skill:"+row["name"]),defaults={"name":row["name"],"kind":"skill","purpose":row["description"] or ""})
             version,_=ServiceVersion.objects.get_or_create(service=service,sha256=row["sha256"],defaults={"version_label":row["sha256"][:12],"source":row["root_alias"]+"/"+row["relative_path"],"metadata":{"commercial_footer_detected":row["commercial_footer_detected"]}})
-            Installation.objects.update_or_create(external_key=row["installation_id"],defaults={"version":version,"root_alias":row["root_alias"],"relative_path":row["relative_path"],"observed_at":datetime.fromisoformat(row["observed_at"]),"presence":row["presence"],"client_enabled":row["client_enabled"]})
+            Installation.objects.get_or_create(external_key=row["installation_id"],defaults={"version":version,"root_alias":row["root_alias"],"relative_path":row["relative_path"],"observed_at":datetime.fromisoformat(row["observed_at"]),"presence":row["presence"],"client_enabled":row["client_enabled"]})
         def artifact(rel):
             path=(root/rel).resolve()
             if not path.is_relative_to(root) or not path.is_file(): raise CommandError("Missing or invalid artifact: "+rel)
@@ -38,7 +38,8 @@ class Command(BaseCommand):
             return obj
         for row in uses:
             install=Installation.objects.select_related("version__service").get(external_key=row["installation_id"])
-            event,created=record_usage(event_key=row["event_id"],version=install.version,installation=install,session=session,task=task,recorded_at=datetime.fromisoformat(row["recorded_at"]),purpose=row["purpose"],method=row["method"],result="Applied to three draft directions and local review assets; no brand approved.",time_evidence=row["time_evidence"])
+            historical_version=ServiceVersion.objects.get(service=install.version.service,sha256=row["skill_sha256"])
+            event,created=record_usage(event_key=row["event_id"],version=historical_version,installation=install,session=session,task=task,recorded_at=datetime.fromisoformat(row["recorded_at"]),purpose=row["purpose"],method=row["method"],result="Applied to three draft directions and local review assets; no brand approved.",time_evidence=row["time_evidence"])
             if created:
                 for rel in row["outputs"]: UsageArtifact.objects.get_or_create(usage=event,artifact=artifact(rel))
             Service.objects.filter(pk=install.version.service_id,state="discovered").update(state="used_in_draft")

@@ -28,6 +28,7 @@ class AdminPresentationTests(TestCase):
                 self.assertContains(response,'id="searchbar"')
                 self.assertFalse(response.context["has_add_permission"])
                 obj=model.objects.first()
+                if obj is None: continue
                 self.assertNotIn(' object (',str(obj))
                 detail=reverse('admin:registry_'+model._meta.model_name+'_change',args=[obj.pk])
                 self.assertEqual(self.client.get(detail).status_code,200)

@@ -35,12 +35,15 @@ class ServiceVersion(Entity):
     def __str__(self): return f"{self.service} — {self.version_label or self.sha256[:12]}"
 
 class Installation(Entity):
+    explanation = models.TextField('شرح مبسط', blank=True)
+    source_description = models.TextField('وصف المصدر', blank=True)
+    explanation_reviewed = models.BooleanField('شرح مراجع', default=False)
     external_key = models.CharField(max_length=64, unique=True, verbose_name="المعرّف الخارجي")
     version = models.ForeignKey(ServiceVersion, on_delete=PROTECT, verbose_name="نسخة الخدمة")
     root_alias = models.CharField(max_length=80, verbose_name="جذر المصدر")
     relative_path = models.TextField(verbose_name="المسار النسبي")
     observed_at = models.DateTimeField(verbose_name="وقت الرصد")
-    presence = models.CharField(max_length=30, default="file_verified", verbose_name="حالة الملف", choices=[('file_verified', 'تم التحقق من الملف')])
+    presence = models.CharField(max_length=30, default="file_verified", verbose_name="حالة الملف", choices=[('file_verified', 'تم التحقق من الملف'),('removed','غير موجود في آخر جرد ناجح')])
     client_enabled = models.CharField(max_length=16, default="unknown", verbose_name="تفعيل العميل", choices=[('unknown', 'غير متحقق منه')])
     class Meta:
         verbose_name = "تثبيت مهارة"
@@ -219,3 +222,26 @@ class PythonPackageEvent(Entity):
         verbose_name = 'حدث مكتبة'
         verbose_name_plural = 'تاريخ المكتبات واستخدامها'
     def __str__(self): return f'{self.package.name} — {self.get_action_display()}'
+
+class SkillChange(Entity):
+    installation = models.ForeignKey(Installation, on_delete=PROTECT, verbose_name='المهارة المثبتة')
+    action = models.CharField('التغيير', max_length=20, choices=[('discovered','اكتشاف'),('updated','تحديث'),('removed','حذف مرصود'),('restored','عودة الملف')])
+    old_version = models.ForeignKey(ServiceVersion, null=True, blank=True, on_delete=PROTECT, related_name='+', verbose_name='النسخة السابقة')
+    new_version = models.ForeignKey(ServiceVersion, null=True, blank=True, on_delete=PROTECT, related_name='+', verbose_name='النسخة المرصودة')
+    reason = models.TextField('سياق الرصد', default='رصد آلي للملفات؛ منفذ التغيير وسببه ووقته الدقيق غير معلومين')
+    class Meta:
+        verbose_name = 'تغيير مهارة'
+        verbose_name_plural = 'تاريخ تغييرات المهارات'
+    def __str__(self): return f'{self.installation} — {self.get_action_display()}'
+
+class SkillScan(Entity):
+    root_alias = models.CharField('جذر المصدر', max_length=80, unique=True)
+    scanned_at = models.DateTimeField('وقت آخر محاولة')
+    succeeded_at = models.DateTimeField('وقت آخر نجاح', null=True, blank=True)
+    success = models.BooleanField('نجاح آخر محاولة', default=False)
+    files_count = models.PositiveIntegerField('عدد الملفات', default=0)
+    error = models.TextField('مشكلة الفحص', blank=True)
+    class Meta:
+        verbose_name = 'حالة فحص المهارات'
+        verbose_name_plural = 'حالة مراقبة المهارات'
+    def __str__(self): return self.root_alias

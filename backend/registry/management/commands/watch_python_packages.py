@@ -6,11 +6,15 @@ from django.core.management.base import BaseCommand
 from django.db import connections
 
 class Command(BaseCommand):
-    help = 'Continuously reconcile project packages every 30 seconds; stop with Ctrl+C.'
+    help = 'Continuously reconcile project packages and skills every 30 seconds; stop with Ctrl+C.'
     def handle(self, *args, **options):
         while True:
             try:
-                call_command('inventory_python_packages', stdout=StringIO())
+                for command in ('inventory_python_packages', 'inventory_skills'):
+                    try:
+                        call_command(command, stdout=StringIO())
+                    except Exception:
+                        logging.exception('Inventory failed: %s; retrying next cycle', command)
             except KeyboardInterrupt:
                 return
             except Exception:
