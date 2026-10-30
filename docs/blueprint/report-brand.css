@@ -1,0 +1,73 @@
+@import url('../brand/approved-v1/tokens.css');
+
+:root{--ink:var(--brand-primary);--paper:var(--brand-background);--gold:var(--brand-accent);--line:color-mix(in srgb,var(--brand-primary) 16%,white)}
+body{color:var(--brand-text);font-family:var(--brand-font-ar);line-height:1.9}
+[dir=ltr]{font-family:var(--brand-font-en);font-size:.93em}
+header{background:var(--brand-primary);padding:34px max(5vw,20px) 48px;border-bottom:6px solid var(--brand-secondary)}
+.report-brandbar{display:flex;align-items:center;justify-content:space-between;gap:28px;max-width:1200px;margin:auto;padding-bottom:25px;border-bottom:1px solid #ffffff30}
+.report-logo{display:block;width:250px;height:auto}
+.report-edition{color:var(--brand-background);font-size:14px;text-align:left}
+.report-edition strong{display:block;color:var(--brand-accent);font-size:18px;font-weight:600}
+.report-cover{max-width:1200px;margin:30px auto 0;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:40px;align-items:center}
+header h1{font-size:clamp(28px,3.5vw,46px);line-height:1.5;font-weight:600;margin:20px 0}
+header p{color:var(--brand-background);margin-bottom:0}
+.badge{background:var(--brand-accent);color:var(--brand-primary);font-size:14px;font-weight:600}
+.report-mascot{margin:0;align-self:center;text-align:center}
+.report-mascot img{display:block;width:100%;height:auto;max-width:260px;margin:auto}
+.report-mascot figcaption{color:var(--brand-background);margin-top:12px;font-size:14px}
+nav{padding:12px max(calc((100vw - 1200px)/2),20px);gap:8px;box-shadow:0 3px 12px #142d4e08}
+nav a,button{font-size:14px;border-radius:5px}
+nav a:hover{background:var(--brand-background);border-color:var(--brand-secondary)}
+nav button{background:var(--brand-primary);color:white;border-color:var(--brand-primary)}
+a{color:var(--brand-secondary)}
+a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible{outline:3px solid var(--brand-secondary);outline-offset:4px}
+main{max-width:1248px;overflow-x:clip}
+section{border-radius:8px;padding:32px;scroll-margin-top:125px}
+h2{font-weight:600;line-height:1.5;margin-top:0}
+h3{font-weight:600;border-right-color:var(--brand-accent)}
+th,tr:first-child,summary{background:var(--brand-background)}
+th{color:var(--brand-primary);font-weight:600}
+summary{border-right:4px solid var(--brand-secondary);font-weight:600}
+details{border-radius:5px}
+td{line-height:1.9}
+section>table{display:block;min-width:0;overflow-x:auto}
+input{border-color:var(--brand-secondary);background:white}
+svg{font-family:var(--brand-font-ar)}
+svg [fill="#183b43"],svg [fill="#153e47"],svg [fill="#203b43"]{fill:var(--brand-primary)}
+svg [fill="#d8ece9"],svg [fill="#edf4f5"]{fill:var(--brand-background)}
+svg [stroke="#183b43"],svg [stroke="#153e47"]{stroke:var(--brand-secondary)}
+footer{background:var(--brand-primary);color:var(--brand-background);border-top:4px solid var(--brand-accent);font-size:14px}
+@media(max-width:700px){
+ .report-cover{grid-template-columns:minmax(0,1fr);gap:22px}
+ .report-mascot img{max-width:165px}
+ .report-brandbar{align-items:center;gap:15px;flex-wrap:wrap}
+ .report-logo{width:240px;max-width:100%}
+ .report-edition{text-align:right}
+ header{padding:24px 20px 30px}
+ nav{position:static;padding:12px;gap:7px}
+ section{padding:20px;scroll-margin-top:16px}
+ main{padding:12px}
+}
+@media print{
+ @page{size:A4;margin:14mm}
+ body{font-size:10pt}
+ header{background:var(--brand-primary)!important;color:white!important;padding:8mm;print-color-adjust:exact;-webkit-print-color-adjust:exact;break-inside:avoid}
+ header p{color:white!important}
+ .report-brandbar{padding-bottom:4mm}
+ .report-logo{width:45mm}
+ .report-cover{grid-template-columns:minmax(0,1fr) 35mm;gap:5mm;margin-top:5mm}
+ .report-mascot img{width:35mm}
+ .report-mascot figcaption,.report-edition{font-size:8pt}
+ header h1{font-size:22pt;margin:4mm 0}
+ .badge{font-size:8pt;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ main{padding:0;overflow:visible}
+ section{padding:6mm 0;scroll-margin-top:0}
+ h2,h3,summary{break-after:avoid}
+ details{break-inside:auto}
+ tr{break-inside:avoid}
+ thead{display:table-header-group}
+ table{table-layout:fixed;width:100%;min-width:0;font-size:8pt}
+ section>table{display:table;overflow:visible}
+ td,th{overflow-wrap:anywhere}
+ footer{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
