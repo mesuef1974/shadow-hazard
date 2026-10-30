@@ -102,3 +102,9 @@ for model, columns, search, filters, related in TABLES:
         'list_select_related': related, '__module__': __name__,
     })
     admin.site.register(model, admin_class)
+
+@admin.register(models.PythonPackage)
+class PythonPackageAdmin(ReadOnlyRegistryAdmin):
+    list_display = ('name', 'version', 'summary', 'is_installed', 'observed_at')
+    search_fields = ('name', 'version', 'summary')
+    list_filter = ('is_installed', 'python_version')

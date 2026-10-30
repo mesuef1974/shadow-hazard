@@ -192,3 +192,17 @@ class RegistryEvent(Entity):
         verbose_name = "حدث سجل"
         verbose_name_plural = "أحداث السجل"
     def __str__(self): return f"{self.action} — {self.key}"
+class PythonPackage(Entity):
+    name = models.CharField('اسم المكتبة', max_length=200, unique=True)
+    version = models.CharField('الإصدار', max_length=100)
+    summary = models.TextField('الوصف', blank=True)
+    requires = models.JSONField('الاعتماديات المعلنة', default=list)
+    location = models.TextField('مسار التثبيت')
+    python_version = models.CharField('إصدار Python', max_length=100)
+    environment = models.TextField('البيئة الافتراضية')
+    is_installed = models.BooleanField('مثبتة حاليًا', default=True)
+    observed_at = models.DateTimeField('آخر جرد')
+    class Meta:
+        verbose_name = 'مكتبة Python'
+        verbose_name_plural = 'مكتبات Python'
+    def __str__(self): return f'{self.name} — {self.version}'

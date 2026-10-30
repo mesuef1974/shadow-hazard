@@ -32,3 +32,5 @@
 .\.venv\Scripts\python.exe backend/manage.py runserver 127.0.0.1:8000 --insecure --noreload
 ```
 افتح http://127.0.0.1:8000/admin/ . الخيار --insecure مخصص لخدمة ملفات CSS مع DEBUG=False على خادم التطوير المحلي فقط؛ لا يستخدم للإنتاج. سجل الاستخدام يبقى للعرض فقط.
+
+جرد مكتبات البيئة الافتراضية: .\.venv\Scripts\python.exe backend/manage.py inventory_python_packages . يسجل الحزم المثبتة وإصداراتها واعتمادياتها، ويحتفظ بسجل الحزم المحذوفة مع علامة غير مثبتة. يشمل pip؛ لا يشمل وحدات مكتبة Python القياسية المدمجة. الجرد يدوي عند تشغيل الأمر.

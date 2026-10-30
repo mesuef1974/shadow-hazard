@@ -12,6 +12,7 @@ class AdminPresentationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command('import_project_registry', stdout=StringIO())
+        call_command('inventory_python_packages', stdout=StringIO())
         cls.supervisor=User.objects.create_user(username='mesuef',role='supervisor',is_staff=True,is_superuser=True)
         cls.student=User.objects.create_user(username='saud',role='student')
 
@@ -73,3 +74,9 @@ class AdminPresentationTests(TestCase):
         self.assertEqual(response.status_code,200)
         self.assertEqual(response['Content-Type'],'image/svg+xml')
         self.assertIn("default-src 'none'",response['Content-Security-Policy'])
+
+    def test_package_inventory_refresh_does_not_duplicate_rows(self):
+        before=set(models.PythonPackage.objects.values_list('name','pk'))
+        call_command('inventory_python_packages', stdout=StringIO())
+        self.assertEqual(before,set(models.PythonPackage.objects.values_list('name','pk')))
+        self.assertTrue(models.PythonPackage.objects.filter(name='django',is_installed=True).exists())
