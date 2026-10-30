@@ -1,0 +1,15 @@
+/* Shadow Hazard v1 — canonical tokens, mirrored from the approved database identity. */
+@font-face{font-family:'IBM Plex Sans Arabic';src:url('../fonts/ibmplexsansarabic-IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'IBM Plex Sans Arabic';src:url('../fonts/ibmplexsansarabic-IBMPlexSansArabic-SemiBold.ttf') format('truetype');font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url('../fonts/ibmplexsans-IBMPlexSans[wdth,wght].ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url('../fonts/ibmplexsans-IBMPlexSans-Italic[wdth,wght].ttf') format('truetype');font-weight:100 900;font-style:italic;font-display:swap}
+:root{
+ --brand-primary:#142D4E;
+ --brand-secondary:#007F82;
+ --brand-accent:#F4B544;
+ --brand-background:#F4F7FB;
+ --brand-text:var(--brand-primary);
+ --brand-on-accent:var(--brand-primary);
+ --brand-font-ar:'IBM Plex Sans Arabic',sans-serif;
+ --brand-font-en:'IBM Plex Sans',sans-serif;
+}

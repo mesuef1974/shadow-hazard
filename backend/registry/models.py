@@ -164,7 +164,7 @@ class BrandTypography(Entity):
 class BrandAsset(Entity):
     direction = models.ForeignKey(BrandDirection,on_delete=PROTECT, verbose_name="اتجاه الهوية")
     artifact = models.ForeignKey(Artifact,on_delete=PROTECT, verbose_name="الملف الموثق")
-    kind = models.CharField(max_length=50, choices=[("generated_concept_board","لوحة تصورات مولدة"),("draft_vector_symbol","رسم شعار متجهي مبدئي")], verbose_name="النوع")
+    kind = models.CharField(max_length=50, choices=[("generated_concept_board","لوحة تصورات مولدة"),("draft_vector_symbol","رسم شعار متجهي مبدئي"),("logo_png","شعار شفاف"),("logo_svg","شعار متجهي"),("mascot_png","تميمة شفافة"),("mascot_svg","تميمة متجهية"),("brand_tokens","متغيرات الهوية المركزية"),("brand_manifest","بيان إصدار الهوية"),("brand_guidelines","دليل الهوية")], verbose_name="النوع")
     usage_rule = models.TextField(verbose_name="ضوابط الاستخدام")
     class Meta:
         verbose_name = "أصل الهوية"
