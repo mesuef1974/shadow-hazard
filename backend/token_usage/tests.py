@@ -9,6 +9,28 @@ from .services import synchronize,summarize
 
 
 class TokenUsageTests(TestCase):
+    def test_model_attribution_excludes_baseline_switches_and_resets(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .analytics import analyze
+        now=timezone.now()
+        for index,(model,total) in enumerate([('A',100),('A',150),('B',180),('B',220),('B',10),('B',30)]):
+            TokenSample.objects.create(session=self.session,source_id=index,sampled_at=now+timedelta(seconds=index),model=model,total=total,input=total,output=0,cached=0,reasoning=0,context=20,context_limit=100)
+        data=analyze(self.project)
+        self.assertEqual(data['baseline'],100)
+        self.assertEqual(data['boundary'],30)
+        self.assertEqual(data['resets'],1)
+        self.assertEqual(data['measured'],120)
+        self.assertEqual({row['name']:row['tokens'] for row in data['models']},{'A':50,'B':40})
+        self.assertEqual(sum(row['value'] for row in data['composition']),120)
+        for index,total in [(6,230),(7,240)]:
+            TokenSample.objects.create(session=self.session,source_id=index,sampled_at=now+timedelta(seconds=index),model='B',total=total,input=total,output=0,cached=0,reasoning=0,context=20,context_limit=100)
+        recovered=analyze(self.project)
+        self.assertEqual(recovered['measured'],140)
+        self.assertEqual(recovered['boundary'],40)
+        self.assertEqual({row['name']:row['tokens'] for row in recovered['models']},{'A':50,'B':50})
+        self.assertEqual(sum(row['value'] for row in recovered['composition']),130)
+
     def setUp(self):
         self.project=Project.objects.create(name='test')
         self.session=TrackedSession.objects.create(external_id='project-session',name='Project',project=self.project)

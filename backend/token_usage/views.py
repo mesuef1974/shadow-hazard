@@ -5,13 +5,16 @@ from django.views.decorators.http import require_POST
 from workspace.views import project
 from .models import SyncRun
 from .services import summarize, synchronize
+from .analytics import analyze
 
 
 @login_required(login_url='/login/')
 def dashboard(request):
     if request.user.role!='supervisor':return HttpResponseForbidden('متابعة الاستهلاك للمشرف')
     sessions, totals=summarize(project())
-    return render(request,'token_usage/dashboard.html',{'sessions':sessions,'totals':totals,'last_sync':SyncRun.objects.order_by('-started_at').first()})
+    period=request.GET.get('period','all')
+    if period not in {'all','day','week'}:period='all'
+    return render(request,'token_usage/dashboard.html',{'sessions':sessions,'totals':totals,'analytics':analyze(project(),period),'last_sync':SyncRun.objects.order_by('-started_at').first()})
 
 
 @require_POST

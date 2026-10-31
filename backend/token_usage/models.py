@@ -14,6 +14,8 @@ class TokenSample(models.Model):
     source_id = models.PositiveBigIntegerField('معرف العينة بالمصدر')
     sampled_at = models.DateTimeField('وقت الرصد')
     model = models.CharField('النموذج', max_length=160, blank=True)
+    effort = models.CharField('مستوى الاستدلال', max_length=40, blank=True)
+    tier = models.CharField('نوع الخدمة', max_length=40, blank=True)
     total = models.PositiveBigIntegerField('الإجمالي التراكمي')
     input = models.PositiveBigIntegerField('الإدخال التراكمي')
     cached = models.PositiveBigIntegerField('الإدخال المخزن مؤقتًا')

@@ -20,7 +20,10 @@ def synchronize():
                     known_ids=set(session.samples.values_list('source_id',flat=True))
                     rows = connection.execute('SELECT * FROM usage_samples WHERE session_id=? ORDER BY sampled_at,sample_id', (session.external_id,))
                     for row in rows:
-                        if row['sample_id'] in known_ids: continue
+                        metadata={'effort':row['reasoning_effort'] or '' if 'reasoning_effort' in row.keys() else '', 'tier':row['service_tier'] or '' if 'service_tier' in row.keys() else ''}
+                        if row['sample_id'] in known_ids:
+                            session.samples.filter(source_id=row['sample_id']).exclude(**metadata).update(**metadata)
+                            continue
                         for key in ['sample_id','cumulative_total_tokens','cumulative_input_tokens','cumulative_cached_input_tokens','cumulative_output_tokens','cumulative_reasoning_output_tokens','context_total_tokens','context_window_tokens']:
                             if not isinstance(row[key],int) or row[key]<0: raise ValueError('Invalid source counter')
                         if not isinstance(row['sampled_at'],str):raise ValueError('Invalid source timestamp')
@@ -28,7 +31,7 @@ def synchronize():
                         if stamp is None or timezone.is_naive(stamp):
                             raise ValueError('Invalid source timestamp')
                         _, created = TokenSample.objects.get_or_create(session=session,source_id=row['sample_id'],defaults={
-                            'sampled_at':stamp,'model':row['model'] or '',
+                            'sampled_at':stamp,'model':row['model'] or '',**metadata,
                             'total':row['cumulative_total_tokens'],'input':row['cumulative_input_tokens'],
                             'cached':row['cumulative_cached_input_tokens'],'output':row['cumulative_output_tokens'],
                             'reasoning':row['cumulative_reasoning_output_tokens'],'context':row['context_total_tokens'],
