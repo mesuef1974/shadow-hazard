@@ -26,8 +26,8 @@ def dashboard(request):
     selected=choices.filter(pk=int(chosen)).first() if chosen.isdecimal() and len(chosen)<=18 else None
     session_id=selected.pk if selected else None
     sessions, totals=summarize(project(),session_id)
-    period=request.GET.get('period','all')
-    if period not in {'all','day','week'}:period='all'
+    period=request.GET.get('period','week')
+    if period not in {'all','day','week'}:period='week'
     state=CollectorState.objects.filter(key='local').first()
     health=state.payload if state else {}
     collector=health.get('collector',{}).copy();weekly=health.get('weekly',{}).copy()

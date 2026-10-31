@@ -11,6 +11,9 @@ from django.utils import timezone
 from .models import Installation, Service, ServiceVersion, SkillChange, SkillScan, SkillBlob, SkillFileSnapshot, SkillFileChange
 
 EXPLANATIONS = {
+ 'review-agent':'تراجع التغيير من ناحية العيوب المحتملة دون تعديل الملفات.',
+ 'code-simplification':'تبسط الشفرة عندما توجد فائدة واضحة، وتحافظ على السلوك والواجهات.',
+ 'code-review-and-quality':'تفحص التغيير للصحة والوضوح والحدود والأمان والأداء.',
  'minimal-code-edit':'تنفذ تعديلًا برمجيًا محدودًا مع الحفاظ على بقية المشروع.',
  'focused-testing':'تختار الاختبارات المناسبة للتغيير وتتحقق من نتيجتها.',
  'frontend-design':'توجه تصميم واجهات واضحة ومتناسقة مع هوية المشروع.',

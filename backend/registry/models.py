@@ -104,7 +104,7 @@ class UsageEvent(Entity):
     purpose = models.TextField(verbose_name="الغرض")
     method = models.TextField(verbose_name="طريقة الاستخدام")
     result = models.TextField(verbose_name="النتيجة")
-    status = models.CharField(max_length=30, choices=[("applied_to_draft","مطبق على مسودة"),("completed","مكتمل"),("blocked","متعذر")], default="applied_to_draft", verbose_name="الحالة")
+    status = models.CharField(max_length=30, choices=[("applied_to_draft","مطبق على مسودة"),("installed_for_local_registry","مثبت لتشغيل السجل المحلي"),("completed","مكتمل"),("blocked","متعذر")], default="applied_to_draft", verbose_name="الحالة")
     artifacts = models.ManyToManyField(Artifact, through="UsageArtifact", verbose_name="الملفات المرتبطة")
     class Meta:
         verbose_name = "واقعة استخدام"
@@ -275,3 +275,39 @@ class SkillFileChange(Entity):
         verbose_name = 'تغيير ملف مهارة'
         verbose_name_plural = 'تاريخ تغييرات ملفات المهارات'
     def __str__(self): return f'{self.path} — {self.get_action_display()}'
+
+
+class HardwareSnapshot(Entity):
+    capture_key = models.CharField('معرّف اللقطة', max_length=80, unique=True)
+    captured_at = models.DateTimeField('وقت القراءة UTC')
+    status = models.CharField('حالة الجمع', max_length=16, choices=[('complete','مكتمل'),('partial','جزئي')])
+    source_summary = models.CharField('مصادر القراءة', max_length=300)
+    class Meta:
+        ordering = ['-captured_at']
+        verbose_name = 'لقطة عتاد'
+        verbose_name_plural = 'لقطات العتاد'
+    def __str__(self): return f'{self.capture_key} — {self.captured_at:%Y-%m-%d %H:%M UTC}'
+
+
+class HardwareRecord(models.Model):
+    KINDS = [('specification','مواصفة ثابتة'),('measurement','قياس حالي')]
+    COMPONENTS = [('processor','معالج'),('memory','ذاكرة'),('graphics','رسوميات'),('storage','تخزين')]
+    QUALITIES = [('reported','مبلغ عنها من النظام'),('measured','مقاسة وقت القراءة'),('estimated','تقديرية')]
+    snapshot = models.ForeignKey(HardwareSnapshot, on_delete=PROTECT, related_name='records', verbose_name='اللقطة')
+    kind = models.CharField('نوع القيمة', max_length=20, choices=KINDS)
+    component = models.CharField('المكوّن', max_length=20, choices=COMPONENTS)
+    key = models.CharField('الخاصية', max_length=80)
+    value = models.CharField('القيمة', max_length=180)
+    unit = models.CharField('الوحدة', max_length=30, blank=True)
+    source = models.CharField('مصدر هذه القيمة', max_length=220)
+    quality = models.CharField('موثوقية القيمة', max_length=16, choices=QUALITIES)
+    estimate_note = models.CharField('سبب التقدير وحدوده', max_length=300, blank=True)
+    class Meta:
+        ordering = ['component', 'kind', 'key']
+        verbose_name = 'قيمة عتاد'
+        verbose_name_plural = 'قيم العتاد'
+        constraints = [
+            models.UniqueConstraint(fields=['snapshot','kind','component','key'], name='unique_hardware_snapshot_value'),
+            models.CheckConstraint(condition=~Q(quality='estimated') | ~Q(estimate_note=''), name='hardware_estimate_has_note'),
+        ]
+    def __str__(self): return f'{self.get_component_display()} — {self.key}: {self.value} {self.unit}'.strip()

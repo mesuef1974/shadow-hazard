@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.shortcuts import render
+from django.core.paginator import Paginator
 from workspace.models import DocumentAccess
 ROOT = settings.BASE_DIR.parent / "docs"
 EXTENSIONS = {".md", ".html", ".pdf", ".mmd"}
@@ -33,7 +34,8 @@ def home(request):
             if query.casefold() not in (title + name).casefold(): continue
             record = registered.get(("docs/" + name, hashlib.sha256(path.read_bytes()).hexdigest()))
             documents.append({"name": name, "title": title, "kind": path.suffix[1:].upper(), "group": path.parts[len(ROOT.parts)], "record": record})
-    return render(request, "registry/portal.html", {"documents": documents, "query": query, "brand": BrandDirection.objects.filter(status="approved").first()})
+    page_obj = Paginator(documents, 10).get_page(request.GET.get("page"))
+    return render(request, "registry/portal.html", {"documents": page_obj.object_list, "page_obj": page_obj, "query": query, "brand": BrandDirection.objects.filter(status="approved").first()})
 
 @login_required(login_url="/login/")
 def document(request, name):

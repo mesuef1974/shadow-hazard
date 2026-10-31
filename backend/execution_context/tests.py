@@ -16,6 +16,10 @@ class ContextRoutingTests(TestCase):
         policy=ModelPolicy.objects.create(category='coordination',title='coordination')
         self.charter=SessionCharter.objects.create(key='coordination',name='coordination',project=self.project,policy=policy,
             thread_id='01a18e02-0487-7180-9aa0-f932b22c8ef4',scope='scope unchanged',rules='rules unchanged')
+        for key,thread in [('backend','01a190d6-5ef1-79a2-bb39-61b161fa06b4'),('frontend','01a190d6-59eb-7561-85d9-d58a7d49fe65'),('review','01a190d6-6d72-7753-a9c7-1cb66e8b7129')]:
+            policy=ModelPolicy.objects.create(category=key,title=key)
+            SessionCharter.objects.create(key=key,name=key,project=self.project,policy=policy,thread_id=thread,
+                scope=key+' scope',rules=key+' rules',state='ready_waiting_for_task')
 
     @patch('workspace.codex_transport.execute')
     def test_calculator_uses_no_model_and_saves_zero(self,execute):
@@ -92,15 +96,14 @@ class ContextRoutingTests(TestCase):
         self.assertEqual(enqueue(self.charter,self.owner,'test',submission_key=key,task_kind='connected',plugins=['chosen']).pk,job.pk)
         with self.assertRaises(ValueError):enqueue(self.charter,self.owner,'test',submission_key=key)
 
-    @patch('workspace.codex_transport.execute',return_value={'completed':True,'text':'done','model':'gpt-6-luna','usage':{}})
-    @patch('workspace.dispatcher.resolve_codex',return_value='codex.exe')
-    def test_only_selected_skill_is_in_prompt(self,binary,execute):
+    def test_only_selected_skill_is_in_bridge_prompt(self):
         with TemporaryDirectory() as folder,patch('execution_context.routing.Path.home',return_value=Path(folder)):
             skill=Path(folder)/'.codex/skills/minimal-code-edit/SKILL.md'
             skill.parent.mkdir(parents=True);skill.write_text('SELECTED_SKILL_SENTINEL',encoding='utf-8')
-            job=enqueue(self.charter,self.owner,'test',task_kind='code')
+            job=enqueue(self.charter,self.owner,'test',task_kind='code',mode='workspace-write')
             self.assertEqual(job.task_context.skills,['minimal-code-edit'])
             run_one()
-            self.assertIn('SELECTED_SKILL_SENTINEL',execute.call_args.args[4])
-            self.assertIn('rules unchanged',execute.call_args.args[4])
-            self.assertEqual(execute.call_args.kwargs['selected_plugins'],[])
+            manifest=TaskContext.objects.get(job=job).manifest
+            self.assertIn('SELECTED_SKILL_SENTINEL',manifest['dispatch_prompt'])
+            self.assertIn('rules unchanged',manifest['dispatch_prompt'])
+            self.assertEqual(manifest['target_thread_id'],self.charter.thread_id)

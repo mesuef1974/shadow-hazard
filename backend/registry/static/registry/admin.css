@@ -8,8 +8,6 @@
 #result_list .field-swatch, #result_list .field-hex_value { white-space:nowrap; }
 #result_list th.field-name, #result_list .field-direction { min-width:8rem; }
 @media (max-width:1100px) {
-  #nav-sidebar, #toggle-nav-sidebar { display:none; }
-  .main > #nav-sidebar + .content, .main.shifted > #nav-sidebar + .content { max-width:100%; }
   #changelist { flex-direction:column; gap:1rem; }
   #changelist .changelist-form-container { width:100%; }
   #changelist #changelist-filter { width:100%; flex:0 0 auto; margin:0; }

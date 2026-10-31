@@ -1,0 +1,37 @@
+{
+  "verified_at": "2026-10-31T12:24:47.018364+03:00",
+  "events": [
+    {
+      "id": "8d5a30d0-0091-4a4d-b9a2-e80f6215803b",
+      "key": "frontend-audit-task16",
+      "status": "applied_to_draft",
+      "session": "01a190d6-59eb-7561-85d9-d58a7d49fe65",
+      "actor": "codex-assistant",
+      "task": "platform-frontend-audit-16",
+      "installation": null,
+      "version_sha256": "b8009ae690dfa69edc7f08bb8715f32db8817112cfa4388741dbaf876c237df8",
+      "recorded_at": "2026-10-31T09:21:22.784157+00:00"
+    },
+    {
+      "id": "2ed2bd7d-0f92-4986-850c-b83f1ebcd64d",
+      "key": "frontend-audit-task16-verification",
+      "status": "completed",
+      "session": "01a190d6-59eb-7561-85d9-d58a7d49fe65",
+      "actor": "codex-assistant",
+      "task": "platform-frontend-audit-16",
+      "installation": "64804b3863981296",
+      "version_sha256": "fe1578a4dae33ad18ee94f5cf525262495922ce5c89d3851deb51f557a809f56",
+      "recorded_at": "2026-10-31T09:24:47.031547+00:00"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "docs/registry/platform-frontend-audit.md",
+      "sha256": "5bfbf8082bef8b74c344ceee853f74c7442728c2ba461c34e2626ddd0a7ae0cf"
+    },
+    {
+      "path": "docs/registry/evidence/frontend-navigation-task16.json",
+      "sha256": "46406da4f760f63bcd5ca46f69fa8840d4acbae573ef4a49fbfc8bdb6328ba61"
+    }
+  ]
+}

@@ -1,1 +1,1 @@
-{% extends 'registry/base.html' %}{% block content %}<section><a href="/library/#library">العودة إلى الوثائق</a><h1>{{ name }}</h1><a href="?download=1">تنزيل المصدر</a><pre class="document">{{ content }}</pre></section>{% endblock %}
+{% extends 'registry/base.html' %}{% block content %}{% include 'registry/_page_heading.html' with eyebrow='مكتبة الوثائق' title=name description='وثيقة من ملفات المشروع المسجلة.' %}<p><a href="/library/">العودة إلى الوثائق</a> · <a href="?download=1">تنزيل المصدر</a></p><pre class="document">{{ content }}</pre>{% endblock %}

@@ -11,3 +11,7 @@ class HistoryAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None): return False
 
 for model in [Task,TaskUpdate,Decision]:admin.site.register(model,HistoryAdmin)
+
+from .models import ProjectMemory,ProjectDocumentation
+admin.site.register(ProjectMemory)
+admin.site.register(ProjectDocumentation,HistoryAdmin)

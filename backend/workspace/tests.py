@@ -26,8 +26,15 @@ class WorkspacePermissionsTests(TestCase):
         ExecutionSession.objects.create(external_key=thread_id,name='ظل الخطر',actor=actor,client='Codex desktop',model='unverified declaration')
         tracked=TrackedSession.objects.create(external_id=thread_id,name='ظل الخطر',project=self.project)
         TokenSample.objects.create(session=tracked,source_id=1,sampled_at=timezone.now(),model='gpt-6-luna',total=10,input=4,cached=0,output=6,reasoning=2,context=20,context_limit=100)
+        coordination_policy=ModelPolicy.objects.create(category='coordination-test',title='التنسيق',model='gpt-6-luna',thinking='low')
+        SessionCharter.objects.create(key='coordination-test',name='جلسة التنسيق العام',project=self.project,policy=coordination_policy,
+            scope='التنسيق',rules='حدود التنسيق',thread_id=thread_id,state='ready_waiting_for_task')
         policy=ModelPolicy.objects.create(category='frontend-test',title='الواجهة',model='gpt-6-luna',thinking='low')
-        SessionCharter.objects.create(key='frontend-test',name='جلسة الواجهة',project=self.project,policy=policy,scope='الواجهة',rules='حدود الجلسة')
+        SessionCharter.objects.create(key='frontend-test',name='جلسة الواجهة',project=self.project,policy=policy,scope='الواجهة',rules='حدود الجلسة',
+            thread_id='01a190d6-59eb-7561-85d9-d58a7d49fe65',state='ready_waiting_for_task')
+        unlinked_policy=ModelPolicy.objects.create(category='prototype-test',title='ميثاق تجريبي')
+        SessionCharter.objects.create(key='prototype-test',name='ميثاق تجريبي بلا معرف',project=self.project,
+            policy=unlinked_policy,scope='تجربة',rules='ميثاق غير مربوط')
 
         self.client.force_login(self.owner)
         response=self.client.get('/sessions/')
@@ -35,6 +42,8 @@ class WorkspacePermissionsTests(TestCase):
         self.assertContains(response,'ظل الخطر')
         self.assertContains(response,'gpt-6-luna')
         self.assertContains(response,'جلسة الواجهة')
+        self.assertContains(response,'ميثاق تجريبي بلا معرف')
+        self.assertContains(response,'غير جاهز — يحتاج معرف جلسة')
 
         self.client.force_login(self.saud)
         self.assertEqual(self.client.get('/sessions/').status_code,403)
@@ -84,3 +93,15 @@ class WorkspacePermissionsTests(TestCase):
         self.client.force_login(self.owner)
         for path in ['/','/phases/','/tasks/','/decisions/','/library/','/exhibition/','/tasks/new/']:
             self.assertEqual(self.client.get(path).status_code,200)
+
+    def test_sessions_render_database_routing_policy_and_read_only_limit(self):
+        from execution_context.models import SessionRoutingPolicy
+        policy=SessionRoutingPolicy.objects.get(category='code')
+        policy.max_attempts=3;policy.enabled=False;policy.save()
+        self.client.force_login(self.owner)
+        response=self.client.get('/sessions/')
+        self.assertContains(response,'سياسة التوجيه الفعلية')
+        self.assertContains(response,'حد المحاولات: 3')
+        self.assertContains(response,'السياسة متوقفة')
+        self.assertContains(response,'gpt-6.1-sol')
+        self.assertContains(response,'مهام القراءة فقط تعمل في حاوية منفصلة')

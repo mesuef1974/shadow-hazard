@@ -1,25 +1,91 @@
-{% extends 'registry/base.html' %}{% block content %}
-<h1>موافقات تصعيد النماذج</h1>
-<p>لونا هو الافتراضي. هذه اقتراحات تحتاج مراجعتك؛ لا يبدأ النموذج الأعلى قبل الضغط على «موافقة وتشغيل محاولة واحدة». الموافقة لا تغيّر النموذج الافتراضي أو المحادثة المفتوحة.</p>
-<p>الاستهلاك المتوقع للمحاولة الجديدة غير معلوم. سيُضاف استهلاكها الفعلي إلى المحاولة الأصلية؛ لا تُسترد توكنز المحاولة السابقة.</p>
-<a href="{% url 'model-jobs' %}">العودة إلى الطلبات</a>
-{% if error %}<p role="alert">{{ error }}</p>{% endif %}
-{% for item in requests %}<section class="work-panel">
-<h2>طلب تصعيد #{{ item.pk }} · المهمة #{{ item.source_job_id }}</h2>
-<p>النموذج السابق: <bdi>{{ item.source_job.requested_model }}</bdi> ← المقترح: <bdi>{{ item.target_model }}</bdi> · التفكير: {{ item.target_thinking }}</p>
-<p>المقترح بواسطة: {% if item.proposed_by == 'model' %}النموذج — اقتراح غير معتمد{% else %}المشرف{% endif %}</p>
-<h3>سبب الحاجة</h3>{{ item.reason|linebreaks }}
-<details><summary>المهمة والصلاحيات التي ستوافق عليها</summary><p>{{ item.snapshot.prompt|linebreaks }}</p><p>الصلاحية: {{ item.snapshot.mode }}</p><p>{{ item.snapshot.context.charter|linebreaks }}</p><p>المهارات: {{ item.snapshot.context.skills|join:', ' }} · الموصلات: {{ item.snapshot.context.plugins|join:', ' }}</p></details>
-<p>المحاولة الأصلية: إدخال {{ item.source_usage.input_tokens|default:0 }} · مخزن ضمن الإدخال {{ item.source_usage.cached_input_tokens|default:0 }} · إخراج {{ item.source_usage.output_tokens|default:0 }}</p>
-{% if item.source_total != None %}<p>إجمالي المحاولة الأصلية: {{ item.source_total }} توكن.</p>{% endif %}
-{% if item.state == 'pending' %}
-<form method="post" action="{% url 'decide-escalation' item.pk %}" class="editor">{% csrf_token %}
-<label for="note-{{ item.pk }}">ملاحظة القرار (اختيارية)</label><textarea id="note-{{ item.pk }}" name="note" maxlength="2000"></textarea>
-<button name="decision" value="approve">موافقة وتشغيل محاولة واحدة</button>
-<button name="decision" value="reject">رفض التصعيد</button>
-</form>
-{% else %}<p>القرار: {% if item.state == 'approved' %}موافق عليه{% else %}مرفوض{% endif %} · {{ item.decided_by.username }} · {{ item.decided_at }}</p>{{ item.decision_note|linebreaks }}{% endif %}
-{% if item.approved_job %}<p>المحاولة المعتمدة #{{ item.approved_job_id }} · {{ item.approved_job.state }} · النموذج المرصود: {{ item.approved_job.observed_model|default:'لم يتحقق بعد' }}</p>
-{% if item.approved_job.token_usage %}<p>استهلاكها الفعلي: إدخال {{ item.approved_job.token_usage.input_tokens }} · مخزن ضمن الإدخال {{ item.approved_job.token_usage.cached_input_tokens }} · إخراج {{ item.approved_job.token_usage.output_tokens }}</p>{% else %}<p>لا توجد قراءة استهلاك مؤكدة للمحاولة الجديدة بعد.</p>{% endif %}{% endif %}
-{% if item.combined_total != None %}<p>مجموع المحاولتين: {{ item.combined_total }} توكن. المخزن مؤقتًا ضمن الإدخال ولا يضاف ثانية.</p>{% endif %}
-</section>{% empty %}<p>لا توجد طلبات تصعيد حتى الآن.</p>{% endfor %}{% endblock %}
+{% extends 'registry/base.html' %}
+{% block content %}
+{% include 'registry/_page_heading.html' with eyebrow='مراجعة اقتراحات التصعيد' title='اقتراحات تصعيد النماذج' description='الاقتراح لا يغيّر نموذج الجلسة ولا يرسل المهمة. موافقتك تسجل محاولة واحدة في قائمة الإرسال؛ ويظل وصولها واكتمالها بحاجة إلى دليل مستقل.' %}
+<p>تعرض هذه الصفحة الاقتراحات التي تحتاج قرار المشرف. قد تسجل سياسة التعثر المعتمدة تصعيدًا تلقائيًا محدودًا؛ يظهر سببه ومحاولاته في سجل الطلب.</p><p>لا نقدّر استهلاك المحاولة الجديدة مسبقًا. نعرض الأرقام الفعلية فقط عندما تصل من مصدر مسجل.</p>
+<p><a href="{% url 'model-jobs' %}">العودة إلى سجل الطلبات</a></p>
+{% if error %}<p role="alert" class="form-error">{{ error }}</p>{% endif %}
+
+{% for item in requests %}
+  <section class="work-panel escalation-card" aria-labelledby="escalation-{{ item.pk }}">
+    <div class="escalation-heading">
+      <h2 id="escalation-{{ item.pk }}">اقتراح {{ item.pk }} · المهمة {{ item.source_job_id }}</h2>
+      <span class="job-state state-{{ item.state }}">
+        {% if item.state == 'pending' %}ينتظر قرارك{% elif item.state == 'deciding' %}جارٍ حفظ القرار{% elif item.state == 'approved' %}وافق المشرف{% elif item.state == 'rejected' %}رفض المشرف{% else %}{{ item.state }}{% endif %}
+      </span>
+    </div>
+    <div class="job-facts">
+      <p><strong>مالك المهمة</strong> {{ item.source_job.owner.get_full_name|default:item.source_job.owner.username }}</p>
+      <p><strong>الجلسة الأصلية</strong> {{ item.source_job.charter.name }}</p>
+      <p><strong>النموذج المطلوب للمهمة</strong> <bdi>{{ item.source_job.requested_model }}</bdi></p>
+      <p><strong>التفكير المطلوب</strong> {{ item.source_job.requested_thinking }}</p>
+      {% with source_turn=item.source_job.session_dispatch.turns.last %}<p><strong>النموذج المرصود فعليًا</strong> {% if item.source_job.observed_model %}<bdi>{{ item.source_job.observed_model }}</bdi>{% elif source_turn.model %}<bdi>{{ source_turn.model }}</bdi>{% else %}غير متوفر بعد{% endif %}</p>{% endwith %}
+      {% with turn=item.source_job.session_dispatch.turns.last %}<p><strong>التفكير المرصود</strong> {% if turn.source_evidence and turn.thinking %}{{ turn.thinking }}{% else %}غير متاح بدليل مستقل{% endif %}</p>{% endwith %}
+      <p><strong>المقترح</strong> <bdi>{{ item.target_model }}</bdi> · تفكير
+        {% if item.target_thinking == 'low' %}منخفض{% elif item.target_thinking == 'medium' %}متوسط{% elif item.target_thinking == 'high' %}عالٍ{% else %}{{ item.target_thinking }}{% endif %}
+      </p>
+      <p><strong>مصدر الاقتراح</strong> {% if item.proposed_by == 'model' %}النموذج؛ اقتراح غير معتمد{% else %}المشرف{% endif %}</p>
+      <p><strong>وقت الاقتراح</strong> <time>{{ item.created_at|date:'Y-m-d H:i:s' }}</time></p>
+    </div>
+
+    <h3>سبب التصعيد</h3>
+    <div class="reason-copy">{{ item.reason|linebreaks }}</div>
+    {% if item.source_job.session_dispatch %}
+      <p class="route-reason"><strong>سبب توجيه المهمة الأصلية</strong> {{ item.source_job.session_dispatch.route_reason }}</p>
+    {% endif %}
+
+    <details class="usage-fold"><summary>المهمة والسياق المثبت</summary>
+      <h3>المهمة ومعيار الإنجاز</h3>{{ item.snapshot.prompt|linebreaks }}
+      <p><strong>الصلاحية</strong> {{ item.snapshot.mode }}</p>
+      {% if item.snapshot.context %}
+        <p><strong>الميثاق</strong></p>{{ item.snapshot.context.charter|linebreaks }}
+        <p><strong>المهارات</strong> {{ item.snapshot.context.skills|join:', '|default:'لا توجد' }} · <strong>الموصلات</strong> {{ item.snapshot.context.plugins|join:', '|default:'لا توجد' }}</p>
+      {% else %}<p>لا يتوفر سياق مثبت لهذا الاقتراح؛ لا يمكن اعتماد تشغيله.</p>{% endif %}
+    </details>
+
+    <section class="attempt-evidence" aria-label="دليل المحاولة الأصلية">
+      <h3>استهلاك المحاولة الأصلية</h3>
+      {% if item.source_total != None %}
+        <p>إدخال {{ item.source_usage.input_tokens }} · إخراج {{ item.source_usage.output_tokens }} · الإجمالي المسجل {{ item.source_total }} رمز.</p>
+        {% if 'cached_input_tokens' in item.source_usage %}<p>من الإدخال: {{ item.source_usage.cached_input_tokens }} مخزن مؤقتًا.</p>{% endif %}
+      {% else %}<p>لا تتوفر قراءة استهلاك مؤكدة للمحاولة الأصلية.</p>{% endif %}
+    </section>
+
+    {% if item.state == 'pending' %}
+      <form method="post" action="{% url 'decide-escalation' item.pk %}" class="editor decision-form">{% csrf_token %}
+        <label for="note-{{ item.pk }}">ملاحظة القرار (اختيارية)</label><textarea id="note-{{ item.pk }}" name="note" maxlength="2000"></textarea>
+        <div class="decision-actions"><button name="decision" value="approve">الموافقة وتسجيل محاولة واحدة</button><button class="button-secondary" name="decision" value="reject">رفض الاقتراح</button></div>
+      </form>
+    {% else %}
+      <div class="decision-evidence">
+        <p><strong>القرار</strong> {% if item.state == 'approved' %}موافق عليه{% elif item.state == 'rejected' %}مرفوض{% else %}{{ item.state }}{% endif %}
+          {% if item.decided_by %} · {{ item.decided_by.username }}{% endif %}{% if item.decided_at %} · <time>{{ item.decided_at|date:'Y-m-d H:i:s' }}</time>{% endif %}
+        </p>
+        {% if item.decision_note %}{{ item.decision_note|linebreaks }}{% endif %}
+      </div>
+    {% endif %}
+
+    {% if item.approved_job %}
+      <section class="approved-attempt" aria-labelledby="approved-{{ item.pk }}">
+        <h3 id="approved-{{ item.pk }}">المحاولة المسجلة {{ item.approved_job_id }}</h3>
+        <p>حالة الطلب: {% if item.approved_job.state == 'queued' %}في قائمة الانتظار{% elif item.approved_job.state == 'waiting_delivery' %}ينتظر الإرسال{% elif item.approved_job.state == 'running' %}قيد المعالجة{% elif item.approved_job.state == 'completed' %}مكتمل بدليل{% elif item.approved_job.state == 'needs_review' %}يحتاج مراجعة{% elif item.approved_job.state == 'awaiting_approval' %}ينتظر الموافقة{% elif item.approved_job.state == 'failed' %}تعذر التجهيز{% elif item.approved_job.state == 'uncertain' %}غير محسوم{% else %}{{ item.approved_job.state }}{% endif %} · الجلسة: {{ item.approved_job.charter.name }}</p>
+        {% if item.approved_job.session_dispatch %}
+          <p>حالة الإرسال:
+          {% if item.approved_job.session_dispatch.state == 'queued' %}في قائمة الإرسال — لم يُرسل بعد
+            {% elif item.approved_job.session_dispatch.state == 'claimed' %}استلمه الجسر — الإرسال غير مؤكد بعد
+            {% elif item.approved_job.session_dispatch.state == 'sent' %}أُرسل إلى الجلسة
+            {% elif item.approved_job.session_dispatch.state == 'acknowledged' %}ظهر الدور في سجل الجلسة
+            {% elif item.approved_job.session_dispatch.state == 'completed' %}اكتمل الدور بدليل
+            {% elif item.approved_job.session_dispatch.state == 'uncertain' %}غير محسوم — يحتاج مراجعة
+            {% else %}{{ item.approved_job.session_dispatch.state }}{% endif %}
+          </p>
+          <p><strong>سبب التوجيه المسجل</strong> {{ item.approved_job.session_dispatch.route_reason }}</p>
+          {% with observed_turn=item.approved_job.session_dispatch.turns.last %}<p><strong>النموذج المطلوب</strong> <bdi>{{ item.approved_job.session_dispatch.requested_model }}</bdi> · <strong>المرصود</strong> {% if item.approved_job.observed_model %}<bdi>{{ item.approved_job.observed_model }}</bdi>{% elif observed_turn.model %}<bdi>{{ observed_turn.model }}</bdi>{% else %}غير متوفر بعد{% endif %}</p>{% endwith %}
+          {% with turn=item.approved_job.session_dispatch.turns.last %}<p><strong>التفكير المطلوب</strong> {{ item.approved_job.session_dispatch.requested_thinking }} · <strong>المرصود</strong> {% if turn.source_evidence and turn.thinking %}{{ turn.thinking }}{% else %}غير متاح بدليل مستقل{% endif %}</p>{% endwith %}
+        {% endif %}
+        {% if item.approved_total != None %}<p>الاستهلاك الفعلي المسجل: {{ item.approved_total }} رمز.</p>{% else %}<p>استهلاك المحاولة الجديدة غير مؤكد بعد.</p>{% endif %}
+        {% if item.combined_total != None %}<p>مجموع المحاولتين: {{ item.combined_total }} رمز. المخزن مؤقتًا جزء من الإدخال ولا يضاف مرة ثانية.</p>{% endif %}
+      </section>
+    {% endif %}
+  </section>
+{% empty %}<p class="empty-state">لا توجد اقتراحات تصعيد حتى الآن.</p>{% endfor %}
+{% endblock %}

@@ -19,6 +19,10 @@ class EscalationTests(TestCase):
         policy=ModelPolicy.objects.create(category='coordination',title='coordination',model='gpt-6-astra',thinking='high')
         self.charter=SessionCharter.objects.create(key='coordination',name='coordination',project=self.project,policy=policy,
             thread_id='01a18e02-0487-7180-9aa0-f932b22c8ef4',scope='test scope',rules='test rules')
+        for key,thread in [('review','01a190d6-6d72-7753-a9c7-1cb66e8b7129'),('backend','01a190d6-5ef1-79a2-bb39-61b161fa06b4'),('frontend','01a190d6-59eb-7561-85d9-d58a7d49fe65')]:
+            policy=ModelPolicy.objects.create(category=key,title=key)
+            SessionCharter.objects.create(key=key,name=key,project=self.project,policy=policy,thread_id=thread,
+                scope=key+' scope',rules=key+' rules',state='ready_waiting_for_task')
         self.source=enqueue(self.charter,self.owner,'مراجعة برهان طويل')
         self.source.state='completed';self.source.finished_at=timezone.now()
         self.source.token_usage={'input_tokens':100,'cached_input_tokens':20,'output_tokens':10,'reasoning_output_tokens':0}
@@ -78,28 +82,33 @@ class EscalationTests(TestCase):
         self.assertEqual(self.client.get(url).status_code,405)
         secure=Client(enforce_csrf_checks=True);secure.force_login(self.owner)
         self.assertEqual(secure.post(url,{'decision':'approve'}).status_code,403)
-        self.assertContains(self.client.get('/sessions/escalations/'),'موافقة وتشغيل محاولة واحدة')
+        self.assertContains(self.client.get('/sessions/escalations/'),'الموافقة وتسجيل محاولة واحدة')
 
-    @patch('workspace.codex_transport.execute')
-    def test_worker_blocks_unapproved_higher_model(self,execute):
+    def test_worker_blocks_unapproved_higher_model(self):
         forged=ModelJob.objects.create(charter=self.charter,owner=self.owner,prompt='x',requested_model='gpt-6-astra',requested_thinking='high')
         result=run_one()
         self.assertEqual(result.pk,forged.pk);self.assertEqual(result.state,'awaiting_approval')
-        execute.assert_not_called()
+        self.assertFalse(hasattr(forged,'session_dispatch'))
 
-    @patch('workspace.dispatcher.resolve_codex',return_value='codex.exe')
-    @patch('workspace.codex_transport.execute')
-    def test_approved_execution_records_new_usage_once(self,execute,binary):
+    def test_approved_readonly_waits_without_desktop_dispatch_or_double_counting(self):
         request=decide(self.proposal().pk,self.owner,True)
         self.source.execution_thread_id='original';self.source.save()
         TrackedSession.objects.create(external_id='original',name='original',project=self.project)
-        def response(*args,**kwargs):
-            self.assertEqual(args[2],'gpt-6.1-sol')
-            kwargs['on_started']('01a190ed-1372-7741-a22c-9c4b996d3012')
-            return {'completed':True,'text':'done','model':'gpt-6.1-sol','usage':{'input_tokens':200,'cached_input_tokens':50,'output_tokens':20,'reasoning_output_tokens':0}}
-        execute.side_effect=response
-        job=run_one();self.assertEqual(job.state,'completed')
-        self.assertIsNone(run_one());self.assertEqual(execute.call_count,1)
-        self.assertEqual(summarize(self.project)[1]['total'],330)
+        job=run_one();self.assertEqual(job.state,'waiting_readonly')
+        self.assertFalse(hasattr(job,'session_dispatch'))
+        self.assertEqual(job.mode,'read-only')
+        self.assertIsNone(job.finished_at)
+        self.assertEqual(job.requested_model,'gpt-6.1-sol')
+        self.assertEqual(summarize(self.project)[1]['total'],110)
         request.refresh_from_db();self.assertEqual(request.source_usage['input_tokens'],100)
-        self.assertEqual(request.approved_job.token_usage['input_tokens'],200)
+        self.assertEqual(request.approved_job.token_usage, {})
+
+    def test_approved_workspace_write_enters_desktop_outbox(self):
+        self.source=enqueue(self.charter,self.owner,'مراجعة اختبار مسار جلسة قائمة',mode='workspace-write')
+        self.source.state='completed';self.source.finished_at=timezone.now();self.source.save()
+        request=decide(self.proposal().pk,self.owner,True)
+        job=run_one()
+        self.assertEqual(job.pk,request.approved_job_id)
+        self.assertEqual(job.state,'waiting_delivery')
+        self.assertEqual(job.session_dispatch.requested_model,'gpt-6.1-sol')
+        self.assertEqual(job.mode,'workspace-write')

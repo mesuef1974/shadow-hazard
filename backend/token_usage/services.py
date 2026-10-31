@@ -39,6 +39,12 @@ def synchronize():
                             continue
                         for key in ['sample_id','cumulative_total_tokens','cumulative_input_tokens','cumulative_cached_input_tokens','cumulative_output_tokens','cumulative_reasoning_output_tokens','context_total_tokens','context_window_tokens']:
                             if not isinstance(row[key],int) or row[key]<0: raise ValueError('Invalid source counter')
+                        if row['cumulative_total_tokens'] != row['cumulative_input_tokens'] + row['cumulative_output_tokens']:
+                            raise ValueError('Inconsistent source total')
+                        if row['cumulative_cached_input_tokens'] > row['cumulative_input_tokens']:
+                            raise ValueError('Cached input exceeds input')
+                        if row['cumulative_reasoning_output_tokens'] > row['cumulative_output_tokens']:
+                            raise ValueError('Reasoning exceeds output')
                         if not isinstance(row['sampled_at'],str):raise ValueError('Invalid source timestamp')
                         stamp = parse_datetime(row['sampled_at'])
                         if stamp is None or timezone.is_naive(stamp):
@@ -54,8 +60,13 @@ def synchronize():
         finally:
             connection.close()
         run.success=True; run.added=added;run.message='اكتملت مزامنة الجلسات المحددة للمشروع.'
-    except (sqlite3.Error, OSError, ValueError, KeyError, IndexError, TypeError, DatabaseError):
+    except (sqlite3.Error, OSError, ValueError, KeyError, IndexError, TypeError, DatabaseError) as exc:
         run.message='تعذرت قراءة مصدر الاستهلاك المحلي؛ آخر بيانات محفوظة ما زالت متاحة.'
+        run.error_code = (
+            'invalid_source_data' if isinstance(exc, (ValueError, KeyError, IndexError, TypeError)) else
+            'source_unavailable' if isinstance(exc, (sqlite3.Error, OSError)) else
+            'database_error'
+        )
     finally:
         run.finished_at=timezone.now();run.save()
     return run

@@ -1,0 +1,52 @@
+/* Shared platform surfaces and accessible semantic colors. Keep the approved
+   identity source in approved-v1/tokens.css; this file maps it to UI themes. */
+@import url('approved-v1/tokens.css');
+
+:root {
+    --platform-page-background: var(--brand-background);
+    --platform-surface: #ffffff;
+    --platform-surface-muted: #eaf0f5;
+    --platform-header-background: var(--brand-primary);
+    --platform-header-foreground: #ffffff;
+    --platform-text: var(--brand-primary);
+    --platform-link: #006b6d;
+    --platform-focus: #8b5e00;
+    --platform-muted: #52677b;
+    --platform-muted-strong: #354c63;
+    --platform-border: #7c8fa1;
+    --platform-on-accent: var(--brand-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --platform-page-background: #101d2b;
+        --platform-surface: #17283a;
+        --platform-surface-muted: #20364b;
+        --platform-header-background: #0a1520;
+        --platform-header-foreground: #e8eff6;
+        --platform-text: #e8eff6;
+        --platform-link: #58c4c1;
+        --platform-focus: #f4c15a;
+        --platform-muted: #becbd8;
+        --platform-muted-strong: #d1dde7;
+        --platform-border: #657a90;
+        --platform-on-accent: #142d4e;
+    }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --platform-page-background: #101d2b;
+    --platform-surface: #17283a;
+    --platform-surface-muted: #20364b;
+    --platform-header-background: #0a1520;
+    --platform-header-foreground: #e8eff6;
+    --platform-text: #e8eff6;
+    --platform-link: #58c4c1;
+    --platform-focus: #f4c15a;
+    --platform-muted: #becbd8;
+    --platform-muted-strong: #d1dde7;
+    --platform-border: #657a90;
+    --platform-on-accent: #142d4e;
+}

@@ -57,7 +57,10 @@ def calculate(expression):
 def build_plan(charter,prompt,kind='auto',skills=None,plugins=None,mode='read-only'):
     if kind not in dict(KINDS):raise ValueError('نوع مهمة غير صالح')
     if kind=='auto':
-        kind='calculation' if EXPRESSION.fullmatch(prompt) else 'text'
+        text=prompt.casefold()
+        kind=('calculation' if EXPRESSION.fullmatch(prompt) else
+            'design' if any(word in text for word in ('تصميم','واجهة','css','layout','ui design')) else
+            'code' if any(word in text for word in ('باك إند','باك اند','backend','django','python','برمج','كود','هجرة','قاعدة البيانات')) else 'text')
     skills=list(dict.fromkeys([*DEFAULT_SKILLS.get(kind,[]),*(skills or [])]))
     plugins=list(dict.fromkeys(plugins or []))
     if len(skills)>3 or any(key not in SKILLS for key in skills):raise ValueError('مهارة غير مسموحة')
@@ -67,7 +70,10 @@ def build_plan(charter,prompt,kind='auto',skills=None,plugins=None,mode='read-on
     if kind=='calculation':
         if skills or plugins or mode!='read-only':raise ValueError('الحساب المحلي لا يحتاج مهارات أو موصلات أو صلاحية تعديل')
         calculate(prompt)
-    instructions=[];manifest={'files':[],'local_only':kind=='calculation'}
+    from workspace.memory import instructions as project_instructions
+    memory_text,memory_digest=project_instructions(charter.project)
+    instructions=[memory_text] if memory_text else []
+    manifest={'files':[],'local_only':kind=='calculation','project_memory_digest':memory_digest}
     # Retain applicable project/ancestor instructions without truncation.
     paths=instruction_files()
     manifest['instruction_paths']=[str(path) for path in paths]
@@ -106,6 +112,10 @@ def capability_flags(plugins):
 
 
 def validate_manifest(plan):
+    if 'project_memory_digest' in plan.manifest:
+        from workspace.memory import instructions
+        if instructions(plan.job.charter.project)[1]!=plan.manifest['project_memory_digest']:
+            raise ValueError('تغيرت ذاكرة المشروع؛ يلزم تحديث سياق المهمة')
     if plan.manifest.get('instruction_paths') is not None and plan.manifest['instruction_paths']!=[str(path) for path in instruction_files()]:
         raise ValueError('تغيرت ملفات تعليمات المشروع؛ أنشئ طلبًا جديدًا')
     for entry in plan.manifest.get('files',[]):

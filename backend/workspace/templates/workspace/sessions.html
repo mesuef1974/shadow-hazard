@@ -1,1 +1,50 @@
-{% extends 'registry/base.html' %}{% block content %}<p class="eyebrow">تنسيق العمل وترشيد الاستهلاك</p><h1>جلسات المشروع</h1><a class="action" href="/sessions/jobs/">تشغيل مهمة بالنموذج المحدد</a><p>المواثيق والسياسات من قاعدة المشروع. التشغيل يتم بطلب سفيان في Codex؛ هذه الصفحة لا تشغّل مهام تلقائيًا.</p>{% if coordination_session %}<section class="work-panel" aria-labelledby="coordination-session-title"><p class="eyebrow">جلسة التنسيق العام</p><h2 id="coordination-session-title">{{ coordination_session.name }}</h2><p>إدارة عامة وتنسيق الجلسات المتخصصة · <bdi>{{ coordination_session.client }}</bdi></p>{% if coordination_session.model_sample %}<p>آخر نموذج مرصود: <bdi>{{ coordination_session.model_sample.model }}</bdi> · رُصد في {{ coordination_session.model_sample.sampled_at|date:"Y-m-d H:i T" }}</p>{% else %}<p>النموذج غير متحقق: لا توجد عينة نموذج مسجلة لهذه الجلسة.</p>{% endif %}<details><summary>بيانات الجلسة</summary><p dir="ltr">{{ coordination_session.thread_id }}</p></details></section>{% endif %}{% for charter in charters %}<section class="work-panel"><h2>{{ charter.name }}</h2><p><bdi>{{ charter.policy.model }}</bdi> · التفكير: {{ charter.policy.thinking }} · الحالة: {{ charter.state }}</p><p>{{ charter.scope }}</p><details><summary>الميثاق وحدود العمل</summary><p>{{ charter.rules }}</p><p>حد المحاولات المقترح: {{ charter.policy.max_attempts }}. هذه سياسة إرشادية، وليست حدًا يفرضه محرك التشغيل تلقائيًا.</p><p dir="ltr">{{ charter.thread_id }}</p></details></section>{% endfor %}<a class="action" href="/usage/">متابعة استهلاك الجلسات</a>{% endblock %}
+{% extends 'registry/base.html' %}
+{% block content %}
+{% include 'registry/_page_heading.html' with eyebrow='جلسات قائمة ومواثيق توجيه' title='جلسات المشروع' description='تُوجّه المهام إلى معرفات جلسات مسجلة في مواثيق المشروع. إنشاء طلب لا ينشئ محادثة جديدة ولا يعني أن الرسالة أُرسلت؛ راجع سجل الإرسال لمعرفة ما تأكد فعليًا.' %}
+<div class="session-actions"><a class="action" href="{% url 'model-jobs' %}">إنشاء طلب لجلسة</a><a class="session-secondary-link" href="{% url 'automation' %}">متابعة الأتمتة</a><a class="session-secondary-link" href="/usage/">متابعة الاستهلاك</a></div>
+
+<section class="work-panel" aria-labelledby="routing-policies-title">
+  <h2 id="routing-policies-title">سياسة التوجيه الفعلية</h2>
+  <p>هذه السياسات محفوظة في قاعدة البيانات وتحدد نموذج المهمة وحدود محاولاتها، ويحدد الميثاق وجهة الجلسة ونطاق العمل.</p>
+  <div class="session-grid">
+    {% for policy in routing_policies %}<article class="work-panel session-card">
+      <h3>{% if policy.category == 'code' %}البرمجة{% elif policy.category == 'design' %}التصميم{% elif policy.category == 'review' %}المراجعة{% elif policy.category == 'connected' %}الموصلات{% else %}النصوص{% endif %}</h3>
+      <p>{% if policy.enabled %}السياسة مفعّلة{% else %}السياسة متوقفة — لا تُستخدم للتوجيه{% endif %}</p>
+      <p>النموذج: <bdi>{{ policy.model }}</bdi> · التفكير: {% if policy.thinking == "low" %}منخفض{% elif policy.thinking == "medium" %}متوسط{% else %}عالٍ{% endif %}</p>
+      <p>حد المحاولات: {{ policy.max_attempts }} · حد التصعيد: {{ policy.max_escalations }}</p>
+      {% if policy.max_escalations %}<p>عند تعثر مثبت: <bdi>{{ policy.stuck_model }}</bdi> · <bdi>{{ policy.stuck_thinking }}</bdi></p>{% else %}<p>لا يوجد تصعيد تلقائي لهذه الفئة.</p>{% endif %}
+    </article>{% empty %}<p>لا توجد سياسة توجيه مفعلة.</p>{% endfor %}
+  </div>
+  <p class="note">القراءة فقط: الحسابات المباشرة متاحة محليًا. مهام القراءة فقط تعمل في حاوية منفصلة بنسخة قراءة من المشروع والبيانات، ويُفحص العزل قبل كل مهمة.</p>
+</section>
+
+{% if coordination_session %}
+  <section class="work-panel session-live-card" aria-labelledby="coordination-session-title">
+    <div class="session-card-heading"><div><p class="eyebrow">جلسة التنسيق المسجلة</p><h2 id="coordination-session-title">{{ coordination_session.name }}</h2></div><span class="job-state state-completed">موجودة في سجل الجلسات</span></div>
+    <p>العميل المسجل: <bdi>{{ coordination_session.client }}</bdi></p>
+    {% if coordination_session.model_sample %}
+      <p><strong>آخر نموذج مرصود</strong> <bdi>{{ coordination_session.model_sample.model }}</bdi> · <time>{{ coordination_session.model_sample.sampled_at|date:'Y-m-d H:i:s' }}</time></p>
+    {% else %}<p>النموذج المرصود غير متاح؛ لا توجد عينة مؤكدة لهذه الجلسة.</p>{% endif %}
+    <details><summary>معرف الجلسة</summary><p dir="ltr"><bdi>{{ coordination_session.thread_id }}</bdi></p></details>
+  </section>
+{% endif %}
+
+<section class="session-charters" aria-labelledby="session-charters-title">
+  <h2 id="session-charters-title">مواثيق الجلسات ووجهات التوجيه</h2>
+  <p>نعرض جميع مواثيق المشروع. لا تكون الوجهة جاهزة للتوجيه إلا عند تفعيل السياسة وربط معرف جلسة. سياسة نوع المهمة موضحة أعلاه؛ يعرض سجل الطلب النموذج والتفكير المرصودين عند توفر دليل الدور.</p>
+  <div class="session-grid">
+    {% for charter in charters %}
+      <article class="work-panel session-card{% if not charter.thread_id or not charter.policy.enabled %} session-card-unready{% endif %}">
+        <div class="session-card-heading"><h3>{{ charter.name }}</h3><span class="job-state{% if not charter.thread_id or not charter.policy.enabled %} state-needs_review{% endif %}">{% if not charter.thread_id %}غير جاهز — يحتاج معرف جلسة{% elif not charter.policy.enabled %}غير جاهز — سياسة التوجيه متوقفة{% elif charter.state == 'ready_waiting_for_task' %}جاهز لتوجيه مهمة{% elif charter.state == 'active' %}الميثاق مفعّل{% elif charter.state == 'prepared' %}الميثاق مهيأ{% else %}{{ charter.state }}{% endif %}</span></div>
+        <p><strong>تفعيل وجهة الجلسة</strong> {% if charter.policy.enabled %}مفعّلة{% else %}متوقفة{% endif %} · نموذج المهمة يحدده نوعها في سياسة التوجيه أعلاه.</p>
+        <p class="session-scope">{{ charter.scope }}</p>
+        <details><summary>حدود الجلسة ومعرفها</summary>
+          <p>{{ charter.rules }}</p>
+          <p>حد المحاولات والتصعيد الفعلي يحدده نوع المهمة في سياسة التوجيه أعلاه.</p>
+          {% if charter.thread_id %}<p dir="ltr"><bdi>{{ charter.thread_id }}</bdi></p>{% else %}<p>لم يُربط معرف جلسة لهذا الميثاق بعد.</p>{% endif %}
+        </details>
+      </article>
+    {% empty %}<p>لا توجد مواثيق جلسات مرتبطة بمعرف جلسة بعد.</p>{% endfor %}
+  </div>
+</section>
+{% endblock %}

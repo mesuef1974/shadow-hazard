@@ -145,3 +145,21 @@ class SkillFileChangeAdmin(ReadOnlyRegistryAdmin):
     list_select_related = ('change__installation__version__service',)
 
 from . import admin_skill_archive  # Register authenticated archive tools after base admins.
+
+
+@admin.register(models.HardwareSnapshot)
+class HardwareSnapshotAdmin(ReadOnlyRegistryAdmin):
+    list_display = ('capture_key', 'captured_at', 'status', 'source_summary')
+    list_filter = ('status',)
+    search_fields = ('capture_key', 'source_summary')
+    readonly_fields = ('capture_key', 'captured_at', 'status', 'source_summary')
+
+
+@admin.register(models.HardwareRecord)
+class HardwareRecordAdmin(ReadOnlyRegistryAdmin):
+    list_display = ('snapshot', 'kind', 'component', 'key', 'value', 'unit', 'quality', 'source')
+    list_filter = ('kind', 'component', 'quality', 'snapshot__captured_at')
+    search_fields = ('key', 'value', 'source', 'snapshot__capture_key', 'estimate_note')
+    list_select_related = ('snapshot',)
+    ordering = ('-snapshot__captured_at', 'component', 'key')
+    readonly_fields = ('snapshot', 'kind', 'component', 'key', 'value', 'unit', 'source', 'quality', 'estimate_note')

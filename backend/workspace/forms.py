@@ -24,11 +24,12 @@ class DecisionForm(forms.ModelForm):
 
 class ModelJobForm(forms.Form):
     submission_key=forms.UUIDField(widget=forms.HiddenInput)
-    charter=forms.ModelChoiceField(label='الجلسة ونوع المهمة',queryset=SessionCharter.objects.none())
+    charter=forms.ModelChoiceField(label='الجلسة المستهدفة',queryset=SessionCharter.objects.none(),
+        help_text='يحدد اختيارك الجلسة التي ستستلم الطلب؛ يحدد نوع المهمة سياسة النموذج والتفكير فقط.')
     prompt=forms.CharField(label='المهمة المطلوبة ومعيار الإنجاز',max_length=12000,widget=forms.Textarea)
-    mode=forms.ChoiceField(label='صلاحية التنفيذ',choices=[('read-only','قراءة ومراجعة فقط'),('workspace-write','السماح بتعديل ملفات المشروع')])
+    mode=forms.ChoiceField(label='صلاحية التنفيذ',choices=[('read-only','قراءة فقط — عامل معزول بالحاوية'),('workspace-write','السماح بتعديل ملفات المشروع')])
     from execution_context.routing import KINDS, SKILLS
-    task_kind=forms.ChoiceField(label='نوع المهمة',choices=KINDS,initial='auto',help_text='التلقائي ينفذ تعبيرًا مثل 17 + 25 أو احسب 17 + 25 محليًا بصفر توكن؛ غير ذلك يستخدم النص الخفيف.')
+    task_kind=forms.ChoiceField(label='نوع المهمة',choices=KINDS,initial='auto',help_text='التلقائي ينفذ تعبيرًا مثل 17 + 25 أو احسب 17 + 25 محليًا بصفر توكن؛ ويصنف بقية الطلبات للبرمجة أو التصميم أو النص والمراجعة.')
     skills=forms.MultipleChoiceField(label='مهارات إضافية عند الحاجة فقط',choices=[(key,value[1]) for key,value in SKILLS.items()],required=False,widget=forms.CheckboxSelectMultiple)
     plugins=forms.MultipleChoiceField(label='موصلات محددة — لن تُحمّل بقية الموصلات',choices=[],required=False,widget=forms.CheckboxSelectMultiple)
     def __init__(self,*args,**kwargs):

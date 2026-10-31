@@ -1,8 +1,9 @@
 {% load static %}
-<section class="work-panel"><div class="section-title"><div><h2>ضغط السياق لكل جلسة</h2><p>اختر جلسة ثم حرّك المؤشر لرؤية وقت العينة وقيمتها. الرسم يعرض نسبة السياق ولا يمثل حد الحساب الأسبوعي.</p></div></div>
-<label for="context-session">جلسة الرسم</label><select id="context-session"></select>
-<svg id="context-chart" viewBox="0 0 900 230" role="img" aria-label="منحنى استخدام نافذة السياق" class="interactive-chart"></svg>
-<label for="context-point">التنقل بين العينات</label><input id="context-point" type="range" min="0" max="0" value="0" step="1"><output id="context-detail" aria-live="polite"></output>
+<section class="work-panel context-panel" aria-labelledby="context-panel-title"><div class="context-heading"><div><p class="eyebrow">قراءات لحظية بحسب الجلسة</p><h2 id="context-panel-title">ضغط السياق لكل جلسة</h2><p>النسبة من سعة نافذة السياق، على مقياس ثابت من 0 إلى 100٪؛ لا تمثل حصة الحساب الأسبوعية. الهبوط بين القراءات تغير مرصود ولا يحدد الرسم سببه.</p></div></div>
+<div class="context-controls"><label for="context-session">الجلسة</label><select id="context-session" aria-label="اختر جلسة لعرض ضغط سياقها"></select></div>
+<svg id="context-chart" viewBox="0 0 900 270" role="img" aria-labelledby="context-chart-title" aria-describedby="context-summary context-detail" class="interactive-chart"><title id="context-chart-title">تغير نسبة استخدام نافذة السياق عبر الزمن</title></svg>
+<p class="context-chart-key"><span aria-hidden="true"></span> ينقطع الخط عند فجوة رصد تتجاوز 5 دقائق، وتظهر علامة عند حدود الفجوات الواسعة.</p>
+<div class="context-slider-heading"><label for="context-point">استعراض القراءات</label><span id="context-index"></span></div><input id="context-point" type="range" min="0" max="0" value="0" step="1" aria-label="التنقل بين عينات ضغط السياق"><output id="context-detail" aria-live="polite"></output>
+<p id="context-summary" class="context-summary" aria-live="polite"></p>
 <noscript><p>فعّل JavaScript للتفاعل. بيانات السياق الحالية متاحة في بطاقات الجلسات.</p></noscript></section>
-<div id="chart-selection" class="chart-selection" role="status" aria-live="polite">اضغط أي عمود زمني أو شريط نموذج لعرض تفاصيله.</div>
-{{ analytics|json_script:'usage-chart-data' }}<script src="{% static 'registry/usage-charts.js' %}" defer></script>
+{{ analytics|json_script:'usage-chart-data' }}<script src="{% static 'registry/usage-charts.js' %}?v=7" defer></script>

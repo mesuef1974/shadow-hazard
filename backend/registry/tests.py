@@ -19,6 +19,14 @@ class RegistryIntegrityTests(TestCase):
         call_command("import_project_registry", stdout=StringIO())
         self.assertEqual(before,(Installation.objects.count(), UsageEvent.objects.count(), BrandColor.objects.count(), RegistryEvent.objects.count(), Artifact.objects.count()))
         self.assertEqual(Installation.objects.count(),124)
+    def test_local_registry_installation_status_is_a_valid_choice(self):
+        from pathlib import Path
+        envelope=Path(__file__).resolve().parents[2]/"docs/registry/runtime-events.json"
+        call_command("record_service_usage", str(envelope), stdout=StringIO())
+        event=UsageEvent.objects.filter(status="installed_for_local_registry").first()
+        self.assertIsNotNone(event)
+        self.assertIn(event.status,dict(UsageEvent._meta.get_field("status").choices))
+        self.assertEqual(event.get_status_display(),"مثبت لتشغيل السجل المحلي")
     def test_brand_is_draft_and_approval_requires_evidence(self):
         self.assertEqual(BrandDirection.objects.filter(status="draft").count(),3)
         with self.assertRaises(IntegrityError), transaction.atomic():

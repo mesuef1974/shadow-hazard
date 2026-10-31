@@ -8,6 +8,22 @@ from registry.services import record_usage
 
 
 @transaction.atomic
+def record_readonly_execution(job,result):
+    actor,_=Actor.objects.get_or_create(key='isolated-readonly-worker',defaults={'name':'عامل القراءة المعزول','kind':'agent'})
+    session,_=ExecutionSession.objects.get_or_create(external_key=result['thread_id'],defaults={
+        'name':f'قراءة معزولة · طلب {job.pk}','actor':actor,'client':'Codex App Server / Docker','model':result['model']})
+    task,_=RegistryTask.objects.get_or_create(key=f'delegation-job-{job.pk}',defaults={'title':f'طلب قراءة {job.pk}','purpose':job.prompt})
+    service,_=Service.objects.get_or_create(key='isolated-readonly-runtime',defaults={
+        'name':'Codex Linux read-only runtime','kind':'tool','purpose':'قراءة المشروع داخل عزل فعلي'})
+    image=result['evidence']['image_id'];digest=image.removeprefix('sha256:')
+    version,_=ServiceVersion.objects.get_or_create(service=service,sha256=digest,defaults={
+        'version_label':'Codex 0.166.0 container','source':image,'metadata':{'fingerprint_kind':'docker_image'}})
+    record_usage(event_key=f'readonly-job:{job.pk}:execution',version=version,session=session,task=task,
+        recorded_at=timezone.now(),purpose=job.prompt,method='حاوية بلا شبكة مباشرة؛ نسخة قراءة فقط؛ bwrap؛ تحقق العزل قبل الدور',
+        result=result['text'],time_evidence=f"thread={result['thread_id']}; turn={result['turn_id']}; verified DB documentation",status='completed')
+
+
+@transaction.atomic
 def record_local_execution(job,plan):
     actor,_=Actor.objects.get_or_create(key='local-model-dispatcher',defaults={'name':'موزع المهام المحلي','kind':'agent'})
     session,_=ExecutionSession.objects.get_or_create(external_key=f'local-calculation-job-{job.pk}',defaults={

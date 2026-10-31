@@ -1,23 +1,25 @@
-"""Local serialized job runner with dedicated CLI execution sessions."""
-import shutil
+"""Prepare local calculations and durable outbox records for desktop sessions."""
 import uuid
 import os
+import shutil
 from pathlib import Path
-from django.conf import settings
 from django.db import transaction, IntegrityError
 from django.utils import timezone
 from .models import ModelJob
 from execution_context.models import TaskContext
+from execution_context.models import SessionDispatch, SessionDispatchEvent
+from execution_context.models import SessionRoutingPolicy
 from execution_context.routing import build_plan, calculate, validate_manifest
+from .wakeup import signal_dispatcher
 
 MODELS={'gpt-6-luna','gpt-6.1-sol','gpt-6-astra'}
 EFFORTS={'low','medium','high'}
 
 
 def resolve_codex():
+    """Legacy diagnostic only; outbox delivery never invokes the standalone CLI."""
     binary=shutil.which('codex.exe') or shutil.which('codex')
     if binary:return binary
-    # Logon tasks do not inherit Codex desktop's per-process PATH.
     root=Path(os.environ.get('LOCALAPPDATA',Path.home()/'AppData'/'Local'))/'OpenAI'/'Codex'/'bin'
     candidates=list(root.glob('*/codex.exe'))
     return str(max(candidates,key=lambda path:path.stat().st_mtime)) if candidates else None
@@ -27,7 +29,7 @@ def resolve_codex():
 def enqueue(charter,owner,prompt,mode='read-only',submission_key=None,task_kind='auto',skills=None,plugins=None):
     policy=charter.policy
     uuid.UUID(charter.thread_id)
-    if owner.role!='supervisor' or not policy.enabled or policy.model not in MODELS or policy.thinking not in EFFORTS or mode not in {'read-only','workspace-write'}:
+    if not owner.is_active or owner.role!='supervisor' or not policy.enabled or policy.model not in MODELS or policy.thinking not in EFFORTS or mode not in {'read-only','workspace-write'}:
         raise ValueError('سياسة أو صلاحية تشغيل غير صالحة')
     if not prompt.strip() or len(prompt)>12000:raise ValueError('المهمة مطلوبة وبحد أقصى 12000 حرف')
     plan=build_plan(charter,prompt,task_kind,skills,plugins,mode)
@@ -40,13 +42,25 @@ def enqueue(charter,owner,prompt,mode='read-only',submission_key=None,task_kind=
         if not created:
             old=TaskContext.objects.filter(job=job).first()
             if not old or any(getattr(old,key)!=plan[key] for key in ('kind','skills','plugins')):raise ValueError('إعداد السياق مختلف عن الطلب السابق')
-        else:TaskContext.objects.create(job=job,**plan)
+        else:
+            TaskContext.objects.create(job=job,**plan)
+            from workspace.memory import document
+            document(charter.project,charter.key,f'job:{job.pk}:memory-load','تحميل ذاكرة المشروع في سياق المهمة',{'job':job.pk,'memory_digest':plan['manifest']['project_memory_digest']})
+        transaction.on_commit(signal_dispatcher)
+        from execution_context.messages import register_message
+        register_message(job)
         return job
     job=ModelJob.objects.create(**values)
     TaskContext.objects.create(job=job,**plan)
+    from workspace.memory import document
+    document(charter.project,charter.key,f'job:{job.pk}:memory-load','تحميل ذاكرة المشروع في سياق المهمة',{'job':job.pk,'memory_digest':plan['manifest']['project_memory_digest']})
+    transaction.on_commit(signal_dispatcher)
+    from execution_context.messages import register_message
+    register_message(job)
     return job
 
 
+@transaction.atomic
 def run_one():
     if ModelJob.objects.filter(state__in=['running','uncertain']).exists():return None
     job=ModelJob.objects.filter(state='queued').order_by('created_at').first()
@@ -69,45 +83,70 @@ def run_one():
             job.outcome_note='حساب محلي محدد دون استدعاء نموذج أو أدوات؛ التعليمات والميثاق محفوظان في سجل السياق.'
             from execution_context.audit import record_local_execution
             record_local_execution(job,plan)
+            from workspace.memory import document
+            receipt=document(job.charter.project,job.charter.key,f'local-job:{job.pk}',job.result,{'method':'Decimal local arithmetic','usage':job.token_usage})
+            job.outcome_note+=f' إيصال توثيق متحقق: {receipt.pk}'
             job.state='completed'
             return job
         from execution_context.escalation import authorized
-        if not authorized(job):
-            job.state='awaiting_approval';job.outcome_note='لم يبدأ التنفيذ: النموذج الأعلى يتطلب موافقة صريحة مرتبطة بهذه المهمة.'
+        if (job.requested_model in {'gpt-6.1-sol','gpt-6-astra'} and not authorized(job)):
+            job.state='awaiting_approval';job.outcome_note='لم يبدأ الإرسال: هذا النموذج يتطلب موافقة صريحة مرتبطة بالمهمة.'
             return job
-        binary=resolve_codex()
-        if not binary:raise ValueError('لم يُعثر على Codex محليًا')
-        if job.requested_model not in MODELS or job.requested_thinking not in EFFORTS:raise ValueError('نموذج غير مسموح')
-        uuid.UUID(job.charter.thread_id)
-        charter_text=plan.charter if plan else f'نطاق الجلسة: {job.charter.scope}\nالميثاق: {job.charter.rules}'
-        prompt=f'مهمة مفوضة من سفيان عبر منصة ظل الخطر. رقم الطلب {job.pk}.\n{charter_text}\nلا ترسل رسائل لجلسات أخرى ولا تنشر أو تدفع بعيدًا. التزم بالمهمة وحدها.\nالمهمة:\n{job.prompt}'
-        if plan and plan.skill_text:prompt+='\n\nتعليمات المهارات المطلوبة لهذه المهمة فقط:\n'+plan.skill_text
-        prompt+='\nإذا لم تستطع إنجاز المهمة بجودة كافية بالنموذج الحالي، لا تبدل النموذج ولا تشغل مهمة أخرى. أعد فقط ESCALATION_REQUEST: ثم JSON بمفتاحي model وreason؛ اختر gpt-6.1-sol أو gpt-6-astra ووضح العائق المحدد والأدلة ولماذا يفيد النموذج الأعلى. هذا اقتراح ينتظر موافقة سفيان وليس إذنًا بالتنفيذ. لا تطلب التصعيد لمجرد كبر السياق أو غياب أداة.'
-        from .codex_transport import execute, Unavailable, Uncertain
-        def record_start(thread_id):
-            from token_usage.models import TrackedSession
-            job.execution_thread_id=thread_id
-            job.save(update_fields=['execution_thread_id'])
-            TrackedSession.objects.get_or_create(external_id=thread_id,defaults={
-                'name':f'{job.charter.name} · طلب {job.pk}','project':job.charter.project})
-            from execution_context.audit import record_context_load
-            record_context_load(job,plan,thread_id)
-        try:
-            response=execute(binary,job.charter.thread_id,job.requested_model,job.requested_thinking,prompt,settings.BASE_DIR.parent,job.mode,on_started=record_start,selected_plugins=plan.plugins if plan else [])
-            job.result=response['text']
-            job.observed_model=response.get('model','')
-            job.token_usage=response.get('usage',{})
-            job.state='completed' if response['completed'] else 'needs_review'
-            if job.observed_model and job.observed_model!=job.requested_model:job.state='needs_review'
-            job.outcome_note='تنفيذ مستقل مرتبط بميثاق الجلسة؛ لا يغير نموذج المحادثة المفتوحة. تحقق من النتيجة قبل اعتمادها.'
-        except Unavailable:
-            job.state='blocked';job.outcome_note='تعذر بدء جلسة التنفيذ المحلية؛ لا إعادة تلقائية.'
-        except Uncertain:
-            job.state='uncertain';job.outcome_note='لم يتأكد اكتمال الدور أو ينتظر تفاعلًا داخل Codex؛ لا إعادة تلقائية.'
+        category=plan.kind if plan else 'text'
+        # The owner-selected charter is the explicit destination. Task category
+        # chooses model/thinking policy only; it must not silently reroute work.
+        target=job.charter
+        if (not target.policy.enabled or target.state not in {'active','prepared','ready_waiting_for_task'}
+            or not target.thread_id):target=None
+        if not target:raise ValueError('الميثاق الذي اختاره المالك غير مفعّل أو غير مهيأ')
+        if not target.thread_id:raise ValueError('الجلسة المستهدفة لا تملك معرف محادثة')
+        uuid.UUID(target.thread_id)
+        route_category='review' if target.key=='review' else category
+        routing_policy=SessionRoutingPolicy.objects.filter(category=route_category,enabled=True).first()
+        if not routing_policy:raise ValueError('سياسة التوجيه غير موجودة أو معطلة للفئة '+route_category)
+        model,thinking=routing_policy.model,routing_policy.thinking
+        if job.requested_model in {'gpt-6.1-sol','gpt-6-astra'}:
+            model,thinking=job.requested_model,job.requested_thinking
+        if model not in MODELS or thinking not in EFFORTS:raise ValueError('سياسة توجيه النموذج غير صالحة')
+        if job.mode=='read-only':
+            job.requested_model=model;job.requested_thinking=thinking
+            job.state='waiting_readonly';job.finished_at=None
+            job.outcome_note='ينتظر عامل القراءة المعزول بالحاوية؛ لا يرسل إلى جلسة سطح المكتب.'
+            plan.manifest={**plan.manifest,'readonly_target':{'key':target.key,'scope':target.scope,'rules':target.rules},
+                'readonly_policy':{'model':model,'thinking':thinking,'category':route_category}}
+            plan.save(update_fields=['manifest'])
+            return job
+        dispatch_key=uuid.uuid4()
+        marker=f'[SHADOW_TASK:{job.pk}:{dispatch_key}:1]'
+        task_prompt=f'{marker}\nمهمة مفوضة من سفيان عبر منصة ظل الخطر. رقم الطلب {job.pk}.\nنطاق الجلسة: {target.scope}\nميثاق الجلسة: {target.rules}\nالتزم بنطاق هذه الجلسة. لا تنشر أو تدفع بعيدًا ولا تحذف بيانات أو ملفات. نوع الصلاحية: {job.mode}. عند read-only اقرأ وحلل فقط ولا تعدل ملفات أو قواعد بيانات. طلب التحليل لا يمنح إذن نشر أو حذف. إذا تعثرت أعد ESCALATION_REQUEST: مع السبب والدليل المحدد.\nالمهمة:\n{job.prompt}'
+        from workspace.memory import instructions as project_instructions
+        shared_memory,_=project_instructions(job.charter.project)
+        task_prompt+='\n\nذاكرة المشروع الملزمة:\n'+shared_memory
+        if plan and plan.skill_text:task_prompt+='\n\nتعليمات المهارات:\n'+plan.skill_text
+        route_reason=f'اختار المالك الجلسة {target.name}؛ اختيرت سياسة المهمة {route_category} المحفوظة {model}/{thinking}.'
+        with transaction.atomic():
+            dispatch=SessionDispatch.objects.create(job=job,dispatch_key=dispatch_key,target_charter=target,
+                target_thread_id=target.thread_id,category=route_category,routing_policy=routing_policy,
+                max_attempts=routing_policy.max_attempts,requested_model=model,requested_thinking=thinking,
+                route_reason=route_reason)
+            SessionDispatchEvent.objects.create(dispatch=dispatch,state='queued',detail={'route_reason':route_reason,'attempt':1})
+            plan.manifest={**plan.manifest,'dispatch_key':str(dispatch.dispatch_key),'dispatch_prompt':task_prompt,
+                'target_thread_id':target.thread_id,'requested_model':model,'requested_thinking':thinking,
+                'route_reason':route_reason,'task_marker':marker,
+                'target_snapshot':{'thread_id':target.thread_id,'scope':target.scope,'rules':target.rules},
+                'policy_snapshot':{name:getattr(routing_policy,name) for name in ('model','thinking','stuck_model','stuck_thinking','max_attempts','max_escalations')},
+                'job_snapshot':{'prompt':job.prompt,'mode':job.mode}}
+            plan.save(update_fields=['manifest'])
+            job.execution_thread_id=target.thread_id
+            job.requested_model=model;job.requested_thinking=thinking
+            job.state='waiting_delivery';job.outcome_note='أُنشئ سجل إرسال للجلسة القائمة؛ ينتظر الجسر مطالبة الصندوق وإرسال الرسالة.'
+            job.finished_at=None
+            job.save(update_fields=['state','outcome_note','finished_at','requested_model','requested_thinking','execution_thread_id'])
     except (OSError,ValueError):
         job.state='failed';job.outcome_note='تعذر بدء التشغيل المحلي؛ تحقق من Codex وسياسة الجلسة.'
     finally:
-        job.finished_at=timezone.now();job.save(update_fields=['state','result','outcome_note','finished_at','observed_model','token_usage'])
+        if job.state not in {'waiting_delivery','waiting_readonly'}:job.finished_at=timezone.now()
+        job.save(update_fields=['state','result','outcome_note','finished_at','observed_model','token_usage','requested_model','requested_thinking','execution_thread_id'])
     if job.state=='completed':
         from execution_context.escalation import detect_proposal
         detect_proposal(job)

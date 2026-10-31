@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import TrackedSession, TokenSample, SyncRun
+from .models import TrackedSession, TokenSample, SyncRun, CollectorState
 admin.site.register(TrackedSession)
 
 class ReadOnly(admin.ModelAdmin):
@@ -8,4 +8,11 @@ class ReadOnly(admin.ModelAdmin):
     def has_delete_permission(self,request,obj=None):return False
 
 admin.site.register(TokenSample,ReadOnly)
-admin.site.register(SyncRun,ReadOnly)
+
+@admin.register(SyncRun)
+class SyncRunAdmin(ReadOnly):
+    list_display=('started_at','finished_at','success','added','error_code','message')
+    list_filter=('success','error_code')
+    ordering=('-started_at',)
+
+admin.site.register(CollectorState,ReadOnly)

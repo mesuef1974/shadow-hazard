@@ -6,7 +6,7 @@ from workspace.models import ModelJob
 def job_index(project):
     return {job.execution_thread_id:job for job in ModelJob.objects.filter(
         charter__project=project,execution_thread_id__gt='',finished_at__isnull=False
-    ).exclude(token_usage={}).only('pk','execution_thread_id','finished_at','token_usage','observed_model','requested_thinking').order_by('pk')}
+    ).filter(session_dispatch__isnull=True).exclude(token_usage={}).only('pk','execution_thread_id','finished_at','token_usage','observed_model','requested_thinking').order_by('pk')}
 
 
 def effective_samples(session, jobs):
@@ -20,7 +20,7 @@ def effective_samples(session, jobs):
     values={field:usage[key] for field,key in fields.items()}
     if values['cached']>values['input'] or values['reasoning']>values['output']:return rows,None
     total=values['input']+values['output']
-    if 'total_tokens' in usage and usage['total_tokens']!=total:return rows,None
+    if 'total_tokens' in usage and (type(usage['total_tokens']) is not int or usage['total_tokens']!=total):return rows,None
     # A later external turn may extend the execution session. Never add its
     # cumulative counter to the already recorded CLI turn.
     point=TokenSample(session=session,source_id=0,sampled_at=job.finished_at,

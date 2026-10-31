@@ -15,4 +15,10 @@ with log.open('a',encoding='utf-8',buffering=1) as output:
     sys.path.insert(0,str(backend))
     os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings')
     from django.core.management import execute_from_command_line
-    execute_from_command_line([str(backend/'manage.py'),'run_model_dispatcher','--watch'])
+    try:
+        execute_from_command_line([str(backend/'manage.py'),'run_model_dispatcher','--watch'])
+    except Exception:
+        import traceback
+        traceback.print_exc(file=output)
+        output.flush()
+        raise

@@ -45,6 +45,7 @@ class TokenUsageTests(TestCase):
         self.assertEqual(data['boundary'],30)
         self.assertEqual(data['resets'],1)
         self.assertEqual(data['measured'],120)
+        self.assertEqual(data['peak']['tokens'],120)
         self.assertEqual({row['name']:row['tokens'] for row in data['models']},{'A':50,'B':40})
         self.assertEqual(sum(row['value'] for row in data['composition']),120)
         for index,total in [(6,230),(7,240)]:
@@ -54,6 +55,13 @@ class TokenUsageTests(TestCase):
         self.assertEqual(recovered['boundary'],40)
         self.assertEqual({row['name']:row['tokens'] for row in recovered['models']},{'A':50,'B':50})
         self.assertEqual(sum(row['value'] for row in recovered['composition']),130)
+
+    def test_hourly_peak_is_absent_without_positive_usage(self):
+        from django.utils import timezone
+        from .analytics import analyze
+        TokenSample.objects.create(session=self.session,source_id=1,sampled_at=timezone.now(),model='X',
+            total=100,input=100,output=0,cached=0,reasoning=0,context=20,context_limit=100)
+        self.assertIsNone(analyze(self.project)['peak'])
 
     def setUp(self):
         self.project=Project.objects.create(name='test')
@@ -65,7 +73,8 @@ class TokenUsageTests(TestCase):
             connection=sqlite3.connect(path)
             connection.execute('CREATE TABLE usage_samples (sample_id INTEGER, session_id TEXT, sampled_at TEXT, model TEXT, cumulative_total_tokens INTEGER,cumulative_input_tokens INTEGER,cumulative_cached_input_tokens INTEGER,cumulative_output_tokens INTEGER,cumulative_reasoning_output_tokens INTEGER,context_total_tokens INTEGER,context_window_tokens INTEGER)')
             for row in [(1,'project-session',100),(2,'project-session',150),(3,'unrelated',900)]:
-                connection.execute('INSERT INTO usage_samples VALUES (?,?,?,?,?,?,?,?,?,?,?)',(row[0],row[1],f'2026-10-31T06:00:0{row[0]}Z','model',row[2],80,20,20,5,50,100))
+                input_tokens=row[2]-20
+                connection.execute('INSERT INTO usage_samples VALUES (?,?,?,?,?,?,?,?,?,?,?)',(row[0],row[1],f'2026-10-31T06:00:0{row[0]}Z','model',row[2],input_tokens,20,20,5,50,100))
             connection.commit();connection.close()
             with override_settings(TOKEN_USAGE_SOURCE=path):
                 self.assertEqual(synchronize().added,2)
@@ -81,9 +90,18 @@ class TokenUsageTests(TestCase):
                 self.assertFalse(synchronize().success)
             self.assertEqual(TokenSample.objects.count(),2)
 
+    def test_database_rejects_inconsistent_sample_counters(self):
+        from django.db import IntegrityError, transaction
+        from django.utils import timezone
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            TokenSample.objects.create(session=self.session,source_id=77,sampled_at=timezone.now(),
+                model='X',total=20,input=10,cached=11,output=10,reasoning=0,context=0,context_limit=0)
+
     def test_missing_source_preserves_data_and_reports_failure(self):
         with tempfile.TemporaryDirectory() as folder, override_settings(TOKEN_USAGE_SOURCE=Path(folder)/'missing.db'):
-            self.assertFalse(synchronize().success)
+            run=synchronize()
+            self.assertFalse(run.success)
+            self.assertEqual(run.error_code,'source_unavailable')
 
     def test_supervisor_only_and_post_only(self):
         User=get_user_model()

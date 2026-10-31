@@ -9,6 +9,7 @@ urlpatterns = [
  path('sessions/escalations/',execution_context.escalation_list,name='escalations'),
  path('sessions/escalations/<int:pk>/decision/',execution_context.decide_escalation,name='decide-escalation'),
  path('sessions/jobs/<int:job_id>/escalation/',execution_context.request_escalation,name='request-escalation'),
+ path('sessions/automation/', workspace.automation, name='automation'),
  path('sessions/jobs/', workspace.model_jobs, name='model-jobs'),
  path('sessions/', workspace.sessions, name='project-sessions'),
  path('usage/', token_usage.dashboard, name='token-dashboard'),

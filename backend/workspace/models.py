@@ -1,9 +1,33 @@
 from django.db import models
 from django.conf import settings
 
+class ProjectMemory(models.Model):
+    project=models.ForeignKey('Project',on_delete=models.PROTECT)
+    key=models.CharField(max_length=100)
+    instruction=models.TextField()
+    enabled=models.BooleanField(default=True)
+    updated_at=models.DateTimeField(auto_now=True)
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=['project','key'],name='project_memory_key')]
+
+
+class ProjectDocumentation(models.Model):
+    project=models.ForeignKey('Project',on_delete=models.PROTECT)
+    session_key=models.CharField(max_length=100)
+    task_key=models.CharField(max_length=160)
+    summary=models.TextField()
+    evidence=models.JSONField(default=dict)
+    digest=models.CharField(max_length=64)
+    created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=['project','session_key','task_key'],name='project_documentation_once')]
+
 class Project(models.Model):
     name = models.CharField('اسم المشروع', max_length=160)
     summary = models.TextField('الملخص', blank=True)
+    class Meta:
+        verbose_name = 'مشروع'
+        verbose_name_plural = 'المشاريع'
     def __str__(self): return self.name
 
 class Phase(models.Model):
@@ -11,7 +35,10 @@ class Phase(models.Model):
     title = models.CharField('المرحلة', max_length=180)
     objective = models.TextField('الهدف ومخرجات القبول')
     order = models.PositiveIntegerField('الترتيب')
-    class Meta: ordering = ['order', 'pk']
+    class Meta:
+        ordering = ['order', 'pk']
+        verbose_name = 'مرحلة'
+        verbose_name_plural = 'المراحل'
     def __str__(self): return self.title
 
 class Task(models.Model):
@@ -24,7 +51,10 @@ class Task(models.Model):
     state = models.CharField('الحالة', max_length=16, choices=STATES, default='todo')
     due_date = models.DateField('الموعد المستهدف', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    class Meta: ordering = ['-created_at']
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'مهمة'
+        verbose_name_plural = 'المهام'
     def __str__(self): return self.title
 
 class TaskUpdate(models.Model):
@@ -36,6 +66,8 @@ class TaskUpdate(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
         ordering = ['-created_at']
+        verbose_name = 'تحديث مهمة'
+        verbose_name_plural = 'تحديثات المهام'
         constraints = [models.CheckConstraint(condition=models.Q(hours__isnull=True)|models.Q(hours__gte=0),name='workspace_nonnegative_hours')]
 
 class Decision(models.Model):
@@ -45,11 +77,17 @@ class Decision(models.Model):
     private = models.BooleanField('خاص بالمشرف', default=False)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
-    class Meta: ordering = ['-created_at']
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'قرار'
+        verbose_name_plural = 'القرارات'
 
 class DocumentAccess(models.Model):
     path = models.CharField('مسار الوثيقة داخل docs', max_length=500, unique=True)
     team_visible = models.BooleanField('متاح للفريق', default=False)
+    class Meta:
+        verbose_name = 'صلاحية وثيقة'
+        verbose_name_plural = 'صلاحيات الوثائق'
     def __str__(self): return self.path
 
 
@@ -60,6 +98,9 @@ class ModelPolicy(models.Model):
     thinking = models.CharField('التفكير',max_length=20,default='low')
     max_attempts = models.PositiveSmallIntegerField('حد المحاولات المقترح',default=2)
     enabled = models.BooleanField(default=True)
+    class Meta:
+        verbose_name = 'سياسة نموذج'
+        verbose_name_plural = 'سياسات النماذج'
     def __str__(self):return self.title
 
 
@@ -73,6 +114,9 @@ class SessionCharter(models.Model):
     thread_id = models.CharField('معرف محادثة Codex',max_length=100,blank=True)
     state = models.CharField('الحالة',max_length=40,default='prepared')
     created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        verbose_name = 'ميثاق جلسة'
+        verbose_name_plural = 'مواثيق الجلسات'
     def __str__(self):return self.name
 
 
@@ -96,6 +140,9 @@ class ModelJob(models.Model):
     outcome_note = models.TextField(blank=True)
     class Meta:
         ordering=['-created_at']
+        verbose_name = 'طلب تشغيل نموذج'
+        verbose_name_plural = 'طلبات تشغيل النماذج'
+        indexes = [models.Index(fields=['execution_thread_id'], name='modeljob_thread_lookup')]
         constraints=[models.UniqueConstraint(fields=['lane'],condition=models.Q(state__in=['running','uncertain']),name='one_local_model_job_running')]
 
 
@@ -108,6 +155,9 @@ class DispatcherHeartbeat(models.Model):
     stopped_at = models.DateTimeField(null=True)
     startup_method = models.CharField(max_length=60,blank=True)
     last_error = models.CharField(max_length=200,blank=True)
+    class Meta:
+        verbose_name = 'حالة موزّع المهام'
+        verbose_name_plural = 'حالة موزّع المهام'
 
 
 class DispatcherRun(models.Model):
@@ -115,3 +165,6 @@ class DispatcherRun(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True)
     state = models.CharField(max_length=20,default='running')
+    class Meta:
+        verbose_name = 'تشغيل موزّع'
+        verbose_name_plural = 'سجل تشغيل الموزّع'

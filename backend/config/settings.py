@@ -23,7 +23,7 @@ ALLOWED_HOSTS = [v.strip() for v in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost
 INSTALLED_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions", "django.contrib.messages", "registry", "django.contrib.staticfiles", "accounts"]
 MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware", "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware", "django.contrib.messages.middleware.MessageMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware"]
 ROOT_URLCONF = "config.urls"
-TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [], "APP_DIRS": True, "OPTIONS": {"context_processors": ["django.template.context_processors.request", "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages"]}}]
+TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [BASE_DIR / "registry" / "templates"], "APP_DIRS": True, "OPTIONS": {"context_processors": ["django.template.context_processors.request", "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
 AUTH_USER_MODEL = "accounts.User"
 AUTH_PASSWORD_VALIDATORS = [{"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"}, {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"}, {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"}, {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"}]
@@ -54,6 +54,7 @@ X_FRAME_OPTIONS = "DENY"
 
 # Read-only local skill roots; deployment may override these explicitly.
 SKILL_INVENTORY_ROOTS = {
+    'project_skills': BASE_DIR.parent / '.agents' / 'skills',
     'codex_skills': Path.home() / '.codex' / 'skills',
     'agent_skills': Path.home() / '.agents' / 'skills',
     'plugin_cache': Path.home() / '.codex' / 'plugins' / 'cache',
@@ -61,8 +62,9 @@ SKILL_INVENTORY_ROOTS = {
 
 STATICFILES_DIRS = [('brand', BASE_DIR.parent / 'docs' / 'brand')]
 LOGIN_REDIRECT_URL = '/'
-INSTALLED_APPS += ['workspace']
-INSTALLED_APPS += ['token_usage']
+INSTALLED_APPS += ['workspace.apps.WorkspaceConfig']
+INSTALLED_APPS += ['token_usage.apps.TokenUsageConfig']
 TOKEN_USAGE_SOURCE = Path(os.getenv('TOKEN_USAGE_SOURCE', str(Path.home() / '.codex' / 'usage-logs' / 'usage.sqlite3')))
 STATICFILES_FINDERS = ['registry.static_finders.BrandAssetsFinder', 'django.contrib.staticfiles.finders.AppDirectoriesFinder']
 INSTALLED_APPS += ['execution_context']
+INSTALLED_APPS += ['operations.apps.OperationsConfig']
