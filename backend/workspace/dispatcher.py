@@ -1,6 +1,8 @@
 """Local serialized job runner with dedicated CLI execution sessions."""
 import shutil
 import uuid
+import os
+from pathlib import Path
 from django.conf import settings
 from django.db import transaction, IntegrityError
 from django.utils import timezone
@@ -8,6 +10,15 @@ from .models import ModelJob
 
 MODELS={'gpt-6-luna','gpt-6.1-sol','gpt-6-astra'}
 EFFORTS={'low','medium','high'}
+
+
+def resolve_codex():
+    binary=shutil.which('codex.exe') or shutil.which('codex')
+    if binary:return binary
+    # Logon tasks do not inherit Codex desktop's per-process PATH.
+    root=Path(os.environ.get('LOCALAPPDATA',Path.home()/'AppData'/'Local'))/'OpenAI'/'Codex'/'bin'
+    candidates=list(root.glob('*/codex.exe'))
+    return str(max(candidates,key=lambda path:path.stat().st_mtime)) if candidates else None
 
 
 def enqueue(charter,owner,prompt,mode='read-only',submission_key=None):
@@ -36,7 +47,7 @@ def run_one():
     except IntegrityError:return None
     job.refresh_from_db()
     try:
-        binary=shutil.which('codex.exe') or shutil.which('codex')
+        binary=resolve_codex()
         if not binary:raise ValueError('لم يُعثر على Codex محليًا')
         if job.requested_model not in MODELS or job.requested_thinking not in EFFORTS:raise ValueError('نموذج غير مسموح')
         uuid.UUID(job.charter.thread_id)

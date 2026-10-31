@@ -102,3 +102,16 @@ class ModelJob(models.Model):
 class DispatcherHeartbeat(models.Model):
     key = models.CharField(max_length=20,unique=True,default='local')
     updated_at = models.DateTimeField(auto_now=True)
+    pid = models.PositiveIntegerField(default=0)
+    state = models.CharField(max_length=20,default='stopped')
+    started_at = models.DateTimeField(null=True)
+    stopped_at = models.DateTimeField(null=True)
+    startup_method = models.CharField(max_length=60,blank=True)
+    last_error = models.CharField(max_length=200,blank=True)
+
+
+class DispatcherRun(models.Model):
+    pid = models.PositiveIntegerField()
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True)
+    state = models.CharField(max_length=20,default='running')

@@ -4,7 +4,7 @@ from django.http import HttpResponseForbidden
 from django.db import transaction
 from .models import Project, Phase, Task, TaskUpdate, Decision
 from .forms import TaskForm, UpdateForm, DecisionForm
-from .models import SessionCharter, ModelJob, DispatcherHeartbeat
+from .models import SessionCharter, ModelJob, DispatcherHeartbeat, DispatcherRun
 from django.utils import timezone
 from datetime import timedelta
 from .forms import ModelJobForm
@@ -47,7 +47,8 @@ def model_jobs(request):
         else:return redirect('model-jobs')
     heartbeat=DispatcherHeartbeat.objects.filter(key='local').first()
     return render(request,'workspace/model_jobs.html',{'form':form,'jobs':ModelJob.objects.filter(charter__project=project()).select_related('charter')[:30],
-        'worker_online':bool(heartbeat and heartbeat.updated_at>timezone.now()-timedelta(seconds=20)),
+        'worker_online':bool(heartbeat and heartbeat.state=='running' and heartbeat.updated_at>timezone.now()-timedelta(seconds=20)),
+        'worker_health':heartbeat,'worker_runs':DispatcherRun.objects.order_by('-started_at')[:10],
         'worker_busy':ModelJob.objects.filter(state='running').exists(),
         'worker_uncertain':ModelJob.objects.filter(state='uncertain').exists()})
 
