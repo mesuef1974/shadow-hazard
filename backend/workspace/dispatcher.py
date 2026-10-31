@@ -32,7 +32,7 @@ def enqueue(charter,owner,prompt,mode='read-only',submission_key=None,task_kind=
     if not prompt.strip() or len(prompt)>12000:raise ValueError('المهمة مطلوبة وبحد أقصى 12000 حرف')
     plan=build_plan(charter,prompt,task_kind,skills,plugins,mode)
     task_kind=plan['kind']
-    values=dict(charter=charter,owner=owner,prompt=prompt.strip(),requested_model='local-arithmetic' if task_kind=='calculation' else policy.model,requested_thinking='none' if task_kind=='calculation' else policy.thinking,mode=mode)
+    values=dict(charter=charter,owner=owner,prompt=prompt.strip(),requested_model='local-arithmetic' if task_kind=='calculation' else 'gpt-6-luna',requested_thinking='none' if task_kind=='calculation' else 'low',mode=mode)
     if submission_key:
         job,created=ModelJob.objects.get_or_create(submission_key=submission_key,defaults=values)
         if not created and (job.owner_id!=owner.pk or job.charter_id!=charter.pk or job.prompt!=prompt.strip() or job.mode!=mode):
@@ -58,7 +58,7 @@ def run_one():
     except IntegrityError:return None
     job.refresh_from_db()
     try:
-        if not job.charter.policy.enabled or job.owner.role!='supervisor':raise ValueError('التفويض موقوف')
+        if not job.charter.policy.enabled or not job.owner.is_active or job.owner.role!='supervisor':raise ValueError('التفويض موقوف')
         plan=TaskContext.objects.filter(job=job).first()
         if plan:validate_manifest(plan)
         if plan and plan.kind=='calculation':
@@ -71,6 +71,10 @@ def run_one():
             record_local_execution(job,plan)
             job.state='completed'
             return job
+        from execution_context.escalation import authorized
+        if not authorized(job):
+            job.state='awaiting_approval';job.outcome_note='لم يبدأ التنفيذ: النموذج الأعلى يتطلب موافقة صريحة مرتبطة بهذه المهمة.'
+            return job
         binary=resolve_codex()
         if not binary:raise ValueError('لم يُعثر على Codex محليًا')
         if job.requested_model not in MODELS or job.requested_thinking not in EFFORTS:raise ValueError('نموذج غير مسموح')
@@ -78,6 +82,7 @@ def run_one():
         charter_text=plan.charter if plan else f'نطاق الجلسة: {job.charter.scope}\nالميثاق: {job.charter.rules}'
         prompt=f'مهمة مفوضة من سفيان عبر منصة ظل الخطر. رقم الطلب {job.pk}.\n{charter_text}\nلا ترسل رسائل لجلسات أخرى ولا تنشر أو تدفع بعيدًا. التزم بالمهمة وحدها.\nالمهمة:\n{job.prompt}'
         if plan and plan.skill_text:prompt+='\n\nتعليمات المهارات المطلوبة لهذه المهمة فقط:\n'+plan.skill_text
+        prompt+='\nإذا لم تستطع إنجاز المهمة بجودة كافية بالنموذج الحالي، لا تبدل النموذج ولا تشغل مهمة أخرى. أعد فقط ESCALATION_REQUEST: ثم JSON بمفتاحي model وreason؛ اختر gpt-6.1-sol أو gpt-6-astra ووضح العائق المحدد والأدلة ولماذا يفيد النموذج الأعلى. هذا اقتراح ينتظر موافقة سفيان وليس إذنًا بالتنفيذ. لا تطلب التصعيد لمجرد كبر السياق أو غياب أداة.'
         from .codex_transport import execute, Unavailable, Uncertain
         def record_start(thread_id):
             from token_usage.models import TrackedSession
@@ -103,4 +108,7 @@ def run_one():
         job.state='failed';job.outcome_note='تعذر بدء التشغيل المحلي؛ تحقق من Codex وسياسة الجلسة.'
     finally:
         job.finished_at=timezone.now();job.save(update_fields=['state','result','outcome_note','finished_at','observed_model','token_usage'])
+    if job.state=='completed':
+        from execution_context.escalation import detect_proposal
+        detect_proposal(job)
     return job

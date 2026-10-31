@@ -4,7 +4,11 @@ from django.urls import path
 from registry import portal
 from workspace import views as workspace
 from token_usage import views as token_usage
+from execution_context import views as execution_context
 urlpatterns = [
+ path('sessions/escalations/',execution_context.escalation_list,name='escalations'),
+ path('sessions/escalations/<int:pk>/decision/',execution_context.decide_escalation,name='decide-escalation'),
+ path('sessions/jobs/<int:job_id>/escalation/',execution_context.request_escalation,name='request-escalation'),
  path('sessions/jobs/', workspace.model_jobs, name='model-jobs'),
  path('sessions/', workspace.sessions, name='project-sessions'),
  path('usage/', token_usage.dashboard, name='token-dashboard'),

@@ -1,0 +1,25 @@
+{% extends 'registry/base.html' %}{% block content %}
+<h1>موافقات تصعيد النماذج</h1>
+<p>لونا هو الافتراضي. هذه اقتراحات تحتاج مراجعتك؛ لا يبدأ النموذج الأعلى قبل الضغط على «موافقة وتشغيل محاولة واحدة». الموافقة لا تغيّر النموذج الافتراضي أو المحادثة المفتوحة.</p>
+<p>الاستهلاك المتوقع للمحاولة الجديدة غير معلوم. سيُضاف استهلاكها الفعلي إلى المحاولة الأصلية؛ لا تُسترد توكنز المحاولة السابقة.</p>
+<a href="{% url 'model-jobs' %}">العودة إلى الطلبات</a>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% for item in requests %}<section class="work-panel">
+<h2>طلب تصعيد #{{ item.pk }} · المهمة #{{ item.source_job_id }}</h2>
+<p>النموذج السابق: <bdi>{{ item.source_job.requested_model }}</bdi> ← المقترح: <bdi>{{ item.target_model }}</bdi> · التفكير: {{ item.target_thinking }}</p>
+<p>المقترح بواسطة: {% if item.proposed_by == 'model' %}النموذج — اقتراح غير معتمد{% else %}المشرف{% endif %}</p>
+<h3>سبب الحاجة</h3>{{ item.reason|linebreaks }}
+<details><summary>المهمة والصلاحيات التي ستوافق عليها</summary><p>{{ item.snapshot.prompt|linebreaks }}</p><p>الصلاحية: {{ item.snapshot.mode }}</p><p>{{ item.snapshot.context.charter|linebreaks }}</p><p>المهارات: {{ item.snapshot.context.skills|join:', ' }} · الموصلات: {{ item.snapshot.context.plugins|join:', ' }}</p></details>
+<p>المحاولة الأصلية: إدخال {{ item.source_usage.input_tokens|default:0 }} · مخزن ضمن الإدخال {{ item.source_usage.cached_input_tokens|default:0 }} · إخراج {{ item.source_usage.output_tokens|default:0 }}</p>
+{% if item.source_total != None %}<p>إجمالي المحاولة الأصلية: {{ item.source_total }} توكن.</p>{% endif %}
+{% if item.state == 'pending' %}
+<form method="post" action="{% url 'decide-escalation' item.pk %}" class="editor">{% csrf_token %}
+<label for="note-{{ item.pk }}">ملاحظة القرار (اختيارية)</label><textarea id="note-{{ item.pk }}" name="note" maxlength="2000"></textarea>
+<button name="decision" value="approve">موافقة وتشغيل محاولة واحدة</button>
+<button name="decision" value="reject">رفض التصعيد</button>
+</form>
+{% else %}<p>القرار: {% if item.state == 'approved' %}موافق عليه{% else %}مرفوض{% endif %} · {{ item.decided_by.username }} · {{ item.decided_at }}</p>{{ item.decision_note|linebreaks }}{% endif %}
+{% if item.approved_job %}<p>المحاولة المعتمدة #{{ item.approved_job_id }} · {{ item.approved_job.state }} · النموذج المرصود: {{ item.approved_job.observed_model|default:'لم يتحقق بعد' }}</p>
+{% if item.approved_job.token_usage %}<p>استهلاكها الفعلي: إدخال {{ item.approved_job.token_usage.input_tokens }} · مخزن ضمن الإدخال {{ item.approved_job.token_usage.cached_input_tokens }} · إخراج {{ item.approved_job.token_usage.output_tokens }}</p>{% else %}<p>لا توجد قراءة استهلاك مؤكدة للمحاولة الجديدة بعد.</p>{% endif %}{% endif %}
+{% if item.combined_total != None %}<p>مجموع المحاولتين: {{ item.combined_total }} توكن. المخزن مؤقتًا ضمن الإدخال ولا يضاف ثانية.</p>{% endif %}
+</section>{% empty %}<p>لا توجد طلبات تصعيد حتى الآن.</p>{% endfor %}{% endblock %}
