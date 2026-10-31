@@ -24,13 +24,17 @@ def synchronize():
                 collector_data['last_success_at']=last_success['completed_at'] if last_success else None
                 CollectorState.objects.update_or_create(key='local',defaults={'payload':{'collector':collector_data,'weekly':dict(weekly) if weekly else {}}})
             with transaction.atomic():
+                # Acquire the SQLite write reservation before reading destination rows.
+                # This serializes a manual sync with the local watcher without lock upgrades.
+                SyncRun.objects.filter(pk=run.pk).update(message='المزامنة قيد التنفيذ')
                 for session in TrackedSession.objects.filter(enabled=True):
-                    known_ids=set(session.samples.values_list('source_id',flat=True))
+                    known_metadata={source_id:(effort,tier) for source_id,effort,tier in session.samples.values_list('source_id','effort','tier')}
                     rows = connection.execute('SELECT * FROM usage_samples WHERE session_id=? ORDER BY sampled_at,sample_id', (session.external_id,))
                     for row in rows:
                         metadata={'effort':row['reasoning_effort'] or '' if 'reasoning_effort' in row.keys() else '', 'tier':row['service_tier'] or '' if 'service_tier' in row.keys() else ''}
-                        if row['sample_id'] in known_ids:
-                            session.samples.filter(source_id=row['sample_id']).exclude(**metadata).update(**metadata)
+                        if row['sample_id'] in known_metadata:
+                            if known_metadata[row['sample_id']]!=(metadata['effort'],metadata['tier']):
+                                session.samples.filter(source_id=row['sample_id']).update(**metadata)
                             continue
                         for key in ['sample_id','cumulative_total_tokens','cumulative_input_tokens','cumulative_cached_input_tokens','cumulative_output_tokens','cumulative_reasoning_output_tokens','context_total_tokens','context_window_tokens']:
                             if not isinstance(row[key],int) or row[key]<0: raise ValueError('Invalid source counter')
