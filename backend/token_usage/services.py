@@ -5,6 +5,7 @@ from django.db import transaction, DatabaseError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from .models import TrackedSession, TokenSample, SyncRun, CollectorState
+from .delegated import job_index, effective_samples
 
 
 def synchronize():
@@ -64,9 +65,10 @@ def summarize(project, session_id=None):
     sessions=[]; totals={key:0 for key in ['total','input','cached','output','reasoning']}
     selected=TrackedSession.objects.filter(project=project)
     if session_id:selected=selected.filter(pk=session_id)
-    for session in selected:
-        rows=list(session.samples.all())
-        latest=rows[-1] if rows else None
+    jobs=job_index(project)
+    for session in selected.prefetch_related('samples'):
+        rows,job=effective_samples(session,jobs)
+        latest=(max(rows,key=lambda row:row.total) if job else rows[-1]) if rows else None
         resets=sum(b.total<a.total for a,b in zip(rows,rows[1:]))
         if latest:
             for key in totals: totals[key]+=getattr(latest,key)
@@ -74,6 +76,7 @@ def summarize(project, session_id=None):
         for a,b in list(zip(rows,rows[1:]))[-12:]:
             history.append({'at':b.sampled_at,'model':b.model,'total':b.total,'delta':b.total-a.total if b.total>=a.total else None})
         sessions.append({'session':session,'latest':latest,'count':len(rows),'resets':resets,'history':list(reversed(history)),
+                         'delegated_job':job,
                          'stale':bool(latest and (timezone.now()-latest.sampled_at).total_seconds()>300),
                          'percent':min(100,round(latest.context/latest.context_limit*100,1)) if latest and latest.context_limit else 0})
     return sessions,totals

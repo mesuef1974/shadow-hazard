@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import timedelta
 from django.utils import timezone
 from .models import TrackedSession
+from .delegated import job_index, effective_samples
 
 
 def analyze(project, period='all', session_id=None):
@@ -14,13 +15,27 @@ def analyze(project, period='all', session_id=None):
     context=[]
     selected=TrackedSession.objects.filter(project=project)
     if session_id:selected=selected.filter(pk=session_id)
+    jobs=job_index(project)
     for session in selected.prefetch_related('samples'):
-        rows=list(session.samples.all())
+        rows,job=effective_samples(session,jobs)
         if not rows:continue
-        if not cutoff:baseline+=rows[0].total
+        if job:
+            # One independent CLI execution has an explicit per-turn counter.
+            # Unlike an arbitrary collector baseline, its entire usage is known.
+            row=rows[0]
+            if not cutoff or row.sampled_at>=cutoff:
+                measured+=row.total;intervals+=1
+                hours[timezone.localtime(row.sampled_at).strftime('%Y-%m-%d %H:00')]+=row.total
+                if row.model:
+                    models[row.model]['tokens']+=row.total
+                    models[row.model]['intervals']+=1
+                else:boundary+=row.total
+                for key in split:split[key]+=getattr(row,key)
+        if not cutoff and not job:baseline+=rows[0].total
         high_total=rows[0].total
         high_split={key:getattr(rows[0],key) for key in split}
         for row in rows:
+            if job and row is rows[0]:continue
             if cutoff and row.sampled_at<cutoff:continue
             context.append({'timestamp':row.sampled_at.isoformat(),'at':timezone.localtime(row.sampled_at).strftime('%m/%d %H:%M'),'percent':round(row.context/row.context_limit*100,1) if row.context_limit else None,'tokens':row.context,'limit':row.context_limit,'session':session.name,'session_id':session.pk})
         for previous,current in zip(rows,rows[1:]):
