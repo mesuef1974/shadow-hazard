@@ -107,3 +107,7 @@ td[dir=ltr]{font-size:8pt}
 svg{min-width:0}
 footer{font-size:9pt}
 }
+.approved-scene{max-width:760px;margin:20px auto 28px;padding:10px}
+.approved-scene img{max-height:70vh;object-fit:contain}
+@media(max-width:700px){.approved-scene{max-width:100%;margin:14px auto 20px;padding:6px}.approved-scene img{max-height:55vh}}
+@media print{.approved-scene{max-width:165mm;margin:4mm auto;padding:2mm}.approved-scene img{max-height:125mm}}
