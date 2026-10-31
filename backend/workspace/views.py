@@ -4,8 +4,14 @@ from django.http import HttpResponseForbidden
 from django.db import transaction
 from .models import Project, Phase, Task, TaskUpdate, Decision
 from .forms import TaskForm, UpdateForm, DecisionForm
+from .models import SessionCharter
 
 def supervisor(user): return user.is_authenticated and user.role=='supervisor'
+
+@login_required(login_url='/login/')
+def sessions(request):
+    if not supervisor(request.user):return HttpResponseForbidden()
+    return render(request,'workspace/sessions.html',{'charters':SessionCharter.objects.filter(project=project()).select_related('policy')})
 def project(): return Project.objects.order_by('pk').first()
 
 @login_required(login_url='/login/')

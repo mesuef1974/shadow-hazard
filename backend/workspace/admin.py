@@ -1,5 +1,8 @@
 from django.contrib import admin
 from .models import Project,Phase,Task,TaskUpdate,Decision,DocumentAccess
+from .models import ModelPolicy, SessionCharter
+admin.site.register(ModelPolicy)
+admin.site.register(SessionCharter)
 for model in [Project,Phase,DocumentAccess]:admin.site.register(model)
 
 class HistoryAdmin(admin.ModelAdmin):

@@ -51,3 +51,26 @@ class DocumentAccess(models.Model):
     path = models.CharField('مسار الوثيقة داخل docs', max_length=500, unique=True)
     team_visible = models.BooleanField('متاح للفريق', default=False)
     def __str__(self): return self.path
+
+
+class ModelPolicy(models.Model):
+    category = models.CharField('فئة المهمة',max_length=60,unique=True)
+    title = models.CharField('التسمية',max_length=160)
+    model = models.CharField('النموذج المطلوب',max_length=80,default='gpt-6-luna')
+    thinking = models.CharField('التفكير',max_length=20,default='low')
+    max_attempts = models.PositiveSmallIntegerField('حد المحاولات المقترح',default=2)
+    enabled = models.BooleanField(default=True)
+    def __str__(self):return self.title
+
+
+class SessionCharter(models.Model):
+    key = models.CharField(max_length=60,unique=True)
+    name = models.CharField('اسم الجلسة',max_length=160)
+    project = models.ForeignKey(Project,on_delete=models.PROTECT)
+    policy = models.ForeignKey(ModelPolicy,on_delete=models.PROTECT)
+    scope = models.TextField('نطاق الملكية')
+    rules = models.TextField('الميثاق')
+    thread_id = models.CharField('معرف محادثة Codex',max_length=100,blank=True)
+    state = models.CharField('الحالة',max_length=40,default='prepared')
+    created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self):return self.name

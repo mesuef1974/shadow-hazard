@@ -4,6 +4,17 @@ from .models import Project, Phase, Task, Decision, TaskUpdate
 
 
 class WorkspacePermissionsTests(TestCase):
+    def test_routing_policy_and_sessions_access(self):
+        from .models import ModelPolicy
+        from .routing import recommend
+        ModelPolicy.objects.create(category='frontend',title='الواجهة')
+        self.assertEqual(recommend('frontend')['model'],'gpt-6-luna')
+        self.assertTrue(recommend('frontend')['requires_owner_launch'])
+        self.client.force_login(self.saud)
+        self.assertEqual(self.client.get('/sessions/').status_code,403)
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get('/sessions/').status_code,200)
+
     def test_static_does_not_expose_documents(self):
         from django.contrib.staticfiles import finders
         self.assertIsNone(finders.find('brand/approved-v1/README.md'))
