@@ -3,7 +3,10 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from registry import portal
 from workspace import views as workspace
+from token_usage import views as token_usage
 urlpatterns = [
+ path('usage/', token_usage.dashboard, name='token-dashboard'),
+ path('usage/sync/', token_usage.sync, name='token-sync'),
  path('', workspace.dashboard, name='project-home'),
  path('library/', portal.home, name='project-library'),
  path('phases/', workspace.phases, name='project-phases'),

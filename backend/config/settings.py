@@ -62,4 +62,6 @@ SKILL_INVENTORY_ROOTS = {
 STATICFILES_DIRS = [('brand', BASE_DIR.parent / 'docs' / 'brand')]
 LOGIN_REDIRECT_URL = '/'
 INSTALLED_APPS += ['workspace']
+INSTALLED_APPS += ['token_usage']
+TOKEN_USAGE_SOURCE = Path(os.getenv('TOKEN_USAGE_SOURCE', str(Path.home() / '.codex' / 'usage-logs' / 'usage.sqlite3')))
 STATICFILES_FINDERS = ['registry.static_finders.BrandAssetsFinder', 'django.contrib.staticfiles.finders.AppDirectoriesFinder']
