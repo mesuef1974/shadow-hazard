@@ -91,7 +91,14 @@ class ModelJob(models.Model):
     finished_at = models.DateTimeField(null=True)
     result = models.TextField(blank=True)
     observed_model = models.CharField(max_length=80,blank=True)
+    execution_thread_id = models.CharField(max_length=100,blank=True)
+    token_usage = models.JSONField(default=dict,blank=True)
     outcome_note = models.TextField(blank=True)
     class Meta:
         ordering=['-created_at']
         constraints=[models.UniqueConstraint(fields=['lane'],condition=models.Q(state__in=['running','uncertain']),name='one_local_model_job_running')]
+
+
+class DispatcherHeartbeat(models.Model):
+    key = models.CharField(max_length=20,unique=True,default='local')
+    updated_at = models.DateTimeField(auto_now=True)

@@ -24,7 +24,7 @@ class DispatcherTests(TestCase):
         self.client.force_login(self.student)
         self.assertEqual(self.client.get('/sessions/jobs/').status_code,403)
         self.client.force_login(self.owner)
-        self.assertContains(self.client.get('/sessions/jobs/'),'الموصل قيد التحقق')
+        self.assertContains(self.client.get('/sessions/jobs/'),'تنفيذ مستقل حسب ميثاق الجلسة')
 
     def test_idempotency_and_uncertain_database_lock(self):
         key=uuid.uuid4()

@@ -1,4 +1,4 @@
-"""Local, serialized Codex resume adapter. No shell command interpolation."""
+"""Local serialized job runner with dedicated CLI execution sessions."""
 import shutil
 import uuid
 from django.conf import settings
@@ -43,17 +43,26 @@ def run_one():
         if not job.charter.policy.enabled or job.owner.role!='supervisor':raise ValueError('التفويض موقوف')
         prompt=f'مهمة مفوضة من سفيان عبر منصة ظل الخطر. رقم الطلب {job.pk}.\nنطاق الجلسة: {job.charter.scope}\nالميثاق: {job.charter.rules}\nلا ترسل رسائل لجلسات أخرى ولا تنشر أو تدفع بعيدًا. التزم بالمهمة وحدها.\nالمهمة:\n{job.prompt}'
         from .codex_transport import execute, Unavailable, Uncertain
+        def record_start(thread_id):
+            from token_usage.models import TrackedSession
+            job.execution_thread_id=thread_id
+            job.save(update_fields=['execution_thread_id'])
+            TrackedSession.objects.get_or_create(external_id=thread_id,defaults={
+                'name':f'{job.charter.name} · طلب {job.pk}','project':job.charter.project})
         try:
-            response=execute(binary,job.charter.thread_id,job.requested_model,job.requested_thinking,prompt,settings.BASE_DIR.parent,job.mode)
+            response=execute(binary,job.charter.thread_id,job.requested_model,job.requested_thinking,prompt,settings.BASE_DIR.parent,job.mode,on_started=record_start)
             job.result=response['text']
+            job.observed_model=response.get('model','')
+            job.token_usage=response.get('usage',{})
             job.state='completed' if response['completed'] else 'needs_review'
-            job.outcome_note='معرف الدور: '+response['turn_id']+'؛ النموذج أُرسل صراحةً، ولم يتحقق بعد من سجل الاستخدام.'
+            if job.observed_model and job.observed_model!=job.requested_model:job.state='needs_review'
+            job.outcome_note='تنفيذ مستقل مرتبط بميثاق الجلسة؛ لا يغير نموذج المحادثة المفتوحة. تحقق من النتيجة قبل اعتمادها.'
         except Unavailable:
-            job.state='blocked';job.outcome_note='تعذر الاتصال بخادم Codex المحلي أو الجلسة مشغولة؛ لم ترسل المهمة.'
+            job.state='blocked';job.outcome_note='تعذر بدء جلسة التنفيذ المحلية؛ لا إعادة تلقائية.'
         except Uncertain:
             job.state='uncertain';job.outcome_note='لم يتأكد اكتمال الدور أو ينتظر تفاعلًا داخل Codex؛ لا إعادة تلقائية.'
     except (OSError,ValueError):
         job.state='failed';job.outcome_note='تعذر بدء التشغيل المحلي؛ تحقق من Codex وسياسة الجلسة.'
     finally:
-        job.finished_at=timezone.now();job.save(update_fields=['state','result','outcome_note','finished_at'])
+        job.finished_at=timezone.now();job.save(update_fields=['state','result','outcome_note','finished_at','observed_model','token_usage'])
     return job

@@ -4,7 +4,9 @@ from django.http import HttpResponseForbidden
 from django.db import transaction
 from .models import Project, Phase, Task, TaskUpdate, Decision
 from .forms import TaskForm, UpdateForm, DecisionForm
-from .models import SessionCharter, ModelJob
+from .models import SessionCharter, ModelJob, DispatcherHeartbeat
+from django.utils import timezone
+from datetime import timedelta
 from .forms import ModelJobForm
 from .dispatcher import enqueue
 from registry.models import ExecutionSession
@@ -43,7 +45,11 @@ def model_jobs(request):
         try:enqueue(form.cleaned_data['charter'],request.user,form.cleaned_data['prompt'],form.cleaned_data['mode'],form.cleaned_data['submission_key'])
         except ValueError as error:form.add_error(None,str(error))
         else:return redirect('model-jobs')
-    return render(request,'workspace/model_jobs.html',{'form':form,'jobs':ModelJob.objects.filter(charter__project=project()).select_related('charter')[:30]})
+    heartbeat=DispatcherHeartbeat.objects.filter(key='local').first()
+    return render(request,'workspace/model_jobs.html',{'form':form,'jobs':ModelJob.objects.filter(charter__project=project()).select_related('charter')[:30],
+        'worker_online':bool(heartbeat and heartbeat.updated_at>timezone.now()-timedelta(seconds=20)),
+        'worker_busy':ModelJob.objects.filter(state='running').exists(),
+        'worker_uncertain':ModelJob.objects.filter(state='uncertain').exists()})
 
 @login_required(login_url='/login/')
 def dashboard(request):
