@@ -1,5 +1,7 @@
 from pathlib import Path
 import mimetypes
+import hashlib
+from registry.models import Artifact, BrandDirection
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
@@ -17,6 +19,7 @@ def resolve_document(name):
 def home(request):
     query = request.GET.get("q", "").strip()
     documents = []
+    registered = {(a.path, a.sha256): a for a in Artifact.objects.filter(path__startswith="docs/")}
     for path in sorted(ROOT.rglob("*")):
         if path.is_file() and path.suffix.lower() in EXTENSIONS and path.resolve().is_relative_to(ROOT.resolve()):
             name = path.relative_to(ROOT).as_posix()
@@ -25,8 +28,9 @@ def home(request):
             if path.suffix == ".md":
                 title = next((line.lstrip("# ") for line in path.read_text(encoding="utf-8-sig").splitlines() if line.startswith("# ")), title)
             if query.casefold() not in (title + name).casefold(): continue
-            documents.append({"name": name, "title": title, "kind": path.suffix[1:].upper(), "group": path.parts[len(ROOT.parts)]})
-    return render(request, "registry/portal.html", {"documents": documents, "query": query})
+            record = registered.get(("docs/" + name, hashlib.sha256(path.read_bytes()).hexdigest()))
+            documents.append({"name": name, "title": title, "kind": path.suffix[1:].upper(), "group": path.parts[len(ROOT.parts)], "record": record})
+    return render(request, "registry/portal.html", {"documents": documents, "query": query, "brand": BrandDirection.objects.filter(status="approved").first()})
 
 @login_required(login_url="/login/")
 def document(request, name):
