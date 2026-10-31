@@ -1,1 +1,7 @@
-{% extends 'registry/base.html' %}{% load static %}{% block content %}<p class="eyebrow">وضع العرض · تحت إدارة سفيان</p><h1>نكشف ما تحجبه الرؤية</h1><p>تعاون مصادر الرصد لتحديد مشاة تحجبهم حافلة عن السائق، ثم تشغيل لوحة تحذير على عمود الكاميرات.</p><img class="exhibition-board" src="{% static 'brand/reveal-occlusion/identity-board-roadside-v2.png' %}" alt="لوحة الهوية والمشهد المعتمدان"><section class="work-panel"><h2>من التصور إلى الدليل</h2><p>المشروع في مرحلة التصميم. هذه صورة توضيحية؛ لم تُسجل نتائج تجربة فعلية في هذه الواجهة بعد.</p></section>{% endblock %}
+{% extends 'registry/base.html' %}{% load static %}{% block content %}
+<section class="project-scene">
+  <div class="scene-intro"><div><p class="eyebrow">ظل الخطر · عرض المسابقة</p><h1>نكشف ما تحجبه الرؤية</h1><p>رصد المشاة الذين تحجبهم الحافلة، وتنبيه السائق بلوحة على عمود الكاميرات.</p></div></div>
+  <figure><img src="{% static 'brand/reveal-occlusion/scene-explanation-v4.png' %}" width="1536" height="1024" alt="حافلة تحجب طفلًا عند ممر المشاة عن السائق؛ كاميرتان ترصدان المشهد ولوحة على العمود تنبه السيارة"><figcaption><span>المشهد المعتمد للنموذج</span><span>رصد من زاويتين · تقدير الخطر · تنبيه على العمود</span></figcaption></figure>
+</section>
+<section class="work-panel"><h2>من التصور إلى الدليل</h2><p>المشروع في مرحلة التصميم. هذه صورة توضيحية؛ لم تُسجل نتائج تجربة فعلية في هذه الواجهة بعد.</p></section>
+{% endblock %}
