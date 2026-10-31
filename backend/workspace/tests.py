@@ -15,6 +15,30 @@ class WorkspacePermissionsTests(TestCase):
         self.client.force_login(self.owner)
         self.assertEqual(self.client.get('/sessions/').status_code,200)
 
+    def test_main_and_specialized_sessions_visible_only_to_supervisor(self):
+        from django.utils import timezone
+        from registry.models import Actor, ExecutionSession
+        from token_usage.models import TrackedSession, TokenSample
+        from .models import ModelPolicy, SessionCharter
+
+        thread_id='01a18e02-0487-7180-9aa0-f932b22c8ef4'
+        actor=Actor.objects.create(key='codex-main-test',name='Codex assistant',kind='agent')
+        ExecutionSession.objects.create(external_key=thread_id,name='ظل الخطر',actor=actor,client='Codex desktop',model='unverified declaration')
+        tracked=TrackedSession.objects.create(external_id=thread_id,name='ظل الخطر',project=self.project)
+        TokenSample.objects.create(session=tracked,source_id=1,sampled_at=timezone.now(),model='gpt-6-luna',total=10,input=4,cached=0,output=6,reasoning=2,context=20,context_limit=100)
+        policy=ModelPolicy.objects.create(category='frontend-test',title='الواجهة',model='gpt-6-luna',thinking='low')
+        SessionCharter.objects.create(key='frontend-test',name='جلسة الواجهة',project=self.project,policy=policy,scope='الواجهة',rules='حدود الجلسة')
+
+        self.client.force_login(self.owner)
+        response=self.client.get('/sessions/')
+        self.assertContains(response,'جلسة التنسيق العام')
+        self.assertContains(response,'ظل الخطر')
+        self.assertContains(response,'gpt-6-luna')
+        self.assertContains(response,'جلسة الواجهة')
+
+        self.client.force_login(self.saud)
+        self.assertEqual(self.client.get('/sessions/').status_code,403)
+
     def test_static_does_not_expose_documents(self):
         from django.contrib.staticfiles import finders
         self.assertIsNone(finders.find('brand/approved-v1/README.md'))

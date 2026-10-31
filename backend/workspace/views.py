@@ -5,13 +5,30 @@ from django.db import transaction
 from .models import Project, Phase, Task, TaskUpdate, Decision
 from .forms import TaskForm, UpdateForm, DecisionForm
 from .models import SessionCharter
+from registry.models import ExecutionSession
+from token_usage.models import TrackedSession
 
 def supervisor(user): return user.is_authenticated and user.role=='supervisor'
 
 @login_required(login_url='/login/')
 def sessions(request):
     if not supervisor(request.user):return HttpResponseForbidden()
-    return render(request,'workspace/sessions.html',{'charters':SessionCharter.objects.filter(project=project()).select_related('policy')})
+    thread_id='01a18e02-0487-7180-9aa0-f932b22c8ef4'
+    execution=ExecutionSession.objects.filter(external_key=thread_id).first()
+    tracked=TrackedSession.objects.filter(external_id=thread_id,project=project()).first()
+    latest_model_sample=tracked.samples.filter(model__gt='').order_by('-sampled_at','-source_id').first() if tracked else None
+    coordination_session=None
+    if execution and tracked:
+        coordination_session={
+            'name':execution.name,
+            'thread_id':execution.external_key,
+            'client':execution.client,
+            'model_sample':latest_model_sample,
+        }
+    return render(request,'workspace/sessions.html',{
+        'charters':SessionCharter.objects.filter(project=project()).select_related('policy'),
+        'coordination_session':coordination_session,
+    })
 def project(): return Project.objects.order_by('pk').first()
 
 @login_required(login_url='/login/')
