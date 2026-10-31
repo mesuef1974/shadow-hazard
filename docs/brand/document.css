@@ -1,0 +1,7 @@
+/* Shared document presentation: approved report components and canonical tokens. */
+@import url('../blueprint/report-brand.css');
+.document-content h1{font-size:clamp(24px,3vw,34px);color:var(--brand-primary)}
+.document-content h2{margin-top:32px;border-inline-start:4px solid var(--brand-accent);padding-inline-start:12px}
+.document-content table{display:block;overflow-x:auto;min-width:0;max-width:100%}
+.document-content pre{direction:ltr;text-align:left;overflow:auto;padding:16px;background:var(--brand-background);font-family:var(--brand-font-en)}
+@media print{.document-content table{display:table;font-size:8pt}.document-content pre{white-space:pre-wrap;overflow-wrap:anywhere}}
