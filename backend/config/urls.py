@@ -5,6 +5,7 @@ from registry import portal
 from workspace import views as workspace
 from token_usage import views as token_usage
 urlpatterns = [
+ path('sessions/jobs/', workspace.model_jobs, name='model-jobs'),
  path('sessions/', workspace.sessions, name='project-sessions'),
  path('usage/', token_usage.dashboard, name='token-dashboard'),
  path('usage/sync/', token_usage.sync, name='token-sync'),

@@ -4,9 +4,12 @@ from django.http import HttpResponseForbidden
 from django.db import transaction
 from .models import Project, Phase, Task, TaskUpdate, Decision
 from .forms import TaskForm, UpdateForm, DecisionForm
-from .models import SessionCharter
+from .models import SessionCharter, ModelJob
+from .forms import ModelJobForm
+from .dispatcher import enqueue
 from registry.models import ExecutionSession
 from token_usage.models import TrackedSession
+import uuid
 
 def supervisor(user): return user.is_authenticated and user.role=='supervisor'
 
@@ -30,6 +33,17 @@ def sessions(request):
         'coordination_session':coordination_session,
     })
 def project(): return Project.objects.order_by('pk').first()
+
+@login_required(login_url='/login/')
+def model_jobs(request):
+    if not supervisor(request.user):return HttpResponseForbidden()
+    form=ModelJobForm(request.POST or None,initial={'submission_key':uuid.uuid4()})
+    form.fields['charter'].queryset=SessionCharter.objects.filter(project=project(),policy__enabled=True).exclude(thread_id='')
+    if request.method=='POST' and form.is_valid():
+        try:enqueue(form.cleaned_data['charter'],request.user,form.cleaned_data['prompt'],form.cleaned_data['mode'],form.cleaned_data['submission_key'])
+        except ValueError as error:form.add_error(None,str(error))
+        else:return redirect('model-jobs')
+    return render(request,'workspace/model_jobs.html',{'form':form,'jobs':ModelJob.objects.filter(charter__project=project()).select_related('charter')[:30]})
 
 @login_required(login_url='/login/')
 def dashboard(request):

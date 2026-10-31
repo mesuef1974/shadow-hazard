@@ -74,3 +74,24 @@ class SessionCharter(models.Model):
     state = models.CharField('الحالة',max_length=40,default='prepared')
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self):return self.name
+
+
+class ModelJob(models.Model):
+    submission_key = models.UUIDField(null=True, unique=True, editable=False)
+    charter = models.ForeignKey(SessionCharter,on_delete=models.PROTECT)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT)
+    prompt = models.TextField('المهمة المحددة')
+    requested_model = models.CharField(max_length=80)
+    requested_thinking = models.CharField(max_length=20)
+    mode = models.CharField(max_length=20,default='read-only')
+    state = models.CharField(max_length=30,default='queued')
+    lane = models.PositiveSmallIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True)
+    finished_at = models.DateTimeField(null=True)
+    result = models.TextField(blank=True)
+    observed_model = models.CharField(max_length=80,blank=True)
+    outcome_note = models.TextField(blank=True)
+    class Meta:
+        ordering=['-created_at']
+        constraints=[models.UniqueConstraint(fields=['lane'],condition=models.Q(state__in=['running','uncertain']),name='one_local_model_job_running')]
