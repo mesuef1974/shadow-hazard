@@ -42,7 +42,7 @@ def model_jobs(request):
     form=ModelJobForm(request.POST or None,initial={'submission_key':uuid.uuid4()})
     form.fields['charter'].queryset=SessionCharter.objects.filter(project=project(),policy__enabled=True).exclude(thread_id='')
     if request.method=='POST' and form.is_valid():
-        try:enqueue(form.cleaned_data['charter'],request.user,form.cleaned_data['prompt'],form.cleaned_data['mode'],form.cleaned_data['submission_key'])
+        try:enqueue(form.cleaned_data['charter'],request.user,form.cleaned_data['prompt'],form.cleaned_data['mode'],form.cleaned_data['submission_key'],form.cleaned_data['task_kind'],form.cleaned_data['skills'],form.cleaned_data['plugins'])
         except ValueError as error:form.add_error(None,str(error))
         else:return redirect('model-jobs')
     heartbeat=DispatcherHeartbeat.objects.filter(key='local').first()

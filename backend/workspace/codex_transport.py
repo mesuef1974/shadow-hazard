@@ -7,6 +7,7 @@ import subprocess
 import threading
 import time
 from datetime import datetime, timezone, timedelta
+from execution_context.routing import capability_flags
 
 class Unavailable(Exception):
     pass
@@ -31,14 +32,12 @@ def observed_model(thread_id):
     return ''
 
 
-def execute(binary, thread_id, model, effort, prompt, cwd, mode, timeout=600, on_started=None):
+def execute(binary, thread_id, model, effort, prompt, cwd, mode, timeout=600, on_started=None,selected_plugins=()):
     # thread_id identifies the parent charter only; it is deliberately NOT resumed.
     # Keep default instructions, AGENTS, rules and sandbox intact. Exclude general
     # host memory/catalogs and app connectors from this local execution only.
     command=[binary,'-a','never','exec','--sandbox',mode,'--model',model,
-             '--disable','memories','--enable','skip_host_skill_discovery',
-             '--enable','omit_skill_descriptions',
-             '--disable','plugins','--disable','apps',
+             *capability_flags(selected_plugins),
              '-c',f'model_reasoning_effort="{effort}"',
              '-c','sandbox_workspace_write.network_access=false','--json','-']
     try:

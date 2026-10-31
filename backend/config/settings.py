@@ -65,3 +65,4 @@ INSTALLED_APPS += ['workspace']
 INSTALLED_APPS += ['token_usage']
 TOKEN_USAGE_SOURCE = Path(os.getenv('TOKEN_USAGE_SOURCE', str(Path.home() / '.codex' / 'usage-logs' / 'usage.sqlite3')))
 STATICFILES_FINDERS = ['registry.static_finders.BrandAssetsFinder', 'django.contrib.staticfiles.finders.AppDirectoriesFinder']
+INSTALLED_APPS += ['execution_context']
