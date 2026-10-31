@@ -9,6 +9,30 @@ from .services import synchronize,summarize
 
 
 class TokenUsageTests(TestCase):
+    def test_historical_quota_and_unknown_context(self):
+        from .models import CollectorState
+        from .analytics import analyze
+        from django.utils import timezone
+        owner=get_user_model().objects.create_user(username='mesuef',role='supervisor')
+        CollectorState.objects.create(key='local',payload={'collector':{'heartbeat_at':4},'weekly':{'weekly_used_percent':47,'sampled_at':'invalid','weekly_resets_at':'invalid'}})
+        self.client.force_login(owner)
+        response=self.client.get('/usage/')
+        self.assertEqual(response.status_code,200)
+        self.assertTrue(response.context['weekly']['historical'])
+        TokenSample.objects.create(session=self.session,source_id=1,sampled_at=timezone.now(),model='X',total=1,input=1,output=0,cached=0,reasoning=0,context=10,context_limit=0)
+        self.assertIsNone(analyze(self.project)['context'][0]['percent'])
+
+    def test_session_filter_is_project_scoped(self):
+        from .analytics import analyze
+        from django.utils import timezone
+        other=TrackedSession.objects.create(external_id='second',name='جلسة ثانية',project=self.project)
+        TokenSample.objects.create(session=other,source_id=1,sampled_at=timezone.now(),model='X',total=900,input=900,cached=0,output=0,reasoning=0,context=50,context_limit=100)
+        sessions,totals=summarize(self.project,self.session.pk)
+        self.assertEqual(len(sessions),1)
+        self.assertEqual(totals['total'],0)
+        self.assertEqual(analyze(self.project,session_id=self.session.pk)['context'],[])
+        self.assertEqual(len(analyze(self.project,session_id=other.pk)['context']),1)
+
     def test_model_attribution_excludes_baseline_switches_and_resets(self):
         from datetime import timedelta
         from django.utils import timezone

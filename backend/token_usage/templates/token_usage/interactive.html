@@ -1,0 +1,8 @@
+{% load static %}
+<section class="work-panel"><div class="section-title"><div><h2>ضغط السياق لكل جلسة</h2><p>اختر جلسة ثم حرّك المؤشر لرؤية وقت العينة وقيمتها. الرسم يعرض نسبة السياق ولا يمثل حد الحساب الأسبوعي.</p></div></div>
+<label for="context-session">جلسة الرسم</label><select id="context-session"></select>
+<svg id="context-chart" viewBox="0 0 900 230" role="img" aria-label="منحنى استخدام نافذة السياق" class="interactive-chart"></svg>
+<label for="context-point">التنقل بين العينات</label><input id="context-point" type="range" min="0" max="0" value="0" step="1"><output id="context-detail" aria-live="polite"></output>
+<noscript><p>فعّل JavaScript للتفاعل. بيانات السياق الحالية متاحة في بطاقات الجلسات.</p></noscript></section>
+<div id="chart-selection" class="chart-selection" role="status" aria-live="polite">اضغط أي عمود زمني أو شريط نموذج لعرض تفاصيله.</div>
+{{ analytics|json_script:'usage-chart-data' }}<script src="{% static 'registry/usage-charts.js' %}" defer></script>

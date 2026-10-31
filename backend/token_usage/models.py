@@ -35,3 +35,9 @@ class SyncRun(models.Model):
     added = models.PositiveIntegerField(default=0)
     success = models.BooleanField(default=False)
     message = models.CharField(max_length=300, blank=True)
+
+
+class CollectorState(models.Model):
+    key = models.CharField(max_length=40, unique=True, default='local')
+    payload = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)

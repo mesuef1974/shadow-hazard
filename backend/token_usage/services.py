@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import transaction, DatabaseError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from .models import TrackedSession, TokenSample, SyncRun
+from .models import TrackedSession, TokenSample, SyncRun, CollectorState
 
 
 def synchronize():
@@ -15,6 +15,14 @@ def synchronize():
         connection = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=5)
         connection.row_factory = sqlite3.Row
         try:
+            tables={row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if 'usage_collector_runs' in tables:
+                collector=connection.execute('SELECT status,started_at,completed_at,heartbeat_at,source_files_updated,samples_inserted FROM usage_collector_runs ORDER BY run_id DESC LIMIT 1').fetchone()
+                last_success=connection.execute("SELECT completed_at FROM usage_collector_runs WHERE status='success' ORDER BY run_id DESC LIMIT 1").fetchone()
+                weekly=connection.execute('SELECT sampled_at,recorded_at,weekly_used_percent,weekly_remaining_percent,weekly_window_minutes,weekly_resets_at FROM usage_samples WHERE weekly_used_percent IS NOT NULL AND weekly_window_minutes=10080 ORDER BY sampled_at DESC,sample_id DESC LIMIT 1').fetchone()
+                collector_data=dict(collector) if collector else {}
+                collector_data['last_success_at']=last_success['completed_at'] if last_success else None
+                CollectorState.objects.update_or_create(key='local',defaults={'payload':{'collector':collector_data,'weekly':dict(weekly) if weekly else {}}})
             with transaction.atomic():
                 for session in TrackedSession.objects.filter(enabled=True):
                     known_ids=set(session.samples.values_list('source_id',flat=True))
@@ -48,9 +56,11 @@ def synchronize():
     return run
 
 
-def summarize(project):
+def summarize(project, session_id=None):
     sessions=[]; totals={key:0 for key in ['total','input','cached','output','reasoning']}
-    for session in TrackedSession.objects.filter(project=project):
+    selected=TrackedSession.objects.filter(project=project)
+    if session_id:selected=selected.filter(pk=session_id)
+    for session in selected:
         rows=list(session.samples.all())
         latest=rows[-1] if rows else None
         resets=sum(b.total<a.total for a,b in zip(rows,rows[1:]))

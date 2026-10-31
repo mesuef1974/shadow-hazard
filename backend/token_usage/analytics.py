@@ -5,14 +5,16 @@ from django.utils import timezone
 from .models import TrackedSession
 
 
-def analyze(project, period='all'):
+def analyze(project, period='all', session_id=None):
     cutoff = timezone.now()-timedelta(days=1 if period=='day' else 7) if period in {'day','week'} else None
     models=defaultdict(lambda:{'tokens':0,'intervals':0})
     hours=defaultdict(int)
     split={'input':0,'cached':0,'output':0,'reasoning':0}
     transitions=[]; baseline=0; boundary=0; resets=0; intervals=0; measured=0; anomalies=0
     context=[]
-    for session in TrackedSession.objects.filter(project=project).prefetch_related('samples'):
+    selected=TrackedSession.objects.filter(project=project)
+    if session_id:selected=selected.filter(pk=session_id)
+    for session in selected.prefetch_related('samples'):
         rows=list(session.samples.all())
         if not rows:continue
         if not cutoff:baseline+=rows[0].total
@@ -20,7 +22,7 @@ def analyze(project, period='all'):
         high_split={key:getattr(rows[0],key) for key in split}
         for row in rows:
             if cutoff and row.sampled_at<cutoff:continue
-            context.append({'at':timezone.localtime(row.sampled_at).strftime('%m/%d %H:%M'),'percent':round(row.context/row.context_limit*100,1) if row.context_limit else 0,'session':session.name})
+            context.append({'timestamp':row.sampled_at.isoformat(),'at':timezone.localtime(row.sampled_at).strftime('%m/%d %H:%M'),'percent':round(row.context/row.context_limit*100,1) if row.context_limit else None,'tokens':row.context,'limit':row.context_limit,'session':session.name,'session_id':session.pk})
         for previous,current in zip(rows,rows[1:]):
             delta=max(0,current.total-high_total)
             diffs={key:max(0,getattr(current,key)-high_split[key]) for key in split}
@@ -29,7 +31,7 @@ def analyze(project, period='all'):
             for key in split:high_split[key]=max(high_split[key],getattr(current,key))
             if cutoff and previous.sampled_at<cutoff:continue
             if current.model!=previous.model:
-                transitions.append({'at':current.sampled_at,'before':previous.model,'after':current.model,'session':session.name})
+                transitions.append({'at':current.sampled_at,'before':previous.model,'after':current.model,'session':session.name,'session_id':session.pk})
             if current.total<previous.total:resets+=1;continue
             if not delta:continue
             measured+=delta;intervals+=1
@@ -49,4 +51,5 @@ def analyze(project, period='all'):
     composition=[{'name':'إدخال غير مخزن','value':split['input']-split['cached'],'class':'uncached'}, {'name':'إدخال مخزن مؤقتًا','value':split['cached'],'class':'cached'}, {'name':'إخراج غير استدلالي','value':split['output']-split['reasoning'],'class':'output'}, {'name':'استدلال ضمن الإخراج','value':split['reasoning'],'class':'reasoning'}]
     denominator=sum(x['value'] for x in composition)
     for item in composition:item['share']=round(item['value']/denominator*100,2) if denominator else 0
-    return {'period':period,'models':model_rows,'hourly':hourly,'composition':composition,'measured':measured,'baseline':baseline,'boundary':boundary,'resets':resets,'anomalies':anomalies,'intervals':intervals,'transitions':sorted(transitions,key=lambda x:x['at'],reverse=True)[:20], 'cache_rate':round(split['cached']/split['input']*100,1) if split['input'] else None,'peak':max(hourly,key=lambda x:x['tokens'],default=None),'context':context[-80:]}
+    return {'period':period,'models':model_rows,'hourly':hourly,'composition':composition,'measured':measured,'baseline':baseline,'boundary':boundary,'resets':resets,'anomalies':anomalies,'intervals':intervals,'transitions':sorted(transitions,key=lambda x:x['at'],reverse=True)[:20], 'cache_rate':round(split['cached']/split['input']*100,1) if split['input'] else None,'peak':max(hourly,key=lambda x:x['tokens'],default=None),'context':sorted(context,key=lambda x:x['timestamp'])}
+
