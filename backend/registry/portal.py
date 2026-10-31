@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.shortcuts import render
+from workspace.models import DocumentAccess
 ROOT = settings.BASE_DIR.parent / "docs"
 EXTENSIONS = {".md", ".html", ".pdf", ".mmd"}
 
@@ -19,10 +20,12 @@ def resolve_document(name):
 def home(request):
     query = request.GET.get("q", "").strip()
     documents = []
+    permitted = set(DocumentAccess.objects.filter(team_visible=True).values_list('path', flat=True))
     registered = {(a.path, a.sha256): a for a in Artifact.objects.filter(path__startswith="docs/")}
     for path in sorted(ROOT.rglob("*")):
         if path.is_file() and path.suffix.lower() in EXTENSIONS and path.resolve().is_relative_to(ROOT.resolve()):
             name = path.relative_to(ROOT).as_posix()
+            if request.user.role != 'supervisor' and name not in permitted: continue
             if any(p.startswith(".") for p in Path(name).parts): continue
             title = path.stem
             if path.suffix == ".md":
@@ -34,6 +37,8 @@ def home(request):
 
 @login_required(login_url="/login/")
 def document(request, name):
+    if request.user.role != 'supervisor' and not DocumentAccess.objects.filter(path=name, team_visible=True).exists():
+        raise Http404
     path = resolve_document(name)
     if request.GET.get("download") == "1" or path.suffix.lower() not in {".md", ".mmd"}:
         return FileResponse(path.open("rb"), as_attachment=True, filename=path.name)

@@ -61,3 +61,5 @@ SKILL_INVENTORY_ROOTS = {
 
 STATICFILES_DIRS = [('brand', BASE_DIR.parent / 'docs' / 'brand')]
 LOGIN_REDIRECT_URL = '/'
+INSTALLED_APPS += ['workspace']
+STATICFILES_FINDERS = ['registry.static_finders.BrandAssetsFinder', 'django.contrib.staticfiles.finders.AppDirectoriesFinder']
