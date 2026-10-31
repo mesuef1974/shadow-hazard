@@ -1,0 +1,11 @@
+{
+  "release": "2.0",
+  "status": "approved",
+  "approval_event": "logo-usage-v2-approved",
+  "approved_by": "سفيان",
+  "base_identity": "../approved-v1/manifest.json",
+  "navigation": "navigation.svg",
+  "navigation_dark_background": "navigation-white.svg",
+  "symbol": "symbol.svg",
+  "favicon": "icon-small.svg"
+}

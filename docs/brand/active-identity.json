@@ -3,5 +3,8 @@
   "release": "1.0",
   "manifest": "approved-v1/manifest.json",
   "tokens": "approved-v1/tokens.css",
-  "approval_event": "brand-identity-v1-approved"
+  "approval_event": "brand-identity-v1-approved",
+  "logo_release": "2.0",
+  "logo_manifest": "approved-v2/manifest.json",
+  "favicon": "approved-v2/icon-small.svg"
 }
