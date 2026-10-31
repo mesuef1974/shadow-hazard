@@ -28,6 +28,13 @@ class TransportTests(TestCase):
         command=popen.call_args.args[0]
         self.assertNotIn('resume',command);self.assertNotIn('desktop-parent',command)
         self.assertIn('gpt-6-luna',command);self.assertIn('never',command)
+        pairs=set(zip(command,command[1:]))
+        for feature in ('memories','plugins','apps'):self.assertIn(('--disable',feature),pairs)
+        for feature in ('skip_host_skill_discovery','omit_skill_descriptions'):self.assertIn(('--enable',feature),pairs)
+        self.assertNotIn('--ignore-user-config',command)
+        self.assertNotIn('--ignore-rules',command)
+        self.assertNotIn('--dangerously-bypass-approvals-and-sandbox',command)
+        self.assertEqual(popen.call_args.kwargs['cwd'],'.')
         started.assert_called_once_with(tid)
         self.assertTrue(result['completed']);self.assertEqual(result['model'],'gpt-6-luna')
         self.assertEqual(result['usage']['input_tokens'],12)

@@ -33,7 +33,12 @@ def observed_model(thread_id):
 
 def execute(binary, thread_id, model, effort, prompt, cwd, mode, timeout=600, on_started=None):
     # thread_id identifies the parent charter only; it is deliberately NOT resumed.
+    # Keep default instructions, AGENTS, rules and sandbox intact. Exclude general
+    # host memory/catalogs and app connectors from this local execution only.
     command=[binary,'-a','never','exec','--sandbox',mode,'--model',model,
+             '--disable','memories','--enable','skip_host_skill_discovery',
+             '--enable','omit_skill_descriptions',
+             '--disable','plugins','--disable','apps',
              '-c',f'model_reasoning_effort="{effort}"',
              '-c','sandbox_workspace_write.network_access=false','--json','-']
     try:
