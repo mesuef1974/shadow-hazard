@@ -111,3 +111,7 @@ footer{font-size:9pt}
 .approved-scene img{max-height:70vh;object-fit:contain}
 @media(max-width:700px){.approved-scene{max-width:100%;margin:14px auto 20px;padding:6px}.approved-scene img{max-height:55vh}}
 @media print{.approved-scene{max-width:165mm;margin:4mm auto;padding:2mm}.approved-scene img{max-height:125mm}}
+.approved-scene{width:min(100%,620px);max-width:620px;padding:8px}
+.approved-scene img{width:100%;max-height:none;height:auto;object-fit:contain}
+@media(max-width:700px){.approved-scene{width:100%;padding:5px}}
+@media print{.approved-scene{width:100%;max-width:155mm}.approved-scene img{max-height:105mm}}
