@@ -1,0 +1,36 @@
+from pathlib import Path
+import mimetypes
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.http import FileResponse, Http404
+from django.shortcuts import render
+ROOT = settings.BASE_DIR.parent / "docs"
+EXTENSIONS = {".md", ".html", ".pdf", ".mmd"}
+
+def resolve_document(name):
+    path = (ROOT / name).resolve()
+    if not path.is_relative_to(ROOT.resolve()) or not path.is_file() or path.suffix.lower() not in EXTENSIONS or any(p.startswith(".") for p in Path(name).parts):
+        raise Http404
+    return path
+
+@login_required(login_url="/login/")
+def home(request):
+    query = request.GET.get("q", "").strip()
+    documents = []
+    for path in sorted(ROOT.rglob("*")):
+        if path.is_file() and path.suffix.lower() in EXTENSIONS and path.resolve().is_relative_to(ROOT.resolve()):
+            name = path.relative_to(ROOT).as_posix()
+            if any(p.startswith(".") for p in Path(name).parts): continue
+            title = path.stem
+            if path.suffix == ".md":
+                title = next((line.lstrip("# ") for line in path.read_text(encoding="utf-8-sig").splitlines() if line.startswith("# ")), title)
+            if query.casefold() not in (title + name).casefold(): continue
+            documents.append({"name": name, "title": title, "kind": path.suffix[1:].upper(), "group": path.parts[len(ROOT.parts)]})
+    return render(request, "registry/portal.html", {"documents": documents, "query": query})
+
+@login_required(login_url="/login/")
+def document(request, name):
+    path = resolve_document(name)
+    if request.GET.get("download") == "1" or path.suffix.lower() not in {".md", ".mmd"}:
+        return FileResponse(path.open("rb"), as_attachment=True, filename=path.name)
+    return render(request, "registry/document.html", {"name": name, "content": path.read_text(encoding="utf-8-sig")})

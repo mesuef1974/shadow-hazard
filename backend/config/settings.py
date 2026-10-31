@@ -58,3 +58,6 @@ SKILL_INVENTORY_ROOTS = {
     'agent_skills': Path.home() / '.agents' / 'skills',
     'plugin_cache': Path.home() / '.codex' / 'plugins' / 'cache',
 }
+
+STATICFILES_DIRS = [('brand', BASE_DIR.parent / 'docs' / 'brand')]
+LOGIN_REDIRECT_URL = '/'
