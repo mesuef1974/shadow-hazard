@@ -14,6 +14,31 @@ from execution_context.models import SessionDispatch
 
 
 class WorkerTests(TransactionTestCase):
+    @patch('workspace.worker_startup.time.sleep')
+    def test_startup_retries_busy_transaction_and_creates_one_run(self, sleep):
+        from workspace.worker_startup import prepare_startup, recover_state
+        from django.db import connection
+        if connection.vendor != 'sqlite': self.skipTest('SQLite contention regression')
+        attempts = []
+        def attempt(pid):
+            attempts.append(pid)
+            if len(attempts) == 1:
+                with patch('workspace.worker_startup.ModelJob.objects.filter', side_effect=OperationalError('database is locked')):
+                    return recover_state(pid)
+            return recover_state(pid)
+        with patch('workspace.worker_startup.recover_state', side_effect=attempt):
+            prepare_startup(123)
+        self.assertEqual(DispatcherRun.objects.count(), 1)
+        self.assertEqual(DispatcherHeartbeat.objects.count(), 3)
+        sleep.assert_called_once()
+
+    @patch('workspace.worker_startup.recover_state', side_effect=OperationalError('no such table'))
+    def test_startup_failure_invalidates_previous_healthy_state(self, recovery):
+        from workspace.worker_startup import prepare_startup
+        DispatcherHeartbeat.objects.create(key='local', pid=1, state='running')
+        with self.assertRaises(OperationalError): prepare_startup(123)
+        self.assertEqual(DispatcherHeartbeat.objects.get(key='local').state, 'failed')
+        recovery.assert_called_once()
     @patch('workspace.dispatcher.shutil.which',return_value=None)
     def test_logon_environment_without_codex_on_path(self,which):
         with TemporaryDirectory() as folder,patch.dict('os.environ',{'LOCALAPPDATA':folder}):
@@ -28,8 +53,9 @@ class WorkerTests(TransactionTestCase):
                 with single_worker(path) as second:self.assertFalse(second)
             with single_worker(path) as third:self.assertTrue(third)
 
+    @patch('workspace.management.commands.run_model_dispatcher.ReadonlyRunner.start_if_pending')
     @patch('workspace.management.commands.run_model_dispatcher.run_one',return_value=None)
-    def test_run_history_and_clean_stop(self,run_one):
+    def test_run_history_and_clean_stop(self,run_one,start_readonly):
         with TemporaryDirectory() as folder,self.settings(BASE_DIR=Path(folder)):
             call_command('run_model_dispatcher')
         health=DispatcherHeartbeat.objects.get(key='local')
@@ -37,6 +63,7 @@ class WorkerTests(TransactionTestCase):
         self.assertIsNotNone(health.stopped_at)
         self.assertEqual(DispatcherRun.objects.get().state,'stopped')
         run_one.assert_called_once()
+        start_readonly.assert_not_called()
 
     @patch('workspace.management.commands.run_model_dispatcher.run_one',side_effect=OperationalError('temporary database failure'))
     def test_database_failure_does_not_report_healthy_worker(self,run_one):

@@ -13,7 +13,16 @@ from workspace.memory import instructions
 from .readonly_transport import ReadOnlyServer,IsolationError
 
 
-def snapshot(project,root):
+def response_only_profile(plan):
+    profile=plan.manifest.get('readonly_tool_profile','project-read')
+    if profile not in {'project-read','response-only'}:
+        raise IsolationError('ملف أدوات القراءة غير معروف')
+    if profile=='response-only' and (plan.kind!='text' or plan.skills or plan.plugins):
+        raise IsolationError('ملف الرد فقط لا يقبل مهمة تحتاج مهارات أو موصلات أو كود')
+    return profile=='response-only'
+
+
+def snapshot(project,root,instruction_text=None):
     source=settings.BASE_DIR.parent.resolve()
     result=subprocess.run(['git','-c','core.quotePath=false','ls-files','-z','--cached','--others','--exclude-standard'],cwd=source,
         capture_output=True,text=True,encoding='utf-8',check=True)
@@ -42,9 +51,12 @@ def snapshot(project,root):
         db.executemany('INSERT INTO project_records VALUES (?,?)',[(key,json.dumps(value,ensure_ascii=False,default=str)) for key,value in records.items()])
     db.close()
     memory,digest=instructions(project)
-    (root/'AGENTS.md').write_text(memory+'\nهذه نسخة قراءة معزولة. لا تشغل خدمات أو تحاول تعديل الملفات. أعد النتيجة في الرد فقط؛ يوثقها العامل المضيف في قاعدة المشروع.\n',encoding='utf-8')
+    if instruction_text is None:
+        from .routing import instruction_files
+        instruction_text='\n\n'.join([memory,*[path.read_text(encoding='utf-8-sig') for path in instruction_files()]])
+    (root/'AGENTS.md').write_text(instruction_text+'\nهذه نسخة قراءة معزولة. لا تشغل خدمات أو تحاول تعديل الملفات. أعد النتيجة في الرد فقط؛ يوثقها العامل المضيف في قاعدة المشروع.\n',encoding='utf-8')
     copied['AGENTS.md']=hashlib.sha256((root/'AGENTS.md').read_bytes()).hexdigest()
-    return {'files':copied,'project_memory_digest':digest,'database':'project_data.sqlite3','database_scope':list(records)}
+    return {'files':copied,'project_memory_digest':digest,'instruction_sha256':hashlib.sha256(instruction_text.encode()).hexdigest(),'database':'project_data.sqlite3','database_scope':list(records)}
 
 
 def probe(server,root):
@@ -81,20 +93,24 @@ print(json.dumps(r))
 
 
 def execute(job,binary):
+    response_only=response_only_profile(job.task_context)
     with tempfile.TemporaryDirectory(prefix='shadow-readonly-task-') as folder:
-        root=Path(folder);manifest=snapshot(job.charter.project,root)
-        server=ReadOnlyServer(binary,root)
+        root=Path(folder);manifest=snapshot(job.charter.project,root,job.task_context.instructions)
+        server=ReadOnlyServer(binary,root,response_only=response_only)
         try:
             isolation=probe(server,root)
-            from workspace.memory import instructions
             target=job.task_context.manifest.get('readonly_target',{})
             charter=target.get('scope',job.charter.scope)+'\n'+target.get('rules',job.charter.rules)
-            prompt=f'مهمة مفوضة ومعتمدة من سفيان، رقم الطلب {job.pk}. تم تحميل ذاكرة المشروع من قاعدة التشغيل والتحقق منها بواسطة العامل المضيف. لا تشغل أوامر project_memory أو session_brief داخل النسخة؛ المضيف يتولى التوثيق والتحقق. لديك أدوات تنفيذ أوامر القراءة داخل الحاوية، ومنها /usr/bin/python3. استخدمها عند الحاجة.\n'+instructions(job.charter.project)[0]+'\nميثاق المهمة:\n'+charter+'\nالمهمة للقراءة فقط، افحص نسخة المشروع وقاعدة project_data.sqlite3. أعد الرد فقط؛ لا تنشئ تقريرًا أو ملفًا.\n'+job.prompt+'\n'+job.task_context.skill_text
+            prompt=f'مهمة مفوضة ومعتمدة من سفيان، رقم الطلب {job.pk}. ملف AGENTS.md يحمل تعليمات المشروع والذاكرة المحملة من المضيف كاملة. لا تشغل أوامر project_memory أو session_brief داخل النسخة؛ المضيف يتولى التوثيق والتحقق. أدوات القراءة متاحة عند حاجة المهمة فقط؛ لا تفحص الملفات أو قاعدة البيانات دون حاجة.\nميثاق المهمة:\n'+charter+'\nالمهمة للقراءة فقط. أعد الرد فقط؛ لا تنشئ تقريرًا أو ملفًا.\n'+job.prompt+'\n'+job.task_context.skill_text
+            if response_only:
+                prompt=prompt.replace('أدوات القراءة متاحة عند حاجة المهمة فقط؛ لا تفحص الملفات أو قاعدة البيانات دون حاجة.','وضع رد فقط دون أدوات؛ جميع التعليمات الأساسية محملة، ولا تحتاج المهمة فحص ملفات أو قواعد بيانات.')
             before={str(path.relative_to(root)):hashlib.sha256(path.read_bytes()).hexdigest() for path in root.rglob('*') if path.is_file()}
             response=server.execute(prompt,job.requested_model,job.requested_thinking)
             after={str(path.relative_to(root)):hashlib.sha256(path.read_bytes()).hexdigest() for path in root.rglob('*') if path.is_file()}
             if before!=after:raise IsolationError('تغيرت نسخة القراءة؛ لا اعتماد للنتيجة')
-            response['evidence']={'isolation':isolation,'tool_evidence':response.get('tool_evidence',[]),'snapshot':manifest,'transport':'docker-owned-app-server',
+            if response_only and response.get('tool_evidence'):
+                raise IsolationError('طلب الرد فقط نفذ أداة؛ لا اعتماد نتيجة مخالفة لملف الأدوات')
+            response['evidence']={'tool_profile':'response-only' if response_only else 'project-read','isolation':isolation,'tool_evidence':response.get('tool_evidence',[]),'snapshot':manifest,'transport':'docker-owned-app-server',
                 'permissions':'shadow-readonly','image_id':server.runtime.image_id,'network':'none; OpenAI-only unix-socket egress relay','seccomp':'unconfined for nested user namespaces; capabilities dropped, no-new-privileges and nested bwrap enforced','approval_policy':'never',
                 'read_scope':'Only project snapshot bind mount; credentials denied to commands by Linux permission profile; no host filesystem mount'}
             return response

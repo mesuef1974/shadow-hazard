@@ -47,6 +47,14 @@ class ContextRoutingTests(TestCase):
         self.assertEqual(text.task_context.kind,'text')
         with self.assertRaises(ValueError):enqueue(self.charter,self.owner,'1 / 0')
 
+    def test_classification_does_not_preload_skills_or_plugins(self):
+        for kind in ('text','code','design'):
+            with self.subTest(kind=kind):
+                plan=enqueue(self.charter,self.owner,'bounded task',task_kind=kind).task_context
+                self.assertEqual(plan.skills,[])
+                self.assertEqual(plan.plugins,[])
+                self.assertEqual(plan.skill_text,'')
+
     @patch('execution_context.routing.host_config',return_value={'plugins':{'chosen':{},'other':{}},'mcp_servers':{'raw':{}}})
     def test_only_selected_plugin_enabled(self,config):
         flags=capability_flags(['chosen']);pairs=set(zip(flags,flags[1:]))
@@ -73,7 +81,7 @@ class ContextRoutingTests(TestCase):
             (Path(folder)/'AGENTS.override.md').write_text('override',encoding='utf-8')
             self.assertEqual(run_one().state,'failed')
 
-    def test_additional_skill_keeps_default_and_usage_audit_is_idempotent(self):
+    def test_only_explicit_skill_is_loaded_and_usage_audit_is_idempotent(self):
         from execution_context.audit import record_context_load
         from registry.models import UsageEvent
         with TemporaryDirectory() as folder,patch('execution_context.routing.Path.home',return_value=Path(folder)):
@@ -81,9 +89,9 @@ class ContextRoutingTests(TestCase):
                 path=Path(folder)/'.codex/skills'/name/'SKILL.md'
                 path.parent.mkdir(parents=True);path.write_text(name,encoding='utf-8')
             job=enqueue(self.charter,self.owner,'test',task_kind='code',skills=['focused-testing'])
-            self.assertEqual(job.task_context.skills,['minimal-code-edit','focused-testing'])
+            self.assertEqual(job.task_context.skills,['focused-testing'])
             for _ in range(2):record_context_load(job,job.task_context,'01a18e02-0487-7180-9aa0-f932b22c8ef4')
-            self.assertEqual(UsageEvent.objects.count(),2)
+            self.assertEqual(UsageEvent.objects.count(),1)
             self.assertTrue(all(event.used_at is None for event in UsageEvent.objects.all()))
 
     @patch('execution_context.routing.host_config',return_value={'plugins':{'chosen':{}}})
@@ -100,7 +108,7 @@ class ContextRoutingTests(TestCase):
         with TemporaryDirectory() as folder,patch('execution_context.routing.Path.home',return_value=Path(folder)):
             skill=Path(folder)/'.codex/skills/minimal-code-edit/SKILL.md'
             skill.parent.mkdir(parents=True);skill.write_text('SELECTED_SKILL_SENTINEL',encoding='utf-8')
-            job=enqueue(self.charter,self.owner,'test',task_kind='code',mode='workspace-write')
+            job=enqueue(self.charter,self.owner,'test',task_kind='code',skills=['minimal-code-edit'],mode='workspace-write')
             self.assertEqual(job.task_context.skills,['minimal-code-edit'])
             run_one()
             manifest=TaskContext.objects.get(job=job).manifest

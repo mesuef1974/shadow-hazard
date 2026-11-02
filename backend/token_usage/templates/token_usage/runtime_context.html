@@ -1,0 +1,37 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'registry/runtime-context.css' %}?v=1">
+<section class="runtime-context work-panel" aria-labelledby="runtime-context-title" data-refresh-key="runtime-context">
+  <div class="runtime-context-heading"><div><h2 id="runtime-context-title">إشغال السياق — {% if capacity_snapshot.thresholds_enabled %}مراقبة العتبات{% else %}مراقبة صامتة{% endif %}</h2><p>تقدير كودكس عند نهاية الخطوة؛ مستقل عن إجمالي الاستهلاك.</p></div><span class="runtime-mode">{% if capacity_snapshot.thresholds_enabled %}العتبتان مفعّلتان{% else %}عرض فقط{% endif %}</span></div>
+  <div class="runtime-gauges">
+    {% for row in runtime_context.sessions %}
+    <article class="runtime-gauge" data-fresh="{{ row.fresh|yesno:'true,false' }}">
+      <h3>{{ row.name }}</h3><span class="runtime-status">{{ row.status }}</span>
+      <p class="runtime-number">{% if row.fresh %}<bdi>{{ row.percent }}٪</bdi>{% else %}—{% endif %}</p>
+      <div class="runtime-meter" {% if row.fresh %}role="meter" aria-label="إشغال سياق {{ row.name }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ row.bar|stringformat:'.2f' }}" aria-valuetext="{{ row.percent }} بالمئة، تقدير عند نهاية الخطوة"{% endif %}>
+        <span style="width:{{ row.bar|stringformat:'.2f' }}%"></span><i class="runtime-reference ref70"></i><i class="runtime-reference ref85"></i>
+      </div>
+      {% if row.fresh %}<p><bdi>{{ row.latest.current }}</bdi> من <bdi>{{ row.latest.limit }}</bdi> رمز</p>{% else %}<p>لا نسبة حديثة متاحة؛ السجل التاريخي أدناه.</p>{% endif %}
+      <p class="note">{% if row.latest %}آخر قياس: <time datetime="{{ row.latest.sampled_at|date:'c' }}">{{ row.latest.sampled_at|date:'m/d H:i:s' }}</time> · عمره {{ row.age }} ثانية{% else %}لم تصل عينة لهذا الربط بعد{% endif %}</p>
+      {% if row.latest.model %}<p class="note">النموذج في العينة: <bdi>{{ row.latest.model }}</bdi></p>{% endif %}
+    </article>
+    {% empty %}<p>لا توجد جلسة حالية مرتبطة بفلتر الصفحة.</p>{% endfor %}
+  </div>
+  <p class="runtime-reference-note">{% if capacity_snapshot.thresholds_enabled %}70٪ للتنبيه و85٪ لتجهيز تسليم محدود في قاعدة المشروع. تُقبل القياسات الحديثة المتحققة فقط، ولا يُكرر الإجراء قبل انخفاض القياس دون حد إعادة التسليح.{% else %}70٪ و85٪ حدّان مرجعيان معطّلان. التنبيهات وتجهيز التسليم غير مفعّلة.{% endif %} {% if capacity_snapshot.automatic_renewal_sessions %}التجديد التلقائي مفعّل للجلسات: {% for name in capacity_snapshot.automatic_renewal_sessions %}<bdi>{{ name }}</bdi>{% if not forloop.last %}، {% endif %}{% endfor %}؛ يُحفظ طلب 85٪ بعد ضغط السياق، وينتظر خمول الجلسة وانتهاء أعمالها قبل التنفيذ الموثق دون تكرار.{% else %}التجديد التلقائي غير مفعّل.{% endif %}</p>
+  <div class="runtime-history" id="runtime-history" hidden>
+    <div class="runtime-history-heading"><h3>الخط الزمني للقياسات المحفوظة</h3><label>الجلسة <select id="runtime-session" aria-label="جلسة خط إشغال السياق"></select></label></div>
+    <p id="runtime-history-empty" hidden>لا قياسات محفوظة لهذه الجلسة خلال الفترة المختارة.</p>
+    <svg id="runtime-chart" viewBox="0 0 720 200" role="img" aria-labelledby="runtime-chart-caption" preserveAspectRatio="none"></svg>
+    <label for="runtime-point">استعراض القياسات</label><input type="range" id="runtime-point" min="0" step="1" value="0">
+    <p id="runtime-chart-caption" role="status" aria-live="polite"></p>
+    <p id="runtime-model-event" class="note"></p>
+    <p class="note">الخط تاريخي؛ ينقطع عند تغير العملية أو فجوة تتجاوز خمس دقائق. لا يستنتج ضغط السياق من انخفاض النسبة.</p>
+  </div>
+  <details class="runtime-evidence"><summary>حالة المصدر وحدود القياس</summary>
+    <p>المصدر: {% if runtime_context.source_status == 'available' %}متاح عند آخر فحص{% elif runtime_context.source_status == 'schema_changed' %}بنية غير معتمدة؛ القياس غير متاح{% elif runtime_context.source_status == 'invalid_data' %}بيانات غير معتمدة؛ القياس غير متاح{% else %}غير متاح{% endif %}. آخر فحص: {{ runtime_context.checked_at|date:'Y/m/d H:i:s'|default:'لم يُفحص بعد' }}.</p>
+    <p>تُعد العينة قديمة بعد {{ runtime_context.max_age }} ثانية. هذا عدّاد كودكس التقديري عند حدود الخطوة، وقد يتغير السياق بعدها. السعة الكاملة هي مقام النسبة؛ حد الضغط الآلي مفهوم مستقل.</p>
+    <p>عقد القراءة: <bdi>{{ runtime_context.parser }}</bdi>. مرجع التحقق: إيصالات 251 و252 و253. لا تحفظ أجسام السجلات أو المحادثات، ولا تدخل هذه القياسات في إجمالي الاستهلاك.</p>
+    <p>{% if capacity_snapshot.thresholds_enabled %}اعتمد التفعيل بالقرار #272 استنادًا إلى التحقق والمراجعة في الإيصالات 268 و270 و271. يقتصر على النماذج والسعات المعتمدة؛ لا يُستنتج حدوث ضغط للسياق من انخفاض النسبة وحده.{% else %}تفعيل العتبات ينتظر موافقة صريحة وسياسة مرتبطة بدليل التحقق.{% endif %}</p>
+  </details>
+  {{ runtime_context.series|json_script:'runtime-context-data' }}
+</section>
+<script src="{% static 'registry/runtime-context.js' %}?v=2" defer></script>

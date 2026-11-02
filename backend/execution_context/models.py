@@ -65,7 +65,7 @@ class SessionRoutingPolicy(models.Model):
 
 class SessionDispatch(models.Model):
     """Durable outbox record; delivery is performed by an authorized Codex bridge."""
-    STATES=[('queued','queued'),('claimed','claimed'),('sent','sent'),('acknowledged','acknowledged'),('completed','completed'),('uncertain','uncertain')]
+    STATES=[('queued','queued'),('claimed','claimed'),('sent','sent'),('acknowledged','acknowledged'),('completed','completed'),('finished_review','انتهى الدور؛ يحتاج مراجعة السياسة'),('evidence_rejected','انتهى الدور؛ الدليل مرفوض'),('uncertain','uncertain')]
     job=models.OneToOneField('workspace.ModelJob',on_delete=models.PROTECT,related_name='session_dispatch')
     dispatch_key=models.UUIDField(unique=True,editable=False)
     target_charter=models.ForeignKey('workspace.SessionCharter',on_delete=models.PROTECT)
@@ -114,6 +114,53 @@ class SessionDispatchTurn(models.Model):
     created_at=models.DateTimeField(auto_now_add=True)
     class Meta:
         constraints=[models.UniqueConstraint(fields=['target_thread_id','turn_key'],name='global_session_turn_once')]
+
+
+class SessionWriterRecovery(models.Model):
+    dispatch = models.OneToOneField(SessionDispatch, on_delete=models.PROTECT, related_name='writer_recovery')
+    thread_id = models.CharField(max_length=100)
+    state = models.CharField(max_length=20, choices=[
+        ('archiving', 'جارٍ تحرير الحجز'), ('restoring', 'جارٍ استعادة الجلسة'),
+        ('released', 'حُرر الحجز واستعيدت الجلسة'), ('blocked', 'تعذر التحرير الآمن'),
+        ('uncertain', 'الاستعادة غير مؤكدة'),
+    ])
+    evidence = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True)
+
+    class Meta:
+        verbose_name = 'استعادة حجز جلسة'
+        verbose_name_plural = 'استعادات حجوزات الجلسات'
+
+
+class AuthorityTransferJournal(models.Model):
+    """Durable CAS journal for a separately authorized owner-channel transfer."""
+    STATES=[('prepared','prepared'),('idle_verified','idle_verified'),('authorized','authorized'),
+        ('frozen','frozen'),('config_written','config_written'),('db_committed','db_committed'),
+        ('complete','complete'),('ambiguous','ambiguous'),('rolled_back','rolled_back'),('blocked','blocked')]
+    key=models.CharField(max_length=64,unique=True)
+    project=models.ForeignKey('workspace.Project',on_delete=models.PROTECT)
+    source=models.ForeignKey('workspace.SessionCharter',on_delete=models.PROTECT,related_name='+')
+    target=models.ForeignKey('workspace.SessionCharter',on_delete=models.PROTECT,related_name='+')
+    owner=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT)
+    preparation=models.ForeignKey('workspace.ProjectDocumentation',on_delete=models.PROTECT,related_name='+')
+    authorization=models.ForeignKey('workspace.ProjectDocumentation',null=True,on_delete=models.PROTECT,related_name='+')
+    idle_evidence=models.JSONField(default=dict)
+    before_snapshot=models.JSONField(default=dict)
+    after_snapshot=models.JSONField(default=dict)
+    old_config_sha256=models.CharField(max_length=64)
+    new_config_sha256=models.CharField(max_length=64,blank=True)
+    state=models.CharField(max_length=24,choices=STATES,default='prepared')
+    execution_enabled=models.BooleanField(default=False)
+    lease_key=models.CharField(max_length=64,blank=True)
+    rollback_authorization=models.ForeignKey('workspace.ProjectDocumentation',null=True,on_delete=models.PROTECT,related_name='+')
+    transferred_at=models.DateTimeField(null=True)
+    error_code=models.CharField(max_length=80,blank=True)
+    created_at=models.DateTimeField(auto_now_add=True)
+    updated_at=models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints=[models.CheckConstraint(condition=models.Q(source__isnull=False,target__isnull=False),name='authority_journal_bindings_present')]
 
 
 class SessionMessage(models.Model):

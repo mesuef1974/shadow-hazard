@@ -9,6 +9,16 @@ from .delegated import job_index, effective_samples
 
 
 def synchronize():
+    from .locking import local_lock
+    with local_lock('token-usage-sync.lock') as acquired:
+        if not acquired:
+            return None
+        from .runtime_context import synchronize_context
+        synchronize_context()
+        return _synchronize()
+
+
+def _synchronize():
     run = SyncRun.objects.create()
     added = 0
     try:

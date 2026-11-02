@@ -62,6 +62,71 @@ class DispatcherTests(TestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             ModelJob.objects.filter(pk=second.pk).update(state='running')
 
+    def test_uncertain_job_blocks_only_its_session_lane(self):
+        blocked=enqueue(self.charter,self.owner,'uncertain task')
+        blocked.state='uncertain';blocked.save(update_fields=['state'])
+        backend=SessionCharter.objects.get(key='backend')
+        independent=enqueue(backend,self.owner,'independent task',mode='workspace-write')
+        self.assertEqual(blocked.lane,self.charter.pk)
+        self.assertEqual(independent.lane,backend.pk)
+        self.assertEqual(run_one().pk,independent.pk)
+        self.assertEqual(run_one(),None)
+
+    def test_received_historical_review_stays_quarantined_without_blocking_replacement(self):
+        from .job_lanes import available_dispatches
+        old=enqueue(self.charter,self.owner,'historical receipt',mode='workspace-write')
+        run_one()
+        dispatch=old.session_dispatch
+        dispatch.state='acknowledged';dispatch.save(update_fields=['state'])
+        old.state='needs_review';old.save(update_fields=['state'])
+        waiting=enqueue(self.charter,self.owner,'new task',mode='workspace-write')
+        self.assertIsNone(run_one())
+        self.charter.thread_id='01a19400-51a2-7ff3-9967-fe25d3deee3a'
+        self.charter.save(update_fields=['thread_id'])
+        self.assertEqual(run_one().pk,waiting.pk)
+        candidate=waiting.session_dispatch
+        self.assertTrue(available_dispatches(type(dispatch).objects.filter(pk=candidate.pk)).exists())
+        dispatch.refresh_from_db();old.refresh_from_db()
+        self.assertEqual(dispatch.state,'acknowledged')
+        self.assertEqual(old.state,'needs_review')
+        self.assertFalse(dispatch.turns.exists())
+
+    def test_outbox_claim_can_advance_another_lane_but_never_replays_uncertain_dispatch(self):
+        import io
+        import json
+        from django.core.management import call_command
+
+        blocked=enqueue(self.charter,self.owner,'uncertain delivery',mode='workspace-write')
+        run_one()
+        first=io.StringIO();call_command('session_outbox','claim',stdout=first)
+        reservation=json.loads(first.getvalue())
+        call_command('session_outbox','uncertain','--dispatch',str(reservation['dispatch_id']),
+            '--claim-token',reservation['claim_token'],stdout=io.StringIO())
+        uncertain=ModelJob.objects.get(pk=blocked.pk)
+        uncertain.state='needs_review';uncertain.save(update_fields=['state'])
+
+        same_lane=enqueue(self.charter,self.owner,'wait for this session',mode='workspace-write')
+        backend=SessionCharter.objects.get(key='backend')
+        other_lane=enqueue(backend,self.owner,'deliver to another session',mode='workspace-write')
+        self.assertEqual(run_one().pk,other_lane.pk)
+        second=io.StringIO();call_command('session_outbox','claim',stdout=second)
+        claimed=json.loads(second.getvalue())
+        self.assertEqual(claimed['thread_id'],backend.thread_id)
+        self.assertEqual(ModelJob.objects.get(pk=same_lane.pk).state,'queued')
+
+    def test_readonly_runner_does_not_block_dispatch_loop_or_start_twice(self):
+        import threading
+        from .readonly_runner import ReadonlyRunner
+
+        entered=threading.Event();release=threading.Event()
+        runner=ReadonlyRunner(has_pending=lambda:True,execute=lambda:(entered.set(),release.wait(2)))
+        self.assertTrue(runner.start_if_pending())
+        self.assertTrue(entered.wait(1))
+        self.assertTrue(runner.busy)
+        self.assertFalse(runner.start_if_pending())
+        release.set();runner._thread.join(1)
+        self.assertFalse(runner.busy)
+
     def test_outbox_created_once_without_independent_execution(self):
         enqueue(self.charter,self.owner,'review the schema',mode='workspace-write')
         self.assertEqual(run_one().state,'waiting_delivery')

@@ -1,16 +1,12 @@
-"""Queue into the existing desktop session using the installed public CLI.
-
-Queue acceptance is not execution. Rollout evidence alone closes the request.
-"""
-import io
+"""Observe and close current and historical deliveries from rollout evidence."""
 import json
-import subprocess
+import os
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from .models import SessionDispatch, SessionDispatchEvent, SessionDispatchTurn
-from .desktop_session_bridge import _binary, _command, BridgeError
+from .desktop_session_bridge import _command, BridgeError
 from .rollout_usage import find_rollout, read_turn_evidence, RolloutEvidenceError, has_bound_task_message
 
 
@@ -44,19 +40,29 @@ def observe_arrivals():
             continue
 
 
+def _transport_for(dispatch):
+    sent=dispatch.events.filter(state='sent').order_by('-created_at','-pk').first()
+    value=sent.detail.get('transport') if sent and isinstance(sent.detail,dict) else None
+    return value if isinstance(value,str) and value else 'legacy-unspecified'
+
+
 def finalize_verified(dispatch,evidence):
     """Quarantine one rejected proof without terminating unrelated deliveries."""
     try:
+        transport=_transport_for(dispatch)
         if dispatch.state == 'sent':
             _command('acknowledged', dispatch.pk, dispatch.claim_token,
-                turn_id=evidence['turn_id'], detail={'transport':'codex queue','evidence':'verified rollout'})
+                turn_id=evidence['turn_id'], detail={'transport':transport,'evidence':'verified rollout'})
         if 'ESCALATION_REQUEST:' in evidence['result']:
             reason=evidence['result'].split('ESCALATION_REQUEST:',1)[1].strip().splitlines()
             _command('stuck',dispatch.pk,dispatch.claim_token,turn_id=evidence['turn_id'],
                 detail={'reason':reason[0][:300] if reason else 'تعثر موثق'})
         else:
+            from workspace.models import DispatcherRun
+            run=DispatcherRun.objects.filter(pid=os.getpid(),state='running').order_by('-pk').first()
             _command('complete-from-rollout',dispatch.pk,dispatch.claim_token,
-                turn_id=evidence['turn_id'],detail={'transport':'codex queue'})
+                turn_id=evidence['turn_id'],detail={'transport':transport,
+                    'observer_pid':os.getpid(),'dispatcher_run_id':run.pk if run else None})
     except (CommandError,IntegrityError,ValueError) as exc:
         with transaction.atomic():
             detail={'error_type':type(exc).__name__,'reason':str(exc)[:300],'turn_id':evidence['turn_id']}
@@ -72,7 +78,7 @@ def record_policy_mismatch(dispatch,evidence):
     """Retain real usage once, but never mark a policy-violating turn successful."""
     if dispatch.state=='sent':
         _command('acknowledged',dispatch.pk,dispatch.claim_token,turn_id=evidence['turn_id'],
-            detail={'transport':'codex queue','evidence':'completed rollout with policy mismatch'})
+            detail={'transport':_transport_for(dispatch),'evidence':'completed rollout with policy mismatch'})
     turn,created=SessionDispatchTurn.objects.get_or_create(target_thread_id=dispatch.target_thread_id,
         turn_key=evidence['turn_id'],defaults={'dispatch':dispatch,'model':evidence['model'],
             'thinking':evidence['thinking'],'usage':evidence['usage'],'source_evidence':evidence['evidence']})
@@ -87,13 +93,19 @@ def record_policy_mismatch(dispatch,evidence):
     detail={'turn_id':turn.turn_key,'receipt':receipt.pk,'expected_model':dispatch.requested_model,
         'observed_model':turn.model,'expected_thinking':dispatch.requested_thinking,'observed_thinking':turn.thinking}
     SessionDispatchEvent.objects.get_or_create(dispatch=dispatch,state='policy_mismatch',detail=detail)
-    dispatch.turn_key=turn.turn_key;dispatch.save(update_fields=['turn_key','updated_at'])
+    dispatch.turn_key=turn.turn_key
+    dispatch.state='finished_review'
+    dispatch.completed_at=dispatch.completed_at or timezone.now()
+    dispatch.save(update_fields=['turn_key','state','completed_at','updated_at'])
+    SessionDispatchEvent.objects.get_or_create(dispatch=dispatch,state='execution_finished',detail={
+        'turn_id':turn.turn_key,'policy_accepted':False,'receipt':receipt.pk})
     type(dispatch.job).objects.filter(pk=dispatch.job_id,state__in=['waiting_delivery','running','needs_review']).update(state='needs_review',finished_at=timezone.now(),
         observed_model=turn.model,token_usage=turn.usage,result=evidence['result'],
         outcome_note='اكتمل الدور بنموذج/تفكير مخالف للسياسة؛ الاستهلاك الفعلي محفوظ مرة واحدة، والقبول يحتاج مراجعة.')
 
 
 def reconcile():
+    from .owner_delivery import owner_origin_for
     for dispatch in SessionDispatch.objects.filter(state__in=['sent', 'acknowledged'],
             job__state__in=['waiting_delivery','running']).select_related('job'):
         if not dispatch.claimed_at:
@@ -125,7 +137,8 @@ def reconcile():
                         acknowledged_at=timezone.now(), expected_model='',
                         expected_thinking='',
                         expected_marker=dispatch.job.task_context.manifest['task_marker'],
-                        expected_prompt=dispatch.job.prompt, task_id=dispatch.job_id))
+                        expected_prompt=dispatch.job.prompt, task_id=dispatch.job_id,
+                        expected_owner_origin=owner_origin_for(dispatch)))
                 except RolloutEvidenceError as exc:
                     raw_usage=[r.get('payload',{}).get('turn_token_usage') for r in records
                         if r.get('type')=='token_usage_record' and r.get('payload',{}).get('turn_id')==turn_id]
@@ -133,6 +146,10 @@ def reconcile():
                         'source':'bound rollout; rejected by strict counter and lifecycle verification'}
                     with transaction.atomic():
                         SessionDispatchEvent.objects.get_or_create(dispatch=dispatch,state='evidence_rejected',detail=detail)
+                        dispatch.state='evidence_rejected'
+                        dispatch.turn_key=turn_id
+                        dispatch.completed_at=timezone.now()
+                        dispatch.save(update_fields=['state','turn_key','completed_at','updated_at'])
                         type(dispatch.job).objects.filter(pk=dispatch.job_id,state__in=['waiting_delivery','running']).update(state='needs_review',
                             outcome_note='وصل الدور وانتهى؛ تعذر اعتماد دليله. الأرقام المرصودة غير المعتمدة محفوظة في حدث evidence_rejected، ولم تضف إلى الإجمالي.')
                     continue
@@ -147,25 +164,6 @@ def reconcile():
 
 
 def deliver_one():
-    observe_arrivals()
-    reconcile()
-    # An uncertain send may already exist at the destination. Require reconciliation.
-    if SessionDispatch.objects.filter(state='uncertain').exists():
-        return None
-    output = io.StringIO()
-    call_command('session_outbox', 'claim', consumer='native-cli-queue', enqueue_only=True, stdout=output)
-    claimed = json.loads(output.getvalue() or '{}')
-    if not claimed:
-        return None
-    dispatch_id, token = claimed['dispatch_id'], claimed['claim_token']
-    try:
-        result = subprocess.run([_binary(), 'queue', '--thread', claimed['thread_id'],
-            '--message', claimed['prompt']], capture_output=True, text=True, encoding='utf-8', timeout=30)
-        if result.returncode:
-            raise BridgeError('رفض codex queue الطلب: ' + result.stderr[:300])
-        _command('sent', dispatch_id, token, detail={'transport': 'codex queue',
-            'receipt': result.stdout[:500], 'semantics': 'queue acceptance; model remains the session model'})
-        return dispatch_id
-    except Exception as exc:
-        _command('uncertain', dispatch_id, token, detail={'transport': 'codex queue', 'reason': str(exc)[:300]})
-        raise BridgeError(str(exc)[:300]) from exc
+    """Compatibility entry point; no CLI queue or separate observation cycle."""
+    from .delivery import deliver_one as controlled_delivery
+    return controlled_delivery()

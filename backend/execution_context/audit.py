@@ -8,6 +8,26 @@ from registry.services import record_usage
 
 
 @transaction.atomic
+def record_owner_delivery(dispatch,config,call_id,context_id):
+    actor,_=Actor.objects.get_or_create(key='owner-mcp-worker',defaults={'name':'موصل العامل مع مالك Codex','kind':'agent'})
+    session,_=ExecutionSession.objects.get_or_create(external_key=f'owner-mcp:{dispatch.pk}:{dispatch.attempt_no}',defaults={
+        'name':f'إرسال الطلب {dispatch.job_id} عبر المالك','actor':actor,'client':'Official Codex app-tools MCP','model':'none (transport)'})
+    task,_=RegistryTask.objects.get_or_create(key=f'delegation-job-{dispatch.job_id}',defaults={
+        'title':f'طلب {dispatch.job_id}','purpose':dispatch.job.prompt})
+    service,_=Service.objects.get_or_create(key='codex-owner-mcp-connector',defaults={
+        'name':'موصل مالك جلسة Codex الرسمي','kind':'tool','purpose':'إرسال موثق بنموذج وتفكير صريحين دون انتزاع الكاتب'})
+    version,_=ServiceVersion.objects.get_or_create(service=service,sha256=config['server_sha256'],defaults={
+        'version_label':Path(config['server']).parent.name,'source':config['server'],
+        'metadata':{'fingerprint_kind':'installed_official_mcp_server','new_dependency':False}})
+    now=timezone.now()
+    record_usage(event_key=f'owner-send:{dispatch.pk}:{dispatch.attempt_no}',version=version,session=session,task=task,
+        used_at=now,recorded_at=now,purpose=dispatch.job.prompt,
+        method='MCP stdio الرسمي؛ نية إرسال دائمة قبل الطلب؛ model/thinking صريحان؛ لا fallback',
+        result='إيصال قبول من المالك فقط؛ إغلاق المهمة يتطلب دليل الدور المستقل',
+        time_evidence=f'call={call_id}; context={context_id}; dispatch={dispatch.pk}',status='completed')
+
+
+@transaction.atomic
 def record_readonly_execution(job,result):
     actor,_=Actor.objects.get_or_create(key='isolated-readonly-worker',defaults={'name':'عامل القراءة المعزول','kind':'agent'})
     session,_=ExecutionSession.objects.get_or_create(external_key=result['thread_id'],defaults={

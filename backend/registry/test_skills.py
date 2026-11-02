@@ -2,9 +2,11 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 from io import StringIO
 from unittest.mock import patch
+from unittest import skipUnless
 from django.test import TestCase, override_settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import OperationalError, connection
 from registry.skill_inventory import scan_skills
 from registry.models import Installation, SkillChange, SkillScan, Actor, ExecutionSession, RegistryTask, UsageEvent
 
@@ -32,6 +34,42 @@ class SkillInventoryTests(TestCase):
         installation.refresh_from_db();self.assertEqual(installation.presence,'removed')
         self.file.write_text('restored',encoding='utf-8');scan_skills()
         self.assertEqual(SkillChange.objects.filter(action='restored').count(),1)
+
+    @skipUnless(connection.vendor == 'sqlite', 'SQLite-specific contention handling')
+    @patch('registry.skill_inventory.time.sleep')
+    def test_sqlite_busy_retries_whole_transaction_without_duplicates(self, sleep):
+        from registry.skill_inventory import _reconcile
+        calls = []
+        def interrupted(alias, found):
+            calls.append(alias)
+            if len(calls) == 1:
+                # Fail after writes; the original atomic transaction must roll back.
+                with patch('registry.skill_inventory.file_changes', side_effect=OperationalError('database is locked')):
+                    return _reconcile(alias, found)
+            return _reconcile(alias, found)
+        with patch('registry.skill_inventory._reconcile', side_effect=interrupted):
+            self.assertEqual(scan_skills()['test'], 1)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(Installation.objects.count(), 1)
+        self.assertEqual(SkillChange.objects.count(), 1)
+        sleep.assert_called_once()
+
+    @skipUnless(connection.vendor == 'sqlite', 'SQLite-specific contention handling')
+    @patch('registry.skill_inventory.time.sleep')
+    def test_exhausted_busy_preserves_last_scan(self, sleep):
+        scan_skills()
+        previous = SkillScan.objects.get().succeeded_at
+        with patch('registry.skill_inventory._reconcile', side_effect=OperationalError('database is locked')) as reconcile:
+            self.assertIn('deferred', scan_skills()['test'])
+        self.assertEqual(reconcile.call_count, 3)
+        self.assertEqual(SkillScan.objects.get().succeeded_at, previous)
+        self.assertEqual(SkillChange.objects.count(), 1)
+
+    def test_non_lock_database_errors_are_not_hidden(self):
+        with patch('registry.skill_inventory._reconcile', side_effect=OperationalError('no such table')) as reconcile:
+            with self.assertRaises(OperationalError):
+                scan_skills()
+        self.assertEqual(reconcile.call_count, 1)
 
     def test_unreadable_root_does_not_report_deletions(self):
         scan_skills()

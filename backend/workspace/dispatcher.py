@@ -27,6 +27,8 @@ def resolve_codex():
 
 @transaction.atomic
 def enqueue(charter,owner,prompt,mode='read-only',submission_key=None,task_kind='auto',skills=None,plugins=None):
+    from .models import SessionCharter
+    charter=SessionCharter.objects.select_for_update().select_related('policy','project').get(pk=charter.pk)
     policy=charter.policy
     uuid.UUID(charter.thread_id)
     if not owner.is_active or owner.role!='supervisor' or not policy.enabled or policy.model not in MODELS or policy.thinking not in EFFORTS or mode not in {'read-only','workspace-write'}:
@@ -34,7 +36,7 @@ def enqueue(charter,owner,prompt,mode='read-only',submission_key=None,task_kind=
     if not prompt.strip() or len(prompt)>12000:raise ValueError('المهمة مطلوبة وبحد أقصى 12000 حرف')
     plan=build_plan(charter,prompt,task_kind,skills,plugins,mode)
     task_kind=plan['kind']
-    values=dict(charter=charter,owner=owner,prompt=prompt.strip(),requested_model='local-arithmetic' if task_kind=='calculation' else 'gpt-6-luna',requested_thinking='none' if task_kind=='calculation' else 'low',mode=mode)
+    values=dict(charter=charter,owner=owner,prompt=prompt.strip(),requested_model='local-arithmetic' if task_kind=='calculation' else 'gpt-6-luna',requested_thinking='none' if task_kind=='calculation' else 'low',mode=mode,lane=charter.pk)
     if submission_key:
         job,created=ModelJob.objects.get_or_create(submission_key=submission_key,defaults=values)
         if not created and (job.owner_id!=owner.pk or job.charter_id!=charter.pk or job.prompt!=prompt.strip() or job.mode!=mode):
@@ -62,9 +64,12 @@ def enqueue(charter,owner,prompt,mode='read-only',submission_key=None,task_kind=
 
 @transaction.atomic
 def run_one():
-    if ModelJob.objects.filter(state__in=['running','uncertain']).exists():return None
-    job=ModelJob.objects.filter(state='queued').order_by('created_at').first()
+    from .job_lanes import available_jobs
+    job=available_jobs(ModelJob.objects.filter(state='queued')).order_by('created_at','pk').first()
     if not job:return None
+    from .models import SessionCharter
+    SessionCharter.objects.select_for_update().get(pk=job.charter_id)
+    if not available_jobs(ModelJob.objects.filter(pk=job.pk,state='queued')).exists():return None
     try:
         with transaction.atomic():
             claimed=ModelJob.objects.filter(pk=job.pk,state='queued').update(state='running',started_at=timezone.now())
@@ -118,10 +123,13 @@ def run_one():
             return job
         dispatch_key=uuid.uuid4()
         marker=f'[SHADOW_TASK:{job.pk}:{dispatch_key}:1]'
-        task_prompt=f'{marker}\nمهمة مفوضة من سفيان عبر منصة ظل الخطر. رقم الطلب {job.pk}.\nنطاق الجلسة: {target.scope}\nميثاق الجلسة: {target.rules}\nالتزم بنطاق هذه الجلسة. لا تنشر أو تدفع بعيدًا ولا تحذف بيانات أو ملفات. نوع الصلاحية: {job.mode}. عند read-only اقرأ وحلل فقط ولا تعدل ملفات أو قواعد بيانات. طلب التحليل لا يمنح إذن نشر أو حذف. إذا تعثرت أعد ESCALATION_REQUEST: مع السبب والدليل المحدد.\nالمهمة:\n{job.prompt}'
+        task_prompt=f'{marker}\nمهمة مفوضة من سفيان. رقم الطلب {job.pk}.\nنطاق الجلسة: {target.scope}\nميثاق الجلسة: {target.rules}\nصلاحية المهمة: {job.mode}. صلاحية read-only لا تسمح بتعديل الملفات أو البيانات. عند التعثر أعد ESCALATION_REQUEST: مع السبب والدليل.\nالمهمة:\n{job.prompt}'
         from workspace.memory import instructions as project_instructions
-        shared_memory,_=project_instructions(job.charter.project)
-        task_prompt+='\n\nذاكرة المشروع الملزمة:\n'+shared_memory
+        shared_memory,memory_digest=project_instructions(job.charter.project,plan.manifest.get('memory_kind','core'))
+        from workspace.memory import document
+        memory_receipt=document(job.charter.project,job.charter.key,f'job:{job.pk}:memory-load',
+            'تحميل ذاكرة المشروع في سياق المهمة',{'job':job.pk,'memory_digest':memory_digest})
+        task_prompt+=f'\n\nقواعد القاعدة — إيصال قراءة المضيف {memory_receipt.pk}:\n'+shared_memory
         if plan and plan.skill_text:task_prompt+='\n\nتعليمات المهارات:\n'+plan.skill_text
         route_reason=f'اختار المالك الجلسة {target.name}؛ اختيرت سياسة المهمة {route_category} المحفوظة {model}/{thinking}.'
         with transaction.atomic():

@@ -9,6 +9,8 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from .services import summarize, synchronize
 from .analytics import analyze
+from .capacity import snapshot as capacity_snapshot
+from .runtime_context import snapshot as runtime_snapshot
 
 
 def source_datetime(value):
@@ -40,7 +42,9 @@ def dashboard(request):
     weekly['available']=isinstance(weekly.get('weekly_used_percent'),(float,int)) and 0<=weekly['weekly_used_percent']<=100
     if weekly['available']:weekly['remaining']=round(100-weekly['weekly_used_percent'],1)
     weekly['historical']=not weekly.get('sampled_at') or (timezone.now()-weekly['sampled_at']).total_seconds()>300 or not weekly['reset_date'] or weekly['reset_date']<=timezone.now()
-    return render(request,'token_usage/dashboard.html',{'sessions':sessions,'totals':totals,'analytics':analyze(project(),period,session_id),'last_sync':SyncRun.objects.order_by('-started_at').first(),'session_choices':choices,'selected_session':session_id,'collector':collector,'weekly':weekly})
+    from operations.operator_usage import snapshot as operator_usage_snapshot
+    operator_comparison=operator_usage_snapshot(project())
+    return render(request,'token_usage/dashboard.html',{'operator_comparison':operator_comparison,'runtime_context':runtime_snapshot(project(),session_id,period),'capacity_snapshot':capacity_snapshot(project()),'sessions':sessions,'totals':totals,'analytics':analyze(project(),period,session_id),'last_sync':SyncRun.objects.order_by('-started_at').first(),'last_success_sync':SyncRun.objects.filter(success=True).order_by('-started_at').first(),'session_choices':choices,'selected_session':session_id,'collector':collector,'weekly':weekly})
 
 
 @require_POST

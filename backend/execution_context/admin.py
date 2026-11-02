@@ -1,8 +1,20 @@
 from django.contrib import admin
 from .models import TaskContext, EscalationRequest, SessionDispatch, SessionDispatchEvent, SessionDispatchTurn, SessionRoutingPolicy
 from .models import SessionMessage
+from .models import SessionWriterRecovery
 from django.urls import reverse
 from django.utils.html import format_html
+
+
+@admin.register(SessionWriterRecovery)
+class SessionWriterRecoveryAdmin(admin.ModelAdmin):
+    list_display = ['dispatch', 'thread_id', 'state', 'created_at', 'finished_at']
+    list_filter = ['state']
+    search_fields = ['thread_id', 'dispatch__job__id']
+    readonly_fields = [field.name for field in SessionWriterRecovery._meta.fields]
+    def has_add_permission(self, request): return False
+    def has_change_permission(self, request, obj=None): return False
+    def has_delete_permission(self, request, obj=None): return False
 
 
 @admin.register(TaskContext)

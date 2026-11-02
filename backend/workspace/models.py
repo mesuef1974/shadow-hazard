@@ -129,7 +129,7 @@ class ModelJob(models.Model):
     requested_thinking = models.CharField(max_length=20)
     mode = models.CharField(max_length=20,default='read-only')
     state = models.CharField(max_length=30,default='queued')
-    lane = models.PositiveSmallIntegerField(default=1)
+    lane = models.PositiveIntegerField(default=1, verbose_name='مسار الجلسة')
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True)
     finished_at = models.DateTimeField(null=True)
@@ -143,7 +143,7 @@ class ModelJob(models.Model):
         verbose_name = 'طلب تشغيل نموذج'
         verbose_name_plural = 'طلبات تشغيل النماذج'
         indexes = [models.Index(fields=['execution_thread_id'], name='modeljob_thread_lookup')]
-        constraints=[models.UniqueConstraint(fields=['lane'],condition=models.Q(state__in=['running','uncertain']),name='one_local_model_job_running')]
+        constraints=[models.UniqueConstraint(fields=['lane'],condition=models.Q(state__in=['running','uncertain']),name='one_active_model_job_per_lane')]
 
 
 class DispatcherHeartbeat(models.Model):
@@ -168,3 +168,93 @@ class DispatcherRun(models.Model):
     class Meta:
         verbose_name = 'تشغيل موزّع'
         verbose_name_plural = 'سجل تشغيل الموزّع'
+
+
+class SessionRenewal(models.Model):
+    """Manual renewal saga. No automatic dispatcher consumes these requests."""
+    key = models.UUIDField(unique=True, editable=False)
+    charter = models.ForeignKey(SessionCharter, on_delete=models.PROTECT, related_name='renewals')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    source_thread_id = models.CharField(max_length=100)
+    target_thread_id = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=30, default='prepared')
+    handover = models.ForeignKey(ProjectDocumentation, on_delete=models.PROTECT, related_name='+')
+    handover_digest = models.CharField(max_length=64)
+    bootstrap = models.ForeignKey(ProjectDocumentation, on_delete=models.PROTECT, related_name='+')
+    bootstrap_prompt = models.TextField()
+    bootstrap_digest = models.CharField(max_length=64)
+    context = models.JSONField(default=dict)
+    approval = models.ForeignKey(ProjectDocumentation, null=True, on_delete=models.PROTECT, related_name='+')
+    claim_token = models.UUIDField(null=True)
+    create_attempted = models.BooleanField(default=False)
+    creation_receipt = models.ForeignKey(ProjectDocumentation, null=True, on_delete=models.PROTECT, related_name='+')
+    delivery_receipt = models.ForeignKey(ProjectDocumentation, null=True, on_delete=models.PROTECT, related_name='+')
+    binding_receipt = models.ForeignKey(ProjectDocumentation, null=True, on_delete=models.PROTECT, related_name='+')
+    rollback_receipt = models.ForeignKey(ProjectDocumentation, null=True, on_delete=models.PROTECT, related_name='+')
+    activity = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['charter', 'source_thread_id'],
+                condition=models.Q(create_attempted=True) | ~models.Q(state='cancelled'), name='renewal_source_once'),
+            models.UniqueConstraint(fields=['target_thread_id'], condition=~models.Q(target_thread_id=''),
+                                    name='renewal_target_once'),
+        ]
+
+
+class SessionRenewalEvent(models.Model):
+    renewal = models.ForeignKey(SessionRenewal, on_delete=models.PROTECT, related_name='events')
+    state = models.CharField(max_length=30)
+    receipt = models.ForeignKey(ProjectDocumentation, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class AutoRenewalPolicy(models.Model):
+    """Per-session automatic renewal gate; default-off and owner-receipt bound."""
+    charter = models.OneToOneField(SessionCharter, on_delete=models.PROTECT, related_name='auto_renewal_policy')
+    enabled = models.BooleanField(default=False)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name='+')
+    activation_receipt = models.ForeignKey(ProjectDocumentation, null=True, on_delete=models.PROTECT, related_name='+')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'سياسة التجديد الآلي'
+        verbose_name_plural = 'سياسات التجديد الآلي'
+
+
+class AutoRenewalLatch(models.Model):
+    STATES = [
+        ('latched_disabled', 'مرصود والسياسة معطلة'), ('ready', 'جاهز بعد موافقة صريحة'),
+        ('claimed', 'محجوز للتنفيذ'), ('preintent_backoff', 'تأجيل قبل نية الإنشاء'),
+        ('owner_intent', 'نية إنشاء دائمة'), ('candidate_known', 'مرشح معروف'),
+        ('ambiguous', 'نتيجة إنشاء ملتبسة'), ('verified', 'تم التحقق'),
+        ('switched', 'تم تبديل الربط'), ('stale', 'دليل متقادم'),
+        ('invalidated', 'تغير ربط المصدر'), ('quarantined', 'محجور للمراجعة'),
+        ('blocked', 'متعذر ضمن الميزانية'),
+    ]
+    charter = models.ForeignKey(SessionCharter, on_delete=models.PROTECT, related_name='auto_renewal_latches')
+    source_thread_id = models.CharField(max_length=100)
+    handover = models.ForeignKey('token_usage.CapacityHandover', on_delete=models.PROTECT)
+    observation = models.ForeignKey('token_usage.ContextObservation', on_delete=models.PROTECT)
+    request_key = models.UUIDField(unique=True, editable=False)
+    state = models.CharField(max_length=24, choices=STATES, default='latched_disabled')
+    evidence = models.JSONField(default=dict)
+    evidence_digest = models.CharField(max_length=64)
+    claim_token = models.UUIDField(null=True)
+    owner_intent_receipt = models.ForeignKey(ProjectDocumentation, null=True, on_delete=models.PROTECT, related_name='+')
+    candidate_thread_id = models.CharField(max_length=100, blank=True)
+    renewal = models.OneToOneField(SessionRenewal, null=True, on_delete=models.PROTECT, related_name='auto_latch')
+    attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(null=True)
+    last_error = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['charter', 'source_thread_id'], name='auto_renewal_source_once'),
+            models.UniqueConstraint(fields=['handover'], name='auto_renewal_handover_once'),
+        ]
+        indexes = [models.Index(fields=['state', 'next_attempt_at'], name='auto_renewal_due')]

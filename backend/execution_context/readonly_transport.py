@@ -15,22 +15,30 @@ class IsolationError(RuntimeError):
 
 
 PROFILE='shadow-readonly'
+RESPONSE_ONLY_DISABLED_FEATURES=(
+    'shell_tool','unified_exec','view_image','multi_agent','skill_search',
+    'sleep_tool','tool_suggest','workspace_dependencies',
+)
 
 
 class ReadOnlyServer:
-    def __init__(self,binary,root):
+    def __init__(self,binary,root,*,response_only=False):
         self.root=Path(root).resolve();self.events=[];self.sequence=0;self.inbox=queue.Queue()
         from .docker_runtime import Runtime
         self.runtime=Runtime(self.root)
         filesystem={':minimal':'read','/workspace':'read','/run/codex':'deny','/proxy':'deny'}
         table='{'+','.join(json.dumps(key)+'='+json.dumps(value) for key,value in filesystem.items())+'}'
         options=['--disable','apps','--disable','plugins','--disable','hooks','--disable','in_app_browser',
+            '--enable','skip_host_skill_discovery','--enable','omit_skill_descriptions','--disable','plugin_discovery_prefetch',
             '--disable','memories','-c','notify=[]','-c','web_search="disabled"',
             '-c',f'default_permissions="{PROFILE}"','-c',f'permissions.{PROFILE}.filesystem={table}',
             '-c',f'permissions.{PROFILE}.network.enabled=false',
             '-c','shell_environment_policy.inherit="none"',
             '-c','shell_environment_policy.set.PATH="/usr/local/bin:/usr/bin:/bin"',
             '-c','approval_policy="never"']
+        if response_only:
+            for feature in RESPONSE_ONLY_DISABLED_FEATURES:
+                options+=['--disable',feature]
         try:self.process=self.runtime.start(['codex',*options,'app-server','--listen','stdio://'])
         except Exception:self.runtime.close();raise
         self.cwd='/workspace';self.errors=[]

@@ -1,15 +1,27 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import path, include
 from registry import portal
 from workspace import views as workspace
 from token_usage import views as token_usage
 from execution_context import views as execution_context
+from releases.pages import dashboard as release_dashboard
+from knowledge.views import (search_view as knowledge_search, search_page as knowledge_page,
+    answer_page as knowledge_answer, documentation_detail as knowledge_documentation_detail)
 urlpatterns = [
+ path('simulation/', include('simulation.urls')),
+ path('knowledge/', knowledge_page, name='knowledge-page'),
+ path('knowledge/answer/', knowledge_answer, name='knowledge-answer'),
+ path('knowledge/search/', knowledge_search, name='knowledge-search'),
+ path('knowledge/documentation/<int:documentation_id>/', knowledge_documentation_detail, name='knowledge-documentation-detail'),
+ path('releases/', include('releases.urls')),
+ path('sessions/releases/', release_dashboard, name='release-dashboard'),
  path('sessions/escalations/',execution_context.escalation_list,name='escalations'),
  path('sessions/escalations/<int:pk>/decision/',execution_context.decide_escalation,name='decide-escalation'),
  path('sessions/jobs/<int:job_id>/escalation/',execution_context.request_escalation,name='request-escalation'),
  path('sessions/automation/', workspace.automation, name='automation'),
+ path('sessions/automation-model/', workspace.automation_model, name='session-automation-model'),
+ path('sessions/automation-model/assets/<str:asset>', workspace.automation_model, name='session-automation-asset'),
  path('sessions/jobs/', workspace.model_jobs, name='model-jobs'),
  path('sessions/', workspace.sessions, name='project-sessions'),
  path('usage/', token_usage.dashboard, name='token-dashboard'),

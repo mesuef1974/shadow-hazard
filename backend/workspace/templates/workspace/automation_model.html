@@ -1,0 +1,17 @@
+{% extends 'registry/base.html' %}
+{% load static %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'registry/automation-model.css' %}?v=5">
+<script src="{% url 'session-automation-asset' 'automation-map.js' %}" defer></script>
+{% endblock %}
+{% block content %}
+{% include 'registry/_page_heading.html' with eyebrow='جلسات المشروع' title='نموذج الأوتوميشن' description='خريطة تفاعلية للمهام ومشغّل الجلسات وصلاحية الاتصال والتجديد وإيقاظ النموذج عند الحاجة. الرسم يشرح الآلية ولا يعرض حالة تشغيل حية.' %}
+<div class="session-actions">
+  <a class="session-secondary-link" href="{% url 'project-sessions' %}">جلسات المشروع</a>
+  <a class="session-secondary-link" href="{% url 'automation' %}">متابعة الأتمتة</a>
+  <a class="session-secondary-link" href="{% url 'token-dashboard' %}">متابعة الاستهلاك</a>
+  <button class="action" id="print" type="button">طباعة النموذج</button>
+</div>
+{% include 'registry/_capacity.html' %}
+<div class="automation-model">{{ map_content|safe }}</div>
+{% endblock %}

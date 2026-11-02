@@ -1,4 +1,5 @@
 (() => {
+  const initialize = () => {
   const source = document.getElementById('usage-chart-data');
   if (!source) return;
   const data = JSON.parse(source.textContent);
@@ -12,7 +13,7 @@
   const selectable = (element, text) => {
     element.tabIndex = 0; element.setAttribute('role', 'button');
     element.setAttribute('aria-label', text); element.setAttribute('aria-pressed', 'false');
-    const select = () => { document.querySelectorAll('[aria-pressed="true"]').forEach(node=>node.setAttribute('aria-pressed','false'));if(status)status.textContent = text;if(pulseStatus&&element.classList.contains('hour-column'))pulseStatus.textContent=text;element.setAttribute('aria-pressed', 'true'); };
+    const select = () => { document.querySelectorAll('.usage-dashboard [aria-pressed="true"]').forEach(node=>node.setAttribute('aria-pressed','false'));if(status)status.textContent = text;if(pulseStatus&&element.classList.contains('hour-column'))pulseStatus.textContent=text;element.setAttribute('aria-pressed', 'true'); };
     element.addEventListener('click', select);
     element.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); } });
   };
@@ -86,7 +87,7 @@
     }
     const low = known.reduce((best, item) => item.row.percent < best.row.percent ? item : best);
     const high = known.reduce((best, item) => item.row.percent > best.row.percent ? item : best);
-    summary.textContent = `${known.length} قراءة صالحة · أدنى قراءة ${percentFormatter.format(low.row.percent)}٪ (${low.row.at}) · أعلى قراءة ${percentFormatter.format(high.row.percent)}٪ (${high.row.at}).`;
+    summary.textContent = `${known.length} قراءة تاريخية للعرض فقط · أدنى قراءة ${percentFormatter.format(low.row.percent)}٪ (${low.row.at}) · أعلى قراءة ${percentFormatter.format(high.row.percent)}٪ (${high.row.at}).`;
   };
 
   const highlight = () => {
@@ -102,7 +103,7 @@
     const gapNote = gapBefore.has(index) ? ' · بداية بعد فجوة رصد' : '';
     slider.setAttribute('aria-valuetext', `${row.at}، ${value}، العينة ${index + 1} من ${rows.length}`);
     indexLabel.textContent = `العينة ${index + 1} من ${rows.length}`;
-    detail.textContent = `${row.session} · ${row.at} · ${formatter.format(row.tokens)} / ${row.limit ? formatter.format(row.limit) : 'سعة غير معروفة'} رمز · ${value}${gapNote}`;
+    detail.textContent = `${row.session} · ${row.at} · ${formatter.format(row.tokens)} / ${row.limit ? formatter.format(row.limit) : 'سعة غير معروفة'} رمز · ${value}${gapNote} · حجم آخر طلب؛ إشغال السياق غير مؤكد`;
   };
 
   const simplify = (indices, stride) => {
@@ -126,7 +127,7 @@
   const draw = () => {
     svg.replaceChildren();
     const title = shape('title', {id: 'context-chart-title'});
-    title.textContent = 'تغير نسبة استخدام نافذة السياق عبر الزمن';
+    title.textContent = 'تغير نسبة حجم آخر طلب إلى السعة المرجعية؛ عرض غير مؤكد';
     rows = groups.get(select.value) || [];
     positions = [];
     gapBefore = new Set();
@@ -241,5 +242,7 @@
   select.addEventListener('change', draw);
   slider.addEventListener('input', highlight);
   draw();
+  };
+  initialize();
+  document.addEventListener('usage:refreshed', initialize);
 })();
-

@@ -38,8 +38,8 @@
     <p>{{ form.mode.label_tag }}{{ form.mode }}{{ form.mode.errors }}</p>
     <p class="note">القراءة فقط تستخدم عاملًا معزولًا بالحاوية ونسخة قراءة من الملفات والبيانات، مع فحص العزل قبل التنفيذ. الحسابات المباشرة محلية. مهام التعديل تذهب إلى جلسة Codex القائمة.</p>
     <p class="note">الحسابات المباشرة لا تستدعي نموذجًا. البرمجة والتصميم يضيفان المهارة المناسبة؛ لا تُحمّل الموصلات إلا عند تحديد نوع يحتاج موصلًا.</p>
-    <details class="usage-fold"><summary>مهارات إضافية</summary>{{ form.skills.errors }}{{ form.skills }}</details>
-    <details class="usage-fold"><summary>موصلات محددة عند الحاجة</summary>{{ form.plugins.errors }}{{ form.plugins }}</details>
+    <details class="usage-fold"{% if form.skills.errors %} open{% endif %}><summary>مهارات إضافية</summary><p class="note">{{ form.skills.help_text }}</p>{{ form.skills.errors }}{{ form.skills }}</details>
+    <details class="usage-fold"{% if form.plugins.errors %} open{% endif %}><summary>موصلات محددة عند الحاجة</summary><p class="note">{{ form.plugins.help_text }}</p>{{ form.plugins.errors }}{{ form.plugins }}</details>
     <button>حفظ الطلب وتوجيهه</button>
   </form>
 </section>

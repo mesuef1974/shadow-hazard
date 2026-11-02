@@ -3,6 +3,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from pathlib import Path
 
 
@@ -24,21 +25,30 @@ def _counters(value):
 
 
 def find_rollout(thread_id, explicit_path=None):
-    root=Path(os.environ.get('CODEX_HOME',Path.home()/'.codex'))/'sessions'
+    home=Path(os.environ.get('CODEX_HOME',Path.home()/'.codex'))
+    roots=[(home/name).resolve() for name in ('sessions','archived_sessions')]
     if explicit_path:
         path=Path(explicit_path).resolve()
-        try:path.relative_to(root.resolve())
-        except ValueError:raise RolloutEvidenceError('ملف الدليل يجب أن يكون داخل مجلد sessions الخاص بـ Codex')
+        if not any(path.is_relative_to(root) for root in roots):
+            raise RolloutEvidenceError('ملف الدليل يجب أن يكون داخل مجلد جلسات Codex النشطة أو المؤرشفة')
         if path.name.endswith(f'-{thread_id}.jsonl') and path.is_file():return path
         raise RolloutEvidenceError('مسار rollout لا يطابق جلسة الوجهة')
-    matches=list(root.glob(f'**/*-{thread_id}.jsonl'))
+    matches={p.resolve() for root in roots for p in root.glob(f'**/*-{thread_id}.jsonl')
+             if p.is_file() and p.resolve().is_relative_to(root)}
     if len(matches)!=1:raise RolloutEvidenceError('تعذر تحديد ملف rollout وحيد للجلسة المستهدفة')
-    return matches[0]
+    return matches.pop()
 
 
 def has_bound_task_message(records,thread_id,turn_id,marker):
     """Require the host's explicit user-item thread/turn binding, not a quoted marker."""
     if not marker:return False
+    owner_outputs={}
+    for _,record in records:
+        value=record.get('payload') or {}
+        if (record.get('type')=='response_item' and value.get('type')=='function_call_output'
+                and value.get('name')=='send_message_to_thread' and value.get('namespace')=='codex_app'
+                and value.get('id')):
+            owner_outputs[value['id']]=value.get('output')
     for _,record in records:
         payload=record.get('payload') or {}
         item=payload.get('item') or {}
@@ -47,10 +57,53 @@ def has_bound_task_message(records,thread_id,turn_id,marker):
             and str(item.get('type','')).lower()=='usermessage'
             and marker in json.dumps(item.get('content',[]),ensure_ascii=False)):
             return True
+        if (record.get('type')=='event_msg' and payload.get('type')=='item_completed'
+            and payload.get('thread_id')==thread_id and payload.get('turn_id')==turn_id
+            and item.get('type')=='FunctionCallOutput' and item.get('name')=='send_message_to_thread'
+            and item.get('namespace')=='codex_app' and item.get('id') in owner_outputs
+            and item.get('output')==owner_outputs[item['id']]
+            and marker in json.dumps(item.get('output'),ensure_ascii=False)):
+            return True
     return False
 
 
-def read_turn_evidence(path, *, thread_id, claimed_at, acknowledged_at, expected_model, expected_thinking, turn_id='', expected_marker='', expected_prompt='', task_id=None):
+def _owner_root_provenance(records,thread_id,turn_id,marker,root_turn_id,started_at,expected_owner_origin=None):
+    """An owner-tool delivery can retain the initiating chat's root turn id."""
+    if not marker or not isinstance(root_turn_id,str):return {}
+    sources=set()
+    for line,record in records:
+        p=record.get('payload') or {};item=p.get('item') or {}
+        if (p.get('thread_id')!=thread_id or p.get('turn_id')!=turn_id
+                or item.get('type')!='FunctionCallOutput' or not isinstance(item.get('output'),str)):
+            continue
+        paired=[entry for entry in records if entry[1].get('type')=='response_item'
+                and entry[1].get('payload',{}).get('id')==item.get('id')]
+        if not has_bound_task_message(paired+[(line,record)],thread_id,turn_id,marker):continue
+        match=re.match(r'\s*<codex_delegation>\s*<source_thread_id>([0-9a-f-]{36})</source_thread_id>',item['output'])
+        if match:sources.add(match.group(1))
+    if len(sources)!=1:return {}
+    source_id=sources.pop()
+    if expected_owner_origin:
+        if (source_id==expected_owner_origin.get('thread_id')
+                and root_turn_id==expected_owner_origin.get('context_id')
+                and expected_owner_origin.get('call_id')):
+            return {'origin_thread_id':source_id,'origin_root_turn_id':root_turn_id,
+                'origin_owner_call_id':expected_owner_origin['call_id'],
+                'origin_basis':'durable authorized owner_call_intent, paired host delivery'}
+        return {}
+    try:
+        raw=find_rollout(source_id).read_bytes()
+        source=[json.loads(line) for line in raw.decode('utf8').splitlines()]
+        sessions=[row.get('payload',{}).get('session_id') for row in source if row.get('type')=='session_meta']
+        starts=[row['payload'] for row in source if row.get('type')=='event_msg'
+                and row.get('payload',{}).get('type')=='task_started' and row['payload'].get('turn_id')==root_turn_id]
+        if sessions!=[source_id] or len(starts)!=1 or float(starts[0]['started_at'])>started_at:return {}
+    except (OSError,ValueError,KeyError,TypeError):return {}
+    return {'origin_thread_id':source_id,'origin_root_turn_id':root_turn_id,
+            'origin_rollout_sha256':hashlib.sha256(raw).hexdigest()}
+
+
+def read_turn_evidence(path, *, thread_id, claimed_at, acknowledged_at, expected_model, expected_thinking, turn_id='', expected_marker='', expected_prompt='', task_id=None,expected_owner_origin=None):
     path=Path(path)
     records=[]
     try:
@@ -125,6 +178,39 @@ def read_turn_evidence(path, *, thread_id, claimed_at, acknowledged_at, expected
     except (TypeError,ValueError):raise RolloutEvidenceError('توقيت نهاية الدور غير صالح')
     overlapping=[turn for turn,rows in starts.items() if turn!=key and any(start_line<line<end_line for line,_ in rows)]
     if overlapping:raise RolloutEvidenceError('وُجد دور متداخل في حدود المهمة؛ لا يمكن نسبة الاستهلاك بأمان')
+
+    # Modern records bind every response to this exact turn. Validate their
+    # independent sum against the turn counter, never a session-wide delta.
+    exact=[(line,row) for line,row in usage_records if row.get('turn_id')==key]
+    modern = any(any(field in row for field in ('response_id', 'usage', 'root_turn_id')) for _, row in exact)
+    if modern and not all(isinstance(row.get('response_id'), str) and row['response_id']
+                          and isinstance(row.get('usage'), dict) for _, row in exact):
+        raise RolloutEvidenceError('سجلات استجابات حديثة ناقصة أو مختلطة؛ حُظر الرجوع إلى عداد الجلسة')
+    if modern:
+        seen=set();total={field:0 for field in COUNTERS};origin={};roots=set()
+        for line,row in exact:
+            if row.get('thread_id')!=thread_id or not start_line<line<end_line:
+                raise RolloutEvidenceError('سجل استجابة خارج حدود الدور')
+            root=row.get('root_turn_id',key)
+            if not isinstance(root,str) or not root:
+                raise RolloutEvidenceError('هوية جذر الدور غير صالحة')
+            roots.add(root)
+            if root!=key and not origin:
+                origin=_owner_root_provenance(records,thread_id,key,expected_marker,root,float(start['started_at']),expected_owner_origin)
+            if (root!=key and not origin) or len(roots)!=1 or row['response_id'] in seen:
+                raise RolloutEvidenceError('معرف استجابة مكرر أو مرتبط بدور مختلف')
+            seen.add(row['response_id'])
+            counts=_counters(row['usage'])
+            total={field:total[field]+counts[field] for field in COUNTERS}
+            if _counters(row.get('turn_token_usage'))!=total:
+                raise RolloutEvidenceError('مجموع استجابات الدور لا يطابق عداده المباشر')
+        result=end.get('last_agent_message')
+        if not isinstance(result,str) or not result.strip():
+            raise RolloutEvidenceError('الرد النهائي للدور غير موجود')
+        return {'turn_id':key,'model':ctx['model'],'thinking':ctx['effort'],'usage':total,'result':result[:40000],
+            'evidence':{'path':str(path),'sha256':digest,'start_line':start_line,'turn_context_line':ctx_line,
+                'usage_record_line':exact[-1][0],'complete_line':end_line,'response_count':len(seen),
+                'basis':'unique response usage summed and checked against exact turn counter',**origin}}
 
     before=[(line,value) for line,value in snapshots if line<start_line]
     after=[(line,value) for line,value in snapshots if start_line<line<end_line]

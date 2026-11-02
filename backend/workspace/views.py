@@ -12,6 +12,7 @@ from .forms import ModelJobForm
 from .dispatcher import enqueue
 from registry.models import ExecutionSession
 from token_usage.models import TrackedSession
+from token_usage.capacity import snapshot as capacity_snapshot
 import uuid
 
 def supervisor(user): return user.is_authenticated and user.role=='supervisor'
@@ -19,7 +20,8 @@ def supervisor(user): return user.is_authenticated and user.role=='supervisor'
 @login_required(login_url='/login/')
 def sessions(request):
     if not supervisor(request.user):return HttpResponseForbidden()
-    thread_id='01a18e02-0487-7180-9aa0-f932b22c8ef4'
+    coordination=SessionCharter.objects.filter(project=project(),key='coordination').first()
+    thread_id=coordination.thread_id if coordination else ''
     execution=ExecutionSession.objects.filter(external_key=thread_id).first()
     tracked=TrackedSession.objects.filter(external_id=thread_id,project=project()).first()
     latest_model_sample=tracked.samples.filter(model__gt='').order_by('-sampled_at','-source_id').first() if tracked else None
@@ -32,11 +34,37 @@ def sessions(request):
             'model_sample':latest_model_sample,
         }
     return render(request,'workspace/sessions.html',{
+        'capacity_snapshot':capacity_snapshot(project()),
         'charters':SessionCharter.objects.filter(project=project()).select_related('policy'),
         'coordination_session':coordination_session,
         'routing_policies':SessionRoutingPolicy.objects.order_by('category'),
     })
 def project(): return Project.objects.order_by('pk').first()
+
+
+@login_required(login_url='/login/')
+def automation_model(request, asset=''):
+    """Serve the canonical map and its two assets behind supervisor access."""
+    from django.conf import settings
+    from django.http import HttpResponse, Http404
+    from django.templatetags.static import static
+    if not supervisor(request.user):return HttpResponseForbidden()
+    root=settings.BASE_DIR.parent/'docs'/'blueprint'
+    if asset:
+        if asset not in {'automation-map.css','automation-map.js'}:raise Http404
+        text=(root/asset).read_text(encoding='utf-8')
+        if asset.endswith('.css'):
+            text=text.replace('../brand/approved-v1/tokens.css',static('brand/approved-v1/tokens.css'))
+        response=HttpResponse(text,content_type='text/css' if asset.endswith('.css') else 'text/javascript')
+    else:
+        text=(root/'automation-map-ar.html').read_text(encoding='utf-8')
+        # Trusted repository content is shared with the local standalone map.
+        # Render only its main fragment inside the platform's common shell.
+        content=text.split('<main>',1)[1].split('</main>',1)[0]
+        content=content.replace('<h1>','<h2 class="model-intro-title">').replace('</h1>','</h2>')
+        response=render(request,'workspace/automation_model.html',{'map_content':content,'capacity_snapshot':capacity_snapshot(project())})
+    response['Cache-Control']='private, no-cache'
+    return response
 
 @login_required(login_url='/login/')
 def model_jobs(request):
@@ -126,6 +154,180 @@ def exhibition(request):
     return render(request,'workspace/exhibition.html',{'project':project()})
 
 
+AUTOMATION_EVIDENCE_LABELS = {
+    'job_id': 'رقم الطلب',
+    'created_at': 'وقت التسجيل',
+    'submission_key': 'معرّف تقديم الطلب',
+    'owner_id': 'معرّف المسؤول',
+    'charter_id': 'معرّف الميثاق',
+    'charter_key': 'مفتاح الميثاق',
+    'dispatch_id': 'معرّف الإرسال',
+    'state': 'الحالة',
+    'target_thread_id': 'معرّف الجلسة المستهدفة',
+    'requested_model': 'النموذج المطلوب',
+    'requested_thinking': 'التفكير المطلوب',
+    'attempt_no': 'رقم المحاولة',
+    'max_attempts': 'الحد الأقصى للمحاولات',
+    'acknowledged_at': 'وقت تأكيد الوصول',
+    'turn_keys': 'معرّفات الأدوار',
+    'execution_thread_id': 'معرّف جلسة التنفيذ',
+    'started_at': 'وقت البدء',
+    'turn_key': 'معرّف الدور',
+    'model': 'النموذج',
+    'observed_model': 'النموذج المرصود',
+    'observed_thinking': 'التفكير المرصود',
+    'validated_turn_id': 'معرّف الدور المتحقق منه',
+    'turn_count': 'عدد الأدوار',
+    'finished_at': 'وقت الانتهاء',
+    'violations': 'المخالفات',
+    'required': 'مطلوب',
+    'reason': 'السبب',
+    'kind': 'النوع',
+    'manifest_digest': 'بصمة بيان المهمة',
+}
+
+
+AUTOMATION_VIOLATION_LABELS = {
+    'usage_counters_missing_or_invalid': 'عدادات الاستهلاك مفقودة أو غير صالحة',
+    'cached_input_exceeds_input': 'المدخلات المخزنة تتجاوز إجمالي المدخلات',
+    'reasoning_exceeds_output': 'رموز التفكير تتجاوز المخرجات',
+    'usage_total_mismatch': 'إجمالي الاستهلاك غير متطابق',
+    'execution_evidence_rejected': 'لم يُعتمد دليل التنفيذ',
+    'attempt_number_out_of_range': 'رقم المحاولة خارج الحدود',
+    'attempt_event_number_mismatch': 'رقم المحاولة لا يطابق حدثها',
+    'attempt_number_evidence_missing': 'دليل رقم المحاولة مفقود',
+    'job_thread_mismatch': 'جلسة الطلب غير متطابقة',
+    'completed_dispatch_missing_turn_key': 'الإرسال المنتهي يفتقد معرّف الدور',
+    'completed_dispatch_missing_turn_evidence': 'الإرسال المنتهي يفتقد دليل الدور',
+    'completed_job_missing_observed_model': 'الطلب المنتهي يفتقد النموذج المرصود',
+    'completed_job_missing_usage': 'الطلب المنتهي يفتقد الاستهلاك',
+    'completed_turn_attempt_count_mismatch': 'عدد الأدوار المنتهية لا يطابق المحاولات',
+    'turn_count_exceeds_attempt_number': 'عدد الأدوار يتجاوز عدد المحاولات',
+    'turn_key_missing_or_duplicate': 'معرّف الدور مفقود أو مكرر',
+    'turn_thread_mismatch': 'جلسة الدور غير متطابقة',
+    'turn_model_mismatch': 'نموذج الدور غير متطابق',
+    'turn_thinking_mismatch': 'مستوى تفكير الدور غير متطابق',
+    'usage_source_reused': 'مصدر الاستهلاك مستخدم أكثر من مرة',
+    'dispatch_turn_key_not_in_turns': 'معرّف دور الإرسال غير مسجل بالأدوار',
+    'dispatch_job_state_mismatch': 'حالة الإرسال لا تطابق حالة الطلب',
+    'job_dispatch_state_mismatch': 'حالة الطلب لا تطابق حالة الإرسال',
+    'finished_review_missing_turn_evidence': 'المراجعة المنتهية تفتقد دليل الدور',
+    'finished_review_missing_closure_evidence': 'المراجعة المنتهية تفتقد دليل الإغلاق',
+    'rejected_dispatch_missing_evidence': 'الإرسال المرفوض يفتقد الدليل',
+    'claimed_dispatch_missing_reservation_evidence': 'الإرسال المحجوز يفتقد دليل الحجز',
+    'sent_dispatch_missing_sent_at': 'توقيت إرسال الرسالة مفقود',
+    'acknowledged_dispatch_missing_arrival_time': 'توقيت الوصول المؤكد مفقود',
+    'completed_dispatch_missing_completed_at': 'توقيت انتهاء الإرسال مفقود',
+    'observed_model_turn_mismatch': 'النموذج المرصود لا يطابق الدور',
+    'requested_observed_model_mismatch': 'النموذج المرصود يخالف المطلوب',
+    'requested_observed_thinking_mismatch': 'التفكير المرصود يخالف المطلوب',
+    'job_turn_usage_mismatch': 'استهلاك الطلب لا يطابق الدور',
+    'observed_thinking_missing': 'مستوى التفكير المرصود مفقود',
+    'event_turn_not_recorded': 'دور الحدث غير مسجل',
+    'event_recorded_turn_mismatch': 'دور الحدث لا يطابق الدور المسجل',
+    'job_observed_model_mismatch': 'النموذج المرصود لا يطابق سجل الطلب',
+    'completed_job_missing_closure_evidence': 'الطلب المنتهي يفتقد دليل الإغلاق',
+    'local_execution_evidence_missing': 'دليل التنفيذ المحلي مفقود',
+    'turn_evidence_missing': 'دليل الدور مفقود',
+    'registry_usage_evidence_mismatch': 'دليل الاستهلاك لا يطابق السجل',
+    'documented_usage_mismatch': 'الاستهلاك لا يطابق التوثيق',
+    'completion_not_verified': 'اكتمال الطلب غير متحقق',
+}
+
+
+def _automation_evidence_value(name, value):
+    """Translate enum values for presentation without altering source evidence."""
+    if value is None:
+        return 'غير مسجل'
+    if isinstance(value, bool):
+        return 'نعم' if value else 'لا'
+    if isinstance(value, list):
+        return '، '.join(str(item) for item in value) if value else 'لا يوجد'
+    if not isinstance(value, str):
+        return value
+    if name == 'kind':
+        return {'code': 'برمجة', 'design': 'تصميم', 'review': 'مراجعة', 'connected': 'خدمات متصلة',
+                'text': 'نصوص', 'calculation': 'حساب', 'frontend': 'واجهة المستخدم',
+                'backend': 'الخادم', 'readonly': 'قراءة فقط', 'read-only': 'قراءة فقط',
+                'task': 'مهمة', 'reply': 'رد', 'handoff': 'تسليم', 'notice': 'إشعار'}.get(value, value)
+    if name == 'reason' and value == 'read-only work is executed by the isolated worker; desktop outbox is not used':
+        return 'ينفذ عامل القراءة المعزول هذه المهمة؛ لا يستخدم صندوق إرسال سطح المكتب.'
+    if name in {'requested_thinking', 'observed_thinking'}:
+        return {'none': 'بلا تفكير', 'minimal': 'أدنى', 'low': 'منخفض',
+                'medium': 'متوسط', 'high': 'عالٍ', 'xhigh': 'عالٍ جدًا',
+                'max': 'أقصى', 'ultra': 'فائق'}.get(value, value)
+    if name == 'state':
+        return {
+            'queued': 'في الانتظار', 'claimed': 'محجوز للإرسال', 'sent': 'أُرسل',
+            'acknowledged': 'تأكد الوصول', 'completed': 'انتهى التنفيذ',
+            'finished_review': 'انتهى الدور؛ يحتاج مراجعة السياسة',
+            'evidence_rejected': 'انتهى الدور؛ لم يُعتمد الدليل',
+            'uncertain': 'غير محسوم', 'running': 'قيد التنفيذ', 'blocked': 'متوقف بعائق',
+            'needs_review': 'يحتاج مراجعة', 'failed': 'تعذر التنفيذ',
+            'waiting_delivery': 'ينتظر الإرسال أو إثبات الوصول',
+            'awaiting_approval': 'ينتظر الموافقة', 'waiting_readonly': 'ينتظر عامل القراءة',
+            'stopped': 'متوقف', 'rejected': 'مرفوض', 'cancelled': 'ملغى',
+        }.get(value, value)
+    return value
+
+
+def _automation_violation_label(code):
+    return AUTOMATION_VIOLATION_LABELS.get(code, "مخالفة غير مصنفة؛ راجع سجل التدقيق")
+
+
+def _automation_display_text(text):
+    """Localize known vocabulary in a display copy of recorded narrative."""
+    import re
+    labels = {
+        **AUTOMATION_VIOLATION_LABELS,
+        'FAIL': 'لم يجتز المراجعة', 'BLOCKED': 'معلّق بعائق', 'CONDITIONAL': 'مشروط',
+        'PASS': 'اجتاز المراجعة', 'UsageEvent': 'واقعة الاستخدام', 'TokenSample': 'عينة الرموز',
+        'evidence_rejected': 'لم يُعتمد الدليل', 'completed': 'انتهى التنفيذ',
+        'dispatch': 'الإرسال', 'acknowledged': 'تأكد الوصول', 'rollout': 'سجل التنفيذ',
+        'Turn': 'دور التنفيذ', 'turn': 'دور التنفيذ', 'low': 'منخفض', 'medium': 'متوسط',
+        'high': 'عالٍ', 'read-only': 'قراءة فقط', 'workspace-write': 'كتابة مساحة العمل',
+    }
+    pattern = r'(?<![A-Za-z_-])(' + '|'.join(re.escape(key) for key in sorted(labels, key=len, reverse=True)) + r')(?![A-Za-z_-])'
+    return re.sub(pattern, lambda match: labels[match.group()], text)
+
+
+def _automation_reviews(jobs):
+    """Batch the result_document lookup contract without per-assignment queries."""
+    from operations.models import ReviewAssignment, review_document_query
+    from .models import ProjectDocumentation
+
+    assignments = list(ReviewAssignment.objects.filter(source_job_id__in=[job.pk for job in jobs])
+                       .values('source_job_id', 'review_job_id'))
+    if not assignments:
+        return {}
+    projects = {job.pk: job.charter.project_id for job in jobs}
+    documents = {}
+    for doc in ProjectDocumentation.objects.filter(
+            review_document_query([item['source_job_id'] for item in assignments]),
+            project_id__in=set(projects.values()), session_key='review',
+        ).order_by('-created_at', '-pk'):
+        documents.setdefault((doc.project_id, int(doc.task_key.split(':')[1])), doc)
+    result = {}
+    for item in assignments:
+        source_id = item['source_job_id']
+        doc = documents.get((projects[source_id], source_id))
+        decision = doc.evidence.get('decision') if doc and isinstance(doc.evidence, dict) else None
+        decision_labels = {'FAIL': 'لم يجتز المراجعة', 'BLOCKED': 'معلّق بعائق',
+                           'CONDITIONAL': 'مشروط', 'PASS': 'اجتاز المراجعة'}
+        summary_display = doc.summary if doc else ''
+        for code, label in decision_labels.items():
+            if summary_display.startswith(code + ':'):
+                summary_display = label + summary_display[len(code):]
+                break
+        result[source_id] = {
+            'job_id': item['review_job_id'], 'receipt': doc.pk if doc else None,
+            'summary': doc.summary if doc else '', 'summary_display': _automation_display_text(summary_display),
+            'decision_label': decision_labels.get(decision, 'قرار غير معروف') if isinstance(decision, str) else None,
+            'decision': decision if isinstance(decision, str) else None,
+        }
+    return result
+
+
 @login_required(login_url='/login/')
 def automation(request):
     """Read-only, evidence-led overview of automation and backup operations."""
@@ -141,19 +343,16 @@ def automation(request):
         from operations.models import AutomationIssue, BackupPolicy, BackupRun
         from operations.services import task_snapshot
 
-        safe_keys = {
-            'job_id', 'created_at', 'submission_key', 'owner_id', 'charter_id', 'charter_key',
-            'dispatch_id', 'state', 'target_thread_id', 'requested_model', 'requested_thinking',
-            'attempt_no', 'max_attempts', 'acknowledged_at', 'turn_keys', 'execution_thread_id',
-            'started_at', 'turn_key', 'model', 'observed_model', 'observed_thinking',
-            'validated_turn_id', 'turn_count', 'finished_at', 'violations', 'required', 'reason',
-            'kind', 'manifest_digest',
-        }
+        safe_keys = set(AUTOMATION_EVIDENCE_LABELS)
         stage_names = (
             ('registration', 'تسجيل'), ('assignment', 'إسناد'), ('dispatch', 'إرسال'),
             ('arrival', 'وصول'), ('execution', 'تنفيذ'), ('verification', 'تحقق'), ('closure', 'إغلاق'),
         )
-        for job in ModelJob.objects.select_related('charter').order_by('-created_at')[:40]:
+        jobs = list(ModelJob.objects.select_related('charter').order_by('-created_at')[:40])
+        reviews = _automation_reviews(jobs)
+        from .operational_reviews import operational_reviews
+        operational = operational_reviews(jobs)
+        for job in jobs:
             snapshot = task_snapshot(job)
             stages = []
             for key, label in stage_names:
@@ -162,8 +361,12 @@ def automation(request):
                 for record in stage.get('evidence', []):
                     if not isinstance(record, dict):
                         continue
-                    evidence.append({name: value for name, value in record.items()
-                                     if name in safe_keys and isinstance(value, (str, int, float, bool, list))})
+                    display_record = {name: value for name, value in record.items()
+                                      if name in safe_keys and isinstance(value, (str, int, float, bool, list))}
+                    if isinstance(display_record.get('violations'), list):
+                        display_record['المخالفات'] = '، '.join(_automation_violation_label(code) for code in display_record.pop('violations')) or 'لا توجد مخالفات مسجلة'
+                    evidence.append({AUTOMATION_EVIDENCE_LABELS.get(name, name): _automation_evidence_value(name, value)
+                                     for name, value in display_record.items()})
                 status=stage.get('status','pending')
                 status_label={'pending':'بانتظار الدليل','recorded':'مسجل','confirmed':'ثبت بالدليل',
                     'verified':'تم التحقق','failed':'تعذر التحقق','not_required':'غير مطلوب','closed':'مغلق'}.get(status,'بانتظار التحقق')
@@ -185,10 +388,18 @@ def automation(request):
                     'needs_review':'يحتاج مراجعة','failed':'تعذر التنفيذ','completed':'انتهى التنفيذ — التحقق قيد المراجعة',
                     'running':'قيد التنفيذ','uncertain':'غير محسوم','blocked':'متوقف بعائق'}.get(snapshot['state'],'بانتظار التحقق'),
                 'requested': snapshot['requested'], 'observed': snapshot['observed'],
+                'requested_thinking_label': _automation_evidence_value('requested_thinking', snapshot['requested'].get('thinking')),
+                'observed_thinking_label': _automation_evidence_value('observed_thinking', snapshot['observed'].get('thinking')),
+                'usage_display': { {'input_tokens':'رموز المدخلات', 'cached_input_tokens':'رموز المدخلات المخزنة',
+                    'output_tokens':'رموز المخرجات', 'reasoning_output_tokens':'رموز التفكير',
+                    'total_tokens':'إجمالي الرموز'}[key]: value for key, value in usage.items()},
                 'stages': stages, 'violations': snapshot['violations'],
+                'violation_labels': [_automation_violation_label(code) for code in snapshot['violations']],
                 'success_verified': snapshot['success_verified'], 'usage_source': usage_source,
                 'usage': usage,
-                'result': job.result, 'outcome_note': job.outcome_note,
+                'result': _automation_display_text(job.result), 'outcome_note': _automation_display_text(job.outcome_note),
+                'review': reviews.get(job.pk),
+                'operational_review': operational.get(job.pk),
             })
         context['issues'] = list(AutomationIssue.objects.select_related('job').all()[:60])
     except Exception:
@@ -204,8 +415,15 @@ def automation(request):
         context['backup_error'] = 'تعذر قراءة سجل النسخ والاستعادة.'
 
     try:
-        context['heartbeats'] = list(DispatcherHeartbeat.objects.order_by('key'))
+        context['heartbeats'] = [
+            {'key': row.key, 'state_label': ('غير متاح — النبض متقادم' if row.state == 'running'
+             and row.updated_at < timezone.now() - timedelta(minutes=2)
+             else _automation_evidence_value('state', row.state)),
+             'updated_at': row.updated_at} for row in DispatcherHeartbeat.objects.order_by('key')]
     except Exception:
         context['automation_error'] = context['automation_error'] or 'تعذر قراءة حالة موزّع المهام.'
 
+    context['capacity_snapshot'] = capacity_snapshot(project())
+    from operations.operator_usage import snapshot as operator_usage_snapshot
+    context['operator_comparison'] = operator_usage_snapshot(project())
     return render(request, 'workspace/automation.html', context)

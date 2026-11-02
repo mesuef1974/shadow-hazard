@@ -39,12 +39,14 @@ class Command(BaseCommand):
             evidence=None
             if action in {'stuck','complete-from-rollout'}:
                 from execution_context.rollout_usage import find_rollout, read_turn_evidence, RolloutEvidenceError
+                from execution_context.owner_delivery import owner_origin_for
                 try:
                     source=find_rollout(dispatch.target_thread_id,opts['rollout'] or None)
                     evidence=read_turn_evidence(source,thread_id=dispatch.target_thread_id,claimed_at=dispatch.claimed_at,
                         acknowledged_at=dispatch.acknowledged_at,expected_model=dispatch.requested_model,
                         expected_thinking=dispatch.requested_thinking,turn_id=opts['turn_id'],expected_marker=dispatch.job.task_context.manifest.get('task_marker',''),
-                        expected_prompt=dispatch.job.prompt.strip(),task_id=dispatch.job_id)
+                        expected_prompt=dispatch.job.prompt.strip(),task_id=dispatch.job_id,
+                        expected_owner_origin=owner_origin_for(dispatch))
                 except RolloutEvidenceError as exc:raise CommandError(str(exc))
             if action=='stuck':
                 if dispatch.state!='acknowledged':raise CommandError('تعثر المهمة لا يسجل قبل إقرار وصولها')
@@ -74,6 +76,9 @@ class Command(BaseCommand):
                     dispatch.job.outcome_note='المهمة تعثرت ووصلت إلى حد المحاولات/التصعيد؛ تحتاج مراجعة بشرية ولا تعاد تلقائيًا.'
                 dispatch.save()
                 dispatch.job.save(update_fields=['state','requested_model','requested_thinking','started_at','outcome_note'])
+                if not can_escalate:
+                    from execution_context.exhausted_delivery import record_exhausted
+                    record_exhausted(dispatch, evidence)
                 if can_escalate:SessionDispatchEvent.objects.create(dispatch=dispatch,state='queued',detail={'attempt':dispatch.attempt_no,'model':dispatch.requested_model,'thinking':dispatch.requested_thinking,'reason':reason})
                 self.stdout.write(json.dumps({'dispatch_id':dispatch.pk,'state':dispatch.state,'attempt':dispatch.attempt_no,'model':dispatch.requested_model,'thinking':dispatch.requested_thinking},ensure_ascii=False));return
             transitions={'sent':'claimed','acknowledged':'sent','complete-from-rollout':'acknowledged','uncertain':['claimed','sent','acknowledged']}
@@ -110,14 +115,26 @@ class Command(BaseCommand):
 
     def claim(self, opts):
         with transaction.atomic():
-            from workspace.models import ModelJob
-            if not opts.get('enqueue_only') and ModelJob.objects.filter(state__in=['running','uncertain']).exists():
-                self.stdout.write('{}');return
-            candidate=SessionDispatch.objects.filter(state='queued',job__mode='workspace-write').order_by('created_at','pk').values_list('pk',flat=True).first()
+            from workspace.job_lanes import available_dispatches, without_renewing_dispatches
+            from workspace.models import SessionCharter
+            from execution_context.models import SessionWriterRecovery
+            recovering_threads=SessionWriterRecovery.objects.filter(state__in=['archiving','restoring','uncertain']).values('thread_id')
+            candidates=SessionDispatch.objects.filter(state='queued',job__mode='workspace-write').exclude(target_thread_id__in=recovering_threads)
+            if opts.get('dispatch'):
+                candidates=candidates.filter(pk=opts['dispatch'])
+            if not opts.get('enqueue_only'):
+                candidates=available_dispatches(candidates)
+            candidate=candidates.order_by('created_at','pk').values_list('pk',flat=True).first()
             if not candidate:
                 self.stdout.write('{}');return
+            identities=SessionDispatch.objects.filter(pk=candidate).values_list('target_charter_id','job__charter_id').get()
+            list(SessionCharter.objects.select_for_update().filter(pk__in=identities).order_by('pk'))
             token=uuid.uuid4();claimed_at=timezone.now()
-            changed=SessionDispatch.objects.filter(pk=candidate,state='queued').update(state='claimed',claim_token=token,
+            claim_query=SessionDispatch.objects.filter(pk=candidate,state='queued').exclude(target_thread_id__in=recovering_threads)
+            claim_query=without_renewing_dispatches(claim_query)
+            if not opts.get('enqueue_only'):
+                claim_query=available_dispatches(claim_query)
+            changed=claim_query.update(state='claimed',claim_token=token,
                 claimed_by=opts['consumer'][:100],claimed_at=claimed_at,updated_at=claimed_at)
             if not changed:
                 self.stdout.write('{}');return

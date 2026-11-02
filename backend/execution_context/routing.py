@@ -15,8 +15,9 @@ SKILLS={
     'frontend-design':('.agents/skills/frontend-design/SKILL.md','تصميم الواجهة'),
     'ui-ux-pro-max':('.agents/skills/ui-ux-pro-max/SKILL.md','مراجعة تجربة الاستخدام'),
 }
-DEFAULT_SKILLS={'code':['minimal-code-edit'],'design':['frontend-design']}
 EXPRESSION=re.compile(r'\s*(?:احسب\s+)?([+-]?\d{1,12}(?:\.\d{1,8})?)\s*([+*/−-])\s*([+-]?\d{1,12}(?:\.\d{1,8})?)\s*')
+MAX_PLUGINS = 2
+MAX_SKILLS = 3
 
 
 def host_config():
@@ -61,19 +62,22 @@ def build_plan(charter,prompt,kind='auto',skills=None,plugins=None,mode='read-on
         kind=('calculation' if EXPRESSION.fullmatch(prompt) else
             'design' if any(word in text for word in ('تصميم','واجهة','css','layout','ui design')) else
             'code' if any(word in text for word in ('باك إند','باك اند','backend','django','python','برمج','كود','هجرة','قاعدة البيانات')) else 'text')
-    skills=list(dict.fromkeys([*DEFAULT_SKILLS.get(kind,[]),*(skills or [])]))
+    # Explicit selection loads a skill; classification alone does not preload it.
+    skills=list(dict.fromkeys(skills or []))
     plugins=list(dict.fromkeys(plugins or []))
-    if len(skills)>3 or any(key not in SKILLS for key in skills):raise ValueError('مهارة غير مسموحة')
-    if len(plugins)>2 or any(name not in available_plugins() for name in plugins):raise ValueError('موصل غير مسجل')
+    if len(skills)>MAX_SKILLS:raise ValueError('اختر ثلاث مهارات إضافية كحد أقصى.')
+    if any(key not in SKILLS for key in skills):raise ValueError('مهارة غير مسموحة')
+    if len(plugins)>MAX_PLUGINS:raise ValueError('اختر موصلين كحد أقصى؛ أزل الموصلات الزائدة ثم أعد الحفظ.')
+    if any(name not in available_plugins() for name in plugins):raise ValueError('موصل غير مسجل؛ حدّث الصفحة واختر من القائمة الحالية.')
     if plugins and kind!='connected':raise ValueError('اختر نوع المهمة التي تحتاج موصلًا قبل تفعيله')
     if kind=='connected' and not plugins:raise ValueError('حدد الموصل الذي تحتاجه المهمة')
     if kind=='calculation':
         if skills or plugins or mode!='read-only':raise ValueError('الحساب المحلي لا يحتاج مهارات أو موصلات أو صلاحية تعديل')
         calculate(prompt)
     from workspace.memory import instructions as project_instructions
-    memory_text,memory_digest=project_instructions(charter.project)
+    memory_text,memory_digest=project_instructions(charter.project,kind)
     instructions=[memory_text] if memory_text else []
-    manifest={'files':[],'local_only':kind=='calculation','project_memory_digest':memory_digest}
+    manifest={'files':[],'local_only':kind=='calculation','project_memory_digest':memory_digest,'memory_kind':kind}
     # Retain applicable project/ancestor instructions without truncation.
     paths=instruction_files()
     manifest['instruction_paths']=[str(path) for path in paths]
@@ -89,7 +93,8 @@ def build_plan(charter,prompt,kind='auto',skills=None,plugins=None,mode='read-on
         if len(text)>100000:raise ValueError('المهارة كبيرة؛ يلزم تقسيم المهمة بدل اقتطاع التعليمات')
         skill_text.append(f'مهارة مطلوبة: {key}\nالمصدر: {path}\n{text}')
         manifest['files'].append({'path':str(path),'skill':key,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
-    return {'kind':kind,'skills':skills,'plugins':plugins,'instructions':'\n\n'.join(instructions),
+    from workspace.instruction_text import merge_instructions
+    return {'kind':kind,'skills':skills,'plugins':plugins,'instructions':merge_instructions(instructions),
         'charter':f'نطاق الجلسة: {charter.scope}\nالميثاق: {charter.rules}',
         'skill_text':'\n\n'.join(skill_text),'manifest':manifest}
 
@@ -114,7 +119,7 @@ def capability_flags(plugins):
 def validate_manifest(plan):
     if 'project_memory_digest' in plan.manifest:
         from workspace.memory import instructions
-        if instructions(plan.job.charter.project)[1]!=plan.manifest['project_memory_digest']:
+        if instructions(plan.job.charter.project,plan.manifest.get('memory_kind','core'))[1]!=plan.manifest['project_memory_digest']:
             raise ValueError('تغيرت ذاكرة المشروع؛ يلزم تحديث سياق المهمة')
     if plan.manifest.get('instruction_paths') is not None and plan.manifest['instruction_paths']!=[str(path) for path in instruction_files()]:
         raise ValueError('تغيرت ملفات تعليمات المشروع؛ أنشئ طلبًا جديدًا')

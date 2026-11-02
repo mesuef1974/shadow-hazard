@@ -68,3 +68,7 @@ TOKEN_USAGE_SOURCE = Path(os.getenv('TOKEN_USAGE_SOURCE', str(Path.home() / '.co
 STATICFILES_FINDERS = ['registry.static_finders.BrandAssetsFinder', 'django.contrib.staticfiles.finders.AppDirectoriesFinder']
 INSTALLED_APPS += ['execution_context']
 INSTALLED_APPS += ['operations.apps.OperationsConfig']
+INSTALLED_APPS += ['releases']
+INSTALLED_APPS += ['knowledge']
+INSTALLED_APPS += ['simulation']
+AUTO_RENEWAL_EXECUTION_ENABLED = True

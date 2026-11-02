@@ -11,10 +11,10 @@ from .readonly_transport import IsolationError
 def run_pending(job_id=None):
     """Caller holds the shared worker OS lock; database reservation protects the lane."""
     with transaction.atomic():
-        if ModelJob.objects.filter(state__in=['running','uncertain']).exists():return None
         query=ModelJob.objects.filter(mode='read-only',state='waiting_readonly',session_dispatch__isnull=True).order_by('created_at','pk')
         if job_id:query=query.filter(pk=job_id)
-        job=query.first()
+        from workspace.job_lanes import available_jobs
+        job=available_jobs(query).first()
         if not job:return None
         plan=job.task_context;validate_manifest(plan)
         if not job.owner.is_active or job.owner.role!='supervisor' or not job.charter.policy.enabled:raise IsolationError('تفويض القراءة موقوف')

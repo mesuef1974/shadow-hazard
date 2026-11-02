@@ -36,3 +36,29 @@ class ModelJobForm(forms.Form):
         super().__init__(*args,**kwargs)
         from execution_context.routing import available_plugins
         self.fields['plugins'].choices=[(name,name) for name in available_plugins()]
+        self.fields['plugins'].help_text='اختر موصلين كحد أقصى، وحدد نوع «مهمة تحتاج موصلًا محددًا». اتركها فارغة إذا لم تحتج موصلًا.'
+        self.fields['skills'].help_text='اختر ثلاث مهارات إضافية كحد أقصى، عند الحاجة فقط.'
+
+    def clean_plugins(self):
+        from execution_context.routing import MAX_PLUGINS
+        values=self.cleaned_data['plugins']
+        if len(values)>MAX_PLUGINS:
+            raise forms.ValidationError('اختر موصلين كحد أقصى؛ أزل الموصلات الزائدة ثم أعد الحفظ.')
+        return values
+
+    def clean_skills(self):
+        from execution_context.routing import MAX_SKILLS
+        values=self.cleaned_data['skills']
+        if len(values)>MAX_SKILLS:
+            raise forms.ValidationError('اختر ثلاث مهارات إضافية كحد أقصى.')
+        return values
+
+    def clean(self):
+        data=super().clean()
+        if 'plugins' not in data or 'task_kind' not in data:
+            return data
+        if data['plugins'] and data['task_kind']!='connected':
+            self.add_error('plugins','لاستخدام الموصلات اختر نوع «مهمة تحتاج موصلًا محددًا»، أو ألغِ اختيار الموصلات.')
+        elif data['task_kind']=='connected' and not data['plugins']:
+            self.add_error('plugins','حدد موصلًا واحدًا أو موصلين لهذه المهمة.')
+        return data

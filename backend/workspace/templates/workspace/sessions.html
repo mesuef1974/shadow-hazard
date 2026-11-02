@@ -1,7 +1,10 @@
 {% extends 'registry/base.html' %}
 {% block content %}
 {% include 'registry/_page_heading.html' with eyebrow='جلسات قائمة ومواثيق توجيه' title='جلسات المشروع' description='تُوجّه المهام إلى معرفات جلسات مسجلة في مواثيق المشروع. إنشاء طلب لا ينشئ محادثة جديدة ولا يعني أن الرسالة أُرسلت؛ راجع سجل الإرسال لمعرفة ما تأكد فعليًا.' %}
-<div class="session-actions"><a class="action" href="{% url 'model-jobs' %}">إنشاء طلب لجلسة</a><a class="session-secondary-link" href="{% url 'automation' %}">متابعة الأتمتة</a><a class="session-secondary-link" href="/usage/">متابعة الاستهلاك</a></div>
+{% include 'registry/_capacity.html' %}
+<div class="session-actions"><a class="action" href="{% url 'model-jobs' %}">إنشاء طلب لجلسة</a><a class="session-secondary-link" href="{% url 'automation' %}">متابعة الأتمتة</a><a class="session-secondary-link" href="/usage/">متابعة الاستهلاك</a><a class="session-secondary-link" href="{% url 'session-automation-model' %}">نموذج الأوتوميشن</a></div>
+
+
 
 <section class="work-panel" aria-labelledby="routing-policies-title">
   <h2 id="routing-policies-title">سياسة التوجيه الفعلية</h2>

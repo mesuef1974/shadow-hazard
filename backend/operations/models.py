@@ -1,4 +1,44 @@
 from django.db import models
+from django.conf import settings
+
+
+class OperatorMonitorPolicy(models.Model):
+    project=models.OneToOneField('workspace.Project',on_delete=models.PROTECT)
+    charter=models.OneToOneField('workspace.SessionCharter',on_delete=models.PROTECT)
+    owner=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT)
+    enabled=models.BooleanField(default=False)
+    activation_receipt=models.ForeignKey('workspace.ProjectDocumentation',null=True,on_delete=models.PROTECT)
+    cooldown_seconds=models.PositiveIntegerField(default=300)
+    scopes=models.JSONField(default=list)
+    last_sent_at=models.DateTimeField(null=True)
+    last_error=models.CharField(max_length=80,blank=True)
+    updated_at=models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints=[models.CheckConstraint(condition=models.Q(cooldown_seconds__gte=120,cooldown_seconds__lte=86400),name='operator_cooldown_bounds')]
+
+
+class OperatorIncident(models.Model):
+    policy=models.ForeignKey(OperatorMonitorPolicy,on_delete=models.PROTECT)
+    condition_key=models.CharField(max_length=120)
+    generation=models.PositiveIntegerField(default=1)
+    code=models.CharField(max_length=80)
+    reference=models.JSONField(default=dict)
+    state=models.CharField(max_length=12,default='open',choices=[('open','open'),('resolved','resolved')])
+    job=models.ForeignKey('workspace.ModelJob',null=True,on_delete=models.PROTECT)
+    created_at=models.DateTimeField(auto_now_add=True)
+    resolved_at=models.DateTimeField(null=True)
+
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=['policy','condition_key','generation'],name='operator_incident_generation')]
+
+
+def review_document_query(job_ids):
+    query = models.Q(pk__in=[])
+    for job_id in job_ids:
+        base = f'automatic-review:{job_id}'
+        query |= models.Q(task_key=base) | models.Q(task_key__startswith=base + ':revision:')
+    return query
 
 
 class ReviewAssignment(models.Model):
@@ -16,8 +56,8 @@ class ReviewAssignment(models.Model):
     @property
     def result_document(self):
         from workspace.models import ProjectDocumentation
-        return ProjectDocumentation.objects.filter(project_id=self.source_job.charter.project_id,
-            session_key='review',task_key=f'automatic-review:{self.source_job_id}').first()
+        return ProjectDocumentation.objects.filter(review_document_query([self.source_job_id]),
+            project_id=self.source_job.charter.project_id,session_key='review').order_by('-created_at','-pk').first()
 
 
 class AutomationIssue(models.Model):

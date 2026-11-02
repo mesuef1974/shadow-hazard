@@ -64,6 +64,57 @@ class OperationsTests(TransactionTestCase):
             turn_key=turn_id, model=model, thinking=thinking, source_sample_ids=source_ids or [],
             usage=usage or self.usage(), source_evidence={"rollout": "verified"})
 
+    def test_terminal_policy_review_is_not_an_active_execution_or_success(self):
+        job = self.make_job(state="needs_review")
+        dispatch = self.make_dispatch(job, state="finished_review")
+        dispatch.turn_key = "reviewed-turn"
+        dispatch.completed_at = timezone.now()
+        dispatch.save(update_fields=["turn_key", "completed_at"])
+        job.token_usage = self.usage()
+        job.observed_model = "gpt-6.1-sol"
+        job.finished_at = timezone.now()
+        job.result = 'reviewed result'
+        job.save(update_fields=["token_usage", "observed_model", "finished_at", "result"])
+        self.add_turn(dispatch, "reviewed-turn", model="gpt-6.1-sol")
+        SessionDispatchEvent.objects.create(dispatch=dispatch, state="policy_mismatch", detail={"turn_id": "reviewed-turn"})
+        snapshot = task_snapshot(job)
+        self.assertNotIn("dispatch_job_state_mismatch", snapshot["violations"])
+        self.assertNotIn("finished_review_missing_closure_evidence", snapshot["violations"])
+        self.assertIn("requested_observed_model_mismatch", snapshot["violations"])
+        self.assertFalse(snapshot["success_verified"])
+        audit_automation(timezone.now() + timedelta(hours=2))
+        self.assertFalse(AutomationIssue.objects.filter(code="execution_delay", state="open").exists())
+
+    def test_rejected_terminal_evidence_stays_visible_without_counting_usage(self):
+        from token_usage.models import TokenSample
+        job = self.make_job(state="needs_review")
+        dispatch = self.make_dispatch(job, state="evidence_rejected")
+        dispatch.turn_key = "rejected-turn"
+        dispatch.completed_at = timezone.now()
+        dispatch.save(update_fields=["turn_key", "completed_at"])
+        SessionDispatchEvent.objects.create(dispatch=dispatch, state="evidence_rejected", detail={"turn_id": "rejected-turn"})
+        snapshot = task_snapshot(job)
+        self.assertIn("execution_evidence_rejected", snapshot["violations"])
+        self.assertNotIn("dispatch_job_state_mismatch", snapshot["violations"])
+        self.assertFalse(snapshot["success_verified"])
+        self.assertEqual(TokenSample.objects.count(), 0)
+        dispatch.turn_key = "unbound-turn"
+        dispatch.save(update_fields=["turn_key"])
+        self.assertIn("rejected_dispatch_missing_evidence", task_snapshot(job)["violations"])
+
+    def test_later_exact_turn_proof_supersedes_rejection_without_erasing_history(self):
+        job = self.make_job()
+        dispatch = self.make_dispatch(job)
+        job.token_usage = self.usage()
+        job.save(update_fields=["token_usage"])
+        rejected = SessionDispatchEvent.objects.create(dispatch=dispatch, state="evidence_rejected", detail={"turn_id": "turn-1"})
+        self.assertIn("execution_evidence_rejected", task_snapshot(job)["violations"])
+        self.add_turn(dispatch, "turn-1")
+        self.assertNotIn("execution_evidence_rejected", task_snapshot(job)["violations"])
+        self.assertTrue(SessionDispatchEvent.objects.filter(pk=rejected.pk).exists())
+        SessionDispatchEvent.objects.create(dispatch=dispatch, state="verification_failed", detail={"turn_id": "other-turn"})
+        self.assertIn("execution_evidence_rejected", task_snapshot(job)["violations"])
+
     def test_task_snapshot_requires_consistent_turn_and_closure_evidence(self):
         job = self.make_job()
         dispatch = self.make_dispatch(job)
@@ -76,6 +127,33 @@ class OperationsTests(TransactionTestCase):
         self.assertEqual(snapshot["observed"]["turn_id"], "turn-1")
         self.assertFalse(snapshot["usage_is_added_to_token_samples"])
         self.assertFalse(snapshot["codex_queue_controls_model"])
+
+    def test_history_reconciliation_is_bounded_idempotent_and_keeps_acceptance_pending(self):
+        from operations.reconciliation import reconcile_transport_history
+        from token_usage.models import TokenSample
+        job = self.make_job(state='needs_review')
+        dispatch = self.make_dispatch(job, state='acknowledged')
+        dispatch.turn_key = 'historic-turn'
+        dispatch.save(update_fields=['turn_key'])
+        job.token_usage = self.usage()
+        job.observed_model = 'gpt-6.1-sol'
+        job.finished_at = timezone.now()
+        job.result = 'historic result'
+        job.save(update_fields=['token_usage', 'observed_model', 'finished_at', 'result'])
+        self.add_turn(dispatch, 'historic-turn', model=job.observed_model)
+        self.assertEqual(reconcile_transport_history([job.pk])['corrected'], [])
+        SessionDispatchEvent.objects.create(dispatch=dispatch, state='policy_mismatch', detail={'turn_id': 'historic-turn'})
+        self.assertEqual(reconcile_transport_history([job.pk])['corrected'], [job.pk])
+        self.assertEqual(reconcile_transport_history([job.pk])['corrected'], [])
+        dispatch.refresh_from_db(); job.refresh_from_db()
+        self.assertEqual(dispatch.state, 'finished_review')
+        self.assertEqual(dispatch.completed_at, job.finished_at)
+        self.assertEqual(job.state, 'needs_review')
+        self.assertEqual(job.token_usage, self.usage())
+        self.assertEqual(TokenSample.objects.count(), 0)
+        self.assertEqual(dispatch.events.filter(state='transport_history_reconciled').count(), 1)
+        with self.assertRaises(ValueError):
+            reconcile_transport_history([])
 
     def test_queue_acknowledgement_exposes_actual_model_and_thinking_mismatch(self):
         job = self.make_job(state="waiting_delivery")

@@ -127,7 +127,8 @@ class MessageTests(TestCase):
         self.assertEqual(message.job.observed_model,'gpt-6-astra')
         self.assertEqual(message.job.token_usage['total_tokens'],15)
         self.assertEqual(SessionDispatchTurn.objects.count(),1)
-        self.assertIsNone(dispatch.completed_at)
+        self.assertIsNotNone(dispatch.completed_at)
+        self.assertEqual(dispatch.state,'finished_review')
         self.assertEqual(TokenSample.objects.count(),samples)
 
     def test_counter_conflict_is_saved_unverified_without_adding_to_totals(self):
@@ -219,28 +220,17 @@ class MessageTests(TestCase):
         self.assertEqual(SessionDispatchEvent.objects.filter(dispatch=dispatch,state='verification_failed').count(),1)
         self.assertEqual(SessionDispatchTurn.objects.count(),0)
 
-    def _attempt_owned_delivery(self,error):
+    def test_retired_app_server_sender_leaves_request_queued(self):
         from unittest.mock import patch
-        from .desktop_session_bridge import deliver_one,BridgeError
-        message=self.send();run_one()
-        with patch('execution_context.desktop_session_bridge.AppServer') as server, \
-             patch('execution_context.desktop_session_bridge._binary',return_value='codex'), \
-             patch('execution_context.desktop_session_bridge._rollout_has_active_turn',return_value=False):
-            server.return_value.inspect_thread.return_value='idle'
-            server.return_value.resume_idle_thread.return_value='idle'
-            server.return_value.start_turn.side_effect=BridgeError(error)
-            with self.assertRaises(BridgeError):deliver_one()
-        message.job.refresh_from_db()
-        return message.job.session_dispatch
-
-    def test_unknown_start_response_preserves_uncertain_send(self):
-        dispatch=self._attempt_owned_delivery('response timeout after request')
-        self.assertEqual(dispatch.state,'uncertain')
-        self.assertIsNotNone(dispatch.claim_token)
-        self.assertIsNone(dispatch.sent_at)
-
-    def test_writer_rejection_releases_claim_without_starting_a_second_turn(self):
-        dispatch=self._attempt_owned_delivery('thread already has an active writer')
-        self.assertEqual(dispatch.state,'queued')
+        from .desktop_session_bridge import deliver_one, BridgeError
+        message = self.send()
+        run_one()
+        with patch('execution_context.desktop_session_bridge.AppServer') as server:
+            with self.assertRaises(BridgeError):
+                deliver_one()
+            server.assert_not_called()
+        dispatch = message.job.session_dispatch
+        dispatch.refresh_from_db()
+        self.assertEqual(dispatch.state, 'queued')
         self.assertIsNone(dispatch.claim_token)
         self.assertIsNone(dispatch.sent_at)

@@ -15,3 +15,13 @@ for model in [Task,TaskUpdate,Decision]:admin.site.register(model,HistoryAdmin)
 from .models import ProjectMemory,ProjectDocumentation
 admin.site.register(ProjectMemory)
 admin.site.register(ProjectDocumentation,HistoryAdmin)
+
+from .models import AutoRenewalPolicy,AutoRenewalLatch
+@admin.register(AutoRenewalPolicy)
+class AutoRenewalPolicyAdmin(HistoryAdmin):
+    list_display = ('charter', 'enabled', 'owner', 'activation_receipt', 'updated_at')
+
+@admin.register(AutoRenewalLatch)
+class AutoRenewalLatchAdmin(HistoryAdmin):
+    list_display = ('charter', 'source_thread_id', 'state', 'handover', 'renewal', 'updated_at')
+    list_filter = ('state',)

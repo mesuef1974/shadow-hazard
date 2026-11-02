@@ -1,0 +1,77 @@
+/* Platform map surfaces use the same central brand and theme variables. */
+.automation-model{color:var(--platform-text);line-height:1.8;min-width:0}
+.automation-model *{box-sizing:border-box}
+.automation-model .model-intro-title{font-size:clamp(28px,4vw,48px);line-height:1.4;margin:0 0 18px}
+.automation-model h2{font-size:25px;margin:0 0 8px}
+.automation-model h3{font-size:21px;line-height:1.6;margin:8px 0 14px}
+.automation-model p{max-width:80ch}
+.automation-model button{font:inherit;cursor:pointer;color:inherit}
+.automation-model button:focus-visible,.automation-model a:focus-visible,.automation-model [tabindex]:focus-visible{outline:3px solid var(--platform-focus);outline-offset:4px}
+.automation-model a{color:var(--platform-link)}
+.automation-model .intro{display:grid;grid-template-columns:1.3fr 1fr;gap:48px;padding:24px 0 32px;align-items:center}
+.automation-model .eyebrow{color:var(--platform-link);font-size:13px;margin:0 0 10px}
+.automation-model .lede{color:var(--platform-muted);font-size:17px}
+.automation-model .intro-note{border-inline-start:4px solid var(--brand-accent);padding:12px 22px}
+.automation-model .intro-note strong{font-size:21px}
+.automation-model .intro-note span{font-size:12px;color:var(--platform-muted)}
+.automation-model .page-links,.automation-model .tabs{display:flex;flex-wrap:wrap;gap:12px 20px;padding:18px 0}
+.automation-model .tabs{border-block:1px solid var(--platform-border)}
+.automation-model .tabs button{background:var(--platform-surface);border:1px solid var(--platform-border);padding:10px 18px;border-radius:6px}
+.automation-model .tabs button[aria-pressed=true]{background:var(--brand-primary);color:#fff;border-color:var(--brand-secondary)}
+.automation-model .section-heading{display:flex;justify-content:space-between;gap:20px;align-items:center;padding:26px 0 18px}
+.automation-model .section-heading p{font-size:14px;color:var(--platform-muted);margin:0}
+.automation-model .legend{display:flex;gap:14px;font-size:12px;white-space:nowrap}
+.automation-model .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-inline-end:5px}
+.automation-model .teal{background:var(--brand-secondary)}
+.automation-model .gold{background:var(--brand-accent)}
+.automation-model .outline{border:1px dashed var(--platform-text)}
+.automation-model .workbench{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:20px;align-items:start}
+.automation-model .diagram-scroll{overflow:visible;min-width:0;direction:ltr;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:10px}
+.automation-model .diagram{width:100%;min-width:0;aspect-ratio:1080/1120;position:relative}
+.automation-model .wires{position:absolute;inset:0;width:100%;height:100%}
+.automation-model .node{position:absolute;left:calc(var(--x)/1080*100%);top:calc(var(--y)/1120*100%);transform:translate(-50%,-50%);width:21%;height:10%;padding:6px 10px;border:1px solid var(--brand-secondary);border-radius:8px;background:var(--platform-surface);color:var(--platform-text);text-align:right;direction:rtl;display:flex;flex-direction:column;justify-content:center;line-height:1.5;overflow-wrap:anywhere}
+.automation-model .node strong{font-size:13px}
+.automation-model .node small{font-size:10px;color:var(--platform-muted);display:block;margin-top:5px}
+.automation-model .number{position:absolute;left:9px;top:5px;font:11px var(--brand-font-en);color:var(--platform-link)}
+.automation-model .gate{border-top:4px solid var(--brand-accent)}
+.automation-model .finish{background:var(--brand-primary);color:#fff}
+.automation-model .finish small{color:#e7eef4}
+.automation-model .branch{background:var(--platform-surface-muted)}
+.automation-model .compact{height:10%}
+.automation-model .exception{border:1px dashed var(--brand-accent)}
+.automation-model .node[aria-pressed=true]{outline:3px solid var(--platform-focus);outline-offset:3px}
+.automation-model .node.dim{opacity:.3}
+.automation-model .wires .dim{opacity:.15}
+.automation-model .lane-label{position:absolute;top:34.5%;font-size:11px;color:var(--platform-link);direction:rtl}
+.automation-model .lane-label.left{left:9%}
+.automation-model .lane-label.right{right:7%}
+.automation-model .retry-label{position:absolute;top:46.5%;left:7%;max-width:28%;direction:rtl;font-size:9px;background:var(--platform-surface);padding:2px 5px}
+.automation-model .inspector{position:sticky;top:20px;background:var(--platform-surface-muted);border-inline-start:3px solid var(--brand-secondary);padding:24px 20px;border-radius:8px;overflow-wrap:anywhere}
+.automation-model .inspector p,.automation-model .inspector dd{font-size:14px}
+.automation-model .inspector dt{font-size:12px;color:var(--platform-link)}
+.automation-model .inspector dd{margin:5px 0 20px}
+.automation-model .code,.automation-model code{font:11px/1.8 var(--brand-font-en);overflow-wrap:anywhere}
+.automation-model .selection-hint{color:var(--platform-muted)}
+.automation-model .context-section,.automation-model .renewal,.automation-model .services{margin:40px 0;scroll-margin-top:20px}
+.automation-model .context-flow,.automation-model .service-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+.automation-model .context-flow article,.automation-model .service-grid article{padding:18px;border-inline-start:2px solid var(--brand-secondary);background:var(--platform-surface)}
+.automation-model .context-flow p,.automation-model .service-grid p,.automation-model .renewal p{font-size:14px;color:var(--platform-muted)}
+.automation-model .context-flow span,.automation-model .service-grid span{color:var(--platform-link);font-size:12px}
+.automation-model .context-result,.automation-model .safety-note{padding:20px;border-inline-start:4px solid var(--brand-accent);background:var(--platform-surface-muted);margin-top:20px}
+.automation-model .context-result code{display:block}
+.automation-model .renewal-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px;padding-inline-start:24px}
+.automation-model .audit{display:grid;grid-template-columns:1fr 1.5fr;gap:32px;padding:28px;border-top:4px solid var(--brand-accent);background:var(--platform-surface)}
+.automation-model .audit p{font-size:14px}
+.automation-model .audit strong,.automation-model .audit code{display:block}
+/* Match the platform's dark-mode button specificity without global overrides. */
+:root .automation-model .diagram button.node{background:var(--platform-surface);color:var(--platform-text)}
+:root .automation-model .diagram button.branch{background:var(--platform-surface-muted)}
+:root .automation-model .diagram button.finish{background:var(--platform-header-background);color:var(--platform-header-foreground)}
+:root .automation-model .tabs button[data-mode]{background:var(--platform-surface);color:var(--platform-text)}
+:root .automation-model .tabs button[data-mode][aria-pressed=true]{background:var(--platform-header-background);color:var(--platform-header-foreground)}
+@media(max-width:1100px){.automation-model .workbench{grid-template-columns:1fr}.automation-model .inspector{position:static}.automation-model .legend{display:none}.automation-model .context-flow,.automation-model .service-grid,.automation-model .renewal-flow{grid-template-columns:1fr 1fr}}
+@media(max-width:850px){.automation-model .intro,.automation-model .audit,.automation-model .context-flow,.automation-model .service-grid,.automation-model .renewal-flow{grid-template-columns:1fr}.automation-model .intro{gap:20px}.automation-model .tabs button{font-size:12px;padding:9px 12px}.automation-model .diagram{min-width:0;aspect-ratio:auto;display:flex;flex-direction:column;gap:30px;padding:22px 16px}.automation-model .wires,.automation-model .lane-label,.automation-model .retry-label{display:none}.automation-model .node{position:relative;left:auto;top:auto;transform:none;width:100%;height:auto;min-height:100px;padding:20px;order:0}.automation-model .node strong{font-size:16px}.automation-model .node small{font-size:12px}.automation-model .node:not(.branch):not(.exception):not(.finish)::after{content:'↓';position:absolute;bottom:-28px;left:50%;color:var(--platform-link)}.automation-model [data-node=submit]{order:1}.automation-model [data-node=context]{order:2}.automation-model [data-node=route]{order:3}.automation-model [data-node=outbox]{order:4}.automation-model [data-node=guard]{order:5}.automation-model [data-node=send]{order:6}.automation-model [data-node=proof]{order:7}.automation-model [data-node=close]{order:8}.automation-model .node.branch{order:9}.automation-model .node.exception{order:10}.automation-model .node.dim{display:none}}
+@media print{.session-actions{display:none}.automation-model .tabs,.automation-model .page-links,.automation-model .selection-hint{display:none}.automation-model .workbench{display:block}.automation-model .diagram-scroll{overflow:visible}.automation-model .diagram{min-width:0}.automation-model .node.dim,.automation-model .wires .dim{opacity:1}.automation-model .inspector{position:static;break-inside:avoid}}
+
+.automation-model .operator-steps,.automation-model .operator-branches{display:grid;gap:16px;min-width:0}.automation-model .operator-steps{grid-template-columns:repeat(3,minmax(0,1fr))}.automation-model .operator-branches{grid-template-columns:repeat(2,minmax(0,1fr))}.automation-model .operator-step{display:flex;flex-direction:column;gap:8px;text-align:start;min-width:0;width:100%;padding:20px;border:1px solid var(--brand-secondary);border-radius:8px;font:inherit;overflow-wrap:anywhere}.automation-model .operator-step strong{font-size:19px}.automation-model .operator-step small{font-size:12px}.automation-model .operator-step span{font-size:14px}.automation-model .operator-alert{border-block-start:4px solid var(--brand-accent)}.automation-model .operator-arrow{text-align:center;font-size:28px;margin:12px 0}.automation-model .operator-step[aria-pressed=true]{outline:3px solid var(--brand-secondary);outline-offset:3px}@media(max-width:650px){.automation-model .operator-steps,.automation-model .operator-branches{grid-template-columns:1fr}}
+:root .automation-model button.operator-step,.automation-model article.operator-step{background:var(--platform-surface);color:var(--platform-text)}

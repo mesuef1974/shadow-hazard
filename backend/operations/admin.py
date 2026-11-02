@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import AutomationIssue, BackupPolicy, BackupRun, ReviewAssignment
+from .models import OperatorMonitorPolicy, OperatorIncident
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
@@ -11,6 +12,12 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(OperatorMonitorPolicy, OperatorIncident)
+class OperatorMonitorAdmin(ReadOnlyAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        return tuple(field.name for field in self.model._meta.fields)
 
 
 @admin.register(ReviewAssignment)

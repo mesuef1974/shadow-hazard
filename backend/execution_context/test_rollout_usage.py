@@ -7,6 +7,118 @@ from .rollout_usage import read_turn_evidence, RolloutEvidenceError
 
 
 class RolloutUsageTests(SimpleTestCase):
+    def test_archived_rollout_is_found_without_weakening_path_or_uniqueness_checks(self):
+        from unittest.mock import patch
+        from .rollout_usage import find_rollout
+        with tempfile.TemporaryDirectory() as folder:
+            home=Path(folder); archived=home/'archived_sessions'; archived.mkdir()
+            path=archived/'rollout-test-thread.jsonl'; path.write_text('{}')
+            with patch.dict('os.environ',{'CODEX_HOME':folder}):
+                self.assertEqual(find_rollout('thread'),path.resolve())
+                self.assertEqual(find_rollout('thread',path),path.resolve())
+                with self.assertRaises(RolloutEvidenceError):find_rollout('thread',home/'outside-thread.jsonl')
+                active=home/'sessions'; active.mkdir()
+                (active/path.name).write_text('{}')
+                with self.assertRaises(RolloutEvidenceError):find_rollout('thread')
+
+    def test_owner_delivery_root_requires_verified_origin_thread_and_turn(self):
+        from unittest.mock import patch
+        source_id='11111111-1111-1111-1111-111111111111'
+        for invalid in (None,'missing_root','future_root','malformed_root','registered_context','wrong_registered_context'):
+            with self.subTest(invalid=invalid),tempfile.TemporaryDirectory() as folder:
+                path=self.write_rollout(folder)
+                rows=[json.loads(line) for line in path.read_text().splitlines()]
+                usage=next(r['payload'] for r in rows if r['type']=='token_usage_record')
+                usage.update(response_id='response',root_turn_id='origin-turn',usage=usage['turn_token_usage'])
+                if invalid=='malformed_root':usage['root_turn_id']={}
+                marker='[SHADOW_TASK:33:key:1]'
+                output=f'<codex_delegation>\n<source_thread_id>{source_id}</source_thread_id>\n<input>{marker}</input></codex_delegation>'
+                payload={'type':'function_call_output','id':'owner','name':'send_message_to_thread','namespace':'codex_app','output':output}
+                rows[4:4]=[{'type':'response_item','payload':payload},{'type':'event_msg','payload':{
+                    'type':'item_completed','thread_id':'thread-123','turn_id':'turn-123',
+                    'item':{**payload,'type':'FunctionCallOutput'}}}]
+                path.write_text('\n'.join(json.dumps(r) for r in rows),encoding='utf8')
+                source=Path(folder)/'source.jsonl'
+                source.write_text('\n'.join(json.dumps(r) for r in [
+                    {'type':'session_meta','payload':{'session_id':source_id}},
+                    {'type':'event_msg','payload':{'type':'task_started','turn_id':'different' if invalid=='missing_root' else 'origin-turn','started_at':300 if invalid=='future_root' else 100}}]),encoding='utf8')
+                kwargs=dict(thread_id='thread-123',claimed_at=datetime.fromtimestamp(200,tz=timezone.utc),acknowledged_at=datetime.fromtimestamp(201,tz=timezone.utc),expected_model='gpt-6-luna',expected_thinking='low',expected_marker=marker)
+                if invalid in {'registered_context','wrong_registered_context'}:
+                    source.write_text('',encoding='utf8')
+                    kwargs['expected_owner_origin']={'thread_id':source_id,'context_id':'origin-turn' if invalid=='registered_context' else 'other','call_id':'registered-call'}
+                with patch('execution_context.rollout_usage.find_rollout',return_value=source):
+                    if invalid and invalid!='registered_context':
+                        with self.assertRaises(RolloutEvidenceError):read_turn_evidence(path,**kwargs)
+                    else:
+                        result=read_turn_evidence(path,**kwargs)
+                        self.assertEqual(result['evidence']['origin_root_turn_id'],'origin-turn')
+                        self.assertEqual(result['usage']['total_tokens'],15)
+
+    def test_official_owner_delivery_requires_paired_host_binding(self):
+        from .rollout_usage import has_bound_task_message
+        marker='[SHADOW_TASK:33:key:1]'
+        output={'type':'function_call_output','id':'owner-item','namespace':'codex_app','name':'send_message_to_thread','output':marker}
+        item={**output,'type':'FunctionCallOutput'}
+        event={'type':'event_msg','payload':{'type':'item_completed','thread_id':'thread','turn_id':'turn','item':item}}
+        records=[(1,{'type':'response_item','payload':output}),(2,event)]
+        self.assertTrue(has_bound_task_message(records,'thread','turn',marker))
+        self.assertFalse(has_bound_task_message(records,'other','turn',marker))
+        self.assertFalse(has_bound_task_message(records,'thread','other',marker))
+        self.assertFalse(has_bound_task_message(records[1:],'thread','turn',marker))
+        self.assertFalse(has_bound_task_message(records[:1],'thread','turn',marker))
+        for field,value in [('namespace','untrusted'),('name','other_tool'),('id','different'),('output','quoted unrelated text')]:
+            with self.subTest(field=field):
+                changed=json.loads(json.dumps(records))
+                changed[1][1]['payload']['item'][field]=value
+                self.assertFalse(has_bound_task_message(changed,'thread','turn',marker))
+
+    def test_incomplete_modern_response_records_never_fall_back_to_legacy(self):
+        for defect in ('missing_id', 'missing_usage', 'mixed_legacy', 'duplicate_and_incomplete'):
+            with self.subTest(defect=defect), tempfile.TemporaryDirectory() as folder:
+                path = self.write_rollout(folder)
+                rows = [json.loads(line) for line in path.read_text().splitlines()]
+                response = next(row for row in rows if row['type'] == 'token_usage_record')
+                response['payload'].update(response_id='response-1', root_turn_id='turn-123',
+                                           usage=response['payload']['turn_token_usage'])
+                if defect == 'missing_id':
+                    del response['payload']['response_id']
+                elif defect == 'missing_usage':
+                    del response['payload']['usage']
+                else:
+                    extra = json.loads(json.dumps(response))
+                    del extra['payload']['response_id']
+                    if defect == 'mixed_legacy':
+                        del extra['payload']['usage']; del extra['payload']['root_turn_id']
+                    else:
+                        rows.insert(-1, json.loads(json.dumps(response)))
+                    rows.insert(-1, extra)
+                path.write_text('\n'.join(json.dumps(row) for row in rows), encoding='utf8')
+                with self.assertRaises(RolloutEvidenceError):
+                    read_turn_evidence(path, thread_id='thread-123',
+                        claimed_at=datetime.fromtimestamp(200, tz=timezone.utc),
+                        acknowledged_at=datetime.fromtimestamp(201, tz=timezone.utc),
+                        expected_model='gpt-6-luna', expected_thinking='low')
+
+    def test_exact_response_sum_is_independent_of_session_delta_and_rejects_duplicates(self):
+        for duplicate in (False,True):
+            with self.subTest(duplicate=duplicate),tempfile.TemporaryDirectory() as folder:
+                path=self.write_rollout(folder)
+                rows=[json.loads(line) for line in path.read_text().splitlines()]
+                usage=next(row for row in rows if row['type']=='token_usage_record')
+                usage['payload'].update(response_id='response-1',root_turn_id='turn-123',usage=usage['payload']['turn_token_usage'])
+                for row in rows:
+                    if row['type']=='event_msg' and row['payload'].get('type')=='token_count':
+                        row['payload']['info']['total_token_usage']['total_tokens']+=99
+                if duplicate:rows.insert(-1,json.loads(json.dumps(usage)))
+                path.write_text('\n'.join(json.dumps(row) for row in rows),encoding='utf8')
+                kwargs=dict(thread_id='thread-123',claimed_at=datetime.fromtimestamp(200,tz=timezone.utc),acknowledged_at=datetime.fromtimestamp(201,tz=timezone.utc),expected_model='gpt-6-luna',expected_thinking='low')
+                if duplicate:
+                    with self.assertRaises(RolloutEvidenceError):read_turn_evidence(path,**kwargs)
+                else:
+                    result=read_turn_evidence(path,**kwargs)
+                    self.assertEqual(result['usage']['total_tokens'],15)
+                    self.assertEqual(result['evidence']['response_count'],1)
+
     def test_repeated_identical_context_is_valid_but_model_switch_is_not(self):
         for changed in (False,True):
             with self.subTest(changed=changed),tempfile.TemporaryDirectory() as folder:

@@ -45,9 +45,14 @@ def _dispatch_evidence(job, dispatch):
 
     violations = []
     events = list(SessionDispatchEvent.objects.filter(dispatch=dispatch).order_by("created_at", "pk"))
-    if any(event.state in {'evidence_rejected','verification_failed'} for event in events):
-        violations.append('execution_evidence_rejected')
     turns = list(SessionDispatchTurn.objects.filter(dispatch=dispatch).order_by("created_at", "pk"))
+    # Keep rejected events as history, but a later verified proof for that exact
+    # turn supersedes its old counter rejection. Other turns/errors stay open.
+    if any(event.state in {'evidence_rejected', 'verification_failed'} and
+           not any(isinstance(event.detail, dict) and turn.turn_key == event.detail.get('turn_id')
+                   and turn.created_at >= event.created_at and turn.source_evidence for turn in turns)
+           for event in events):
+        violations.append('execution_evidence_rejected')
     context = getattr(job, "task_context", None)
     frozen_policy = context.manifest.get("policy_snapshot", {}) if context and isinstance(context.manifest, dict) else {}
     if not isinstance(frozen_policy, dict):
@@ -114,10 +119,24 @@ def _dispatch_evidence(job, dispatch):
         "sent": {"running", "waiting_delivery"},
         "acknowledged": {"running", "waiting_delivery"},
         "completed": {"completed"},
+        "finished_review": {"needs_review"},
+        "evidence_rejected": {"needs_review"},
         "uncertain": {"uncertain", "needs_review"},
     }
     if job.state not in expected_job_states.get(dispatch.state, set()):
         violations.append("dispatch_job_state_mismatch")
+    if dispatch.state == "finished_review":
+        policy_event = any(event.state == "policy_mismatch" and isinstance(event.detail, dict)
+                           and event.detail.get("turn_id") == dispatch.turn_key for event in events)
+        if not dispatch.turn_key or dispatch.turn_key not in turn_ids or not policy_event:
+            violations.append("finished_review_missing_turn_evidence")
+        if not dispatch.completed_at or not job.finished_at or not job.result.strip():
+            violations.append("finished_review_missing_closure_evidence")
+    if dispatch.state == "evidence_rejected":
+        rejected = any(event.state == "evidence_rejected" and isinstance(event.detail, dict)
+                       and event.detail.get("turn_id") == dispatch.turn_key for event in events)
+        if not dispatch.turn_key or not rejected or not dispatch.completed_at:
+            violations.append("rejected_dispatch_missing_evidence")
     if dispatch.state == "claimed" and (not dispatch.claim_token or not dispatch.claimed_at):
         violations.append("claimed_dispatch_missing_reservation_evidence")
     if dispatch.state == "sent" and not dispatch.sent_at:
@@ -326,6 +345,10 @@ def _record_issue(*, code, title, evidence, now, job=None, severity="warning"):
 def _result_issues(job, dispatch, now):
     if dispatch:
         _, turns, _, _, violations = _dispatch_evidence(job, dispatch)
+        from execution_context.models import SessionWriterRecovery
+        recovery = SessionWriterRecovery.objects.filter(dispatch=dispatch).first()
+        if recovery and recovery.state in {'blocked', 'uncertain'}:
+            violations.append('writer_recovery_' + recovery.state)
         return [(code, "مخالفة في دليل الدور أو الاستهلاك", {"dispatch_id": dispatch.pk, "state": dispatch.state,
                  "attempt_no": dispatch.attempt_no, "turn_count": len(turns), "source_key": code}) for code in violations]
     if job.state == "completed" and job.finished_at and job.result.strip():

@@ -1,4 +1,4 @@
-"""Deliver one approved outbox task to its existing Codex App Server thread."""
+"""Legacy inspection and reservation helpers; App Server sending is retired."""
 
 import io
 import json
@@ -10,7 +10,6 @@ import threading
 import time
 
 from django.core.management import call_command
-from django.db import close_old_connections
 from execution_context.models import SessionDispatch
 from execution_context.rollout_usage import find_rollout
 
@@ -223,9 +222,9 @@ def _mark_uncertain(dispatch_id, claim_token, reason):
         pass
 
 
-def _rollout_has_active_turn(thread_id):
+def _rollout_has_active_turn(thread_id, *, path=None):
     """Check persisted Codex turn boundaries, including turns owned by the UI process."""
-    path = find_rollout(thread_id)
+    path = path or find_rollout(thread_id)
     started = set()
     completed = set()
     try:
@@ -251,74 +250,5 @@ def _rollout_has_active_turn(thread_id):
 
 
 def deliver_one():
-    """Deliver one queued workspace-write job; no Codex process when the queue is empty."""
-    close_old_connections()
-    candidate = SessionDispatch.objects.filter(
-        state="queued", job__mode="workspace-write").order_by("created_at", "pk").first()
-    if not candidate:
-        return None
-    bridge = None
-    dispatch_id = candidate.pk
-    turn_started = False
-    turn_start_attempted = False
-    try:
-        bridge = AppServer(_binary())
-        status = bridge.inspect_thread(candidate.target_thread_id)
-        if status == "active":
-            return None
-        if status not in {"idle", "notLoaded"}:
-            raise BridgeError(f"حالة الجلسة لا تسمح بالإرسال الآمن: {status}")
-        if _rollout_has_active_turn(candidate.target_thread_id):
-            return None
-        output = io.StringIO()
-        call_command("session_outbox", "claim", consumer="desktop-app-server", stdout=output)
-        claimed = json.loads(output.getvalue() or "{}")
-        if not claimed:
-            return None
-        dispatch_id = claimed["dispatch_id"]
-        token = claimed["claim_token"]
-        if claimed.get("thread_id") != candidate.target_thread_id:
-            _release_claim(dispatch_id, token, "تغيرت وجهة الدور بين الفحص والمطالبة")
-            return None
-
-        status = bridge.resume_idle_thread(claimed["thread_id"])
-        if status not in {"idle", "notLoaded"}:
-            _release_claim(dispatch_id, token, "الجلسة أصبحت مشغولة قبل بدء الدور")
-            return None
-        if _rollout_has_active_turn(claimed["thread_id"]):
-            _release_claim(dispatch_id, token, "وجد ملف الجلسة دورًا مفتوحًا قبل بدء المهمة")
-            return None
-
-        turn_start_attempted = True
-        turn_id = bridge.start_turn(
-            claimed["thread_id"], claimed["prompt"], claimed["model"], claimed["thinking"])
-        turn_started = True
-        _command("sent", dispatch_id, token, turn_id=turn_id,
-                 detail={"transport": "codex-app-server-stdio", "thread_id": claimed["thread_id"]})
-        completed, result_text = bridge.wait_for_turn(claimed["thread_id"], turn_id)
-        if not completed:
-            _mark_uncertain(dispatch_id, token, "أكمل App Server الدور بحالة غير مكتملة؛ لا إعادة تلقائية")
-            return dispatch_id
-        _command("acknowledged", dispatch_id, token, turn_id=turn_id,
-                 detail={"transport": "codex-app-server-stdio", "turn_id": turn_id})
-        if "ESCALATION_REQUEST:" in result_text:
-            reason = result_text.split("ESCALATION_REQUEST:", 1)[1].strip().splitlines()[0][:300]
-            _command("stuck", dispatch_id, token, turn_id=turn_id, detail={"reason": reason or "تعثر صريح موثق"})
-        else:
-            _command("complete-from-rollout", dispatch_id, token, turn_id=turn_id,
-                     detail={"transport": "codex-app-server-stdio"})
-        return dispatch_id
-    except Exception as exc:
-        if "token" in locals():
-            if turn_started or (turn_start_attempted and 'already has an active writer' not in str(exc)):
-                _mark_uncertain(dispatch_id, token, str(exc))
-            else:
-                try:
-                    _release_claim(dispatch_id, token, str(exc)[:300])
-                except Exception:
-                    _mark_uncertain(dispatch_id, token, str(exc))
-        raise BridgeError(str(exc)[:300]) from exc
-    finally:
-        if bridge:
-            bridge.close()
-        close_old_connections()
+    """Retired sender: existing desktop sessions use the official owner connector."""
+    raise BridgeError("مسار App Server للإرسال متوقف؛ استخدم execution_context.delivery عبر موصل المالك الرسمي.")

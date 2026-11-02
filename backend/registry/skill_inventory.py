@@ -4,9 +4,11 @@ import json
 import stat
 import os
 import re
+import logging
+import time
 from pathlib import Path
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction, OperationalError
 from django.utils import timezone
 from .models import Installation, Service, ServiceVersion, SkillChange, SkillScan, SkillBlob, SkillFileSnapshot, SkillFileChange
 
@@ -140,7 +142,13 @@ def file_changes(change, old, new, baseline=False):
         SkillFileChange.objects.create(change=change,path=path,action=action,old_blob_id=before.blob_id if before else None,new_blob_id=after.blob_id if after else None)
 
 @transaction.atomic
-def reconcile(alias, found):
+def _reconcile(alias, found):
+    if connection.vendor == 'sqlite':
+        # Reserve the writer before reads: a deferred read -> write upgrade can
+        # fail immediately under contention despite SQLite's busy timeout.
+        table = connection.ops.quote_name(SkillScan._meta.db_table)
+        with connection.cursor() as cursor:
+            cursor.execute(f'UPDATE {table} SET root_alias = root_alias WHERE 1 = 0')
     now = timezone.now()
     seen = set()
     for relative, name, description, digest, members in found:
@@ -181,6 +189,25 @@ def reconcile(alias, found):
         file_changes(change,installation.version,None)
     SkillScan.objects.update_or_create(root_alias=alias,defaults={'scanned_at':now,'succeeded_at':now,'success':True,'files_count':len(found),'error':''})
 
+
+def sqlite_busy(exc):
+    code = getattr(exc.__cause__, 'sqlite_errorcode', None)
+    return connection.vendor == 'sqlite' and (
+        (code is not None and code & 255 in (5, 6))
+        or str(exc).lower() in ('database is locked', 'database table is locked')
+    )
+
+
+def reconcile(alias, found):
+    for attempt in range(3):
+        try:
+            return _reconcile(alias, found)
+        except OperationalError as exc:
+            if not sqlite_busy(exc) or attempt == 2:
+                raise
+            # _reconcile has rolled back before we wait or retry.
+            time.sleep(0.1 * (attempt + 1))
+
 def scan_skills():
     results = {}
     for alias, root in settings.SKILL_INVENTORY_ROOTS.items():
@@ -188,6 +215,13 @@ def scan_skills():
             found = collect(root)
             reconcile(alias, found)
             results[alias] = len(found)
+        except OperationalError as exc:
+            if not sqlite_busy(exc):
+                raise
+            logging.getLogger(__name__).warning(
+                'Skill inventory deferred for %s: database busy; previous inventory preserved', alias,
+            )
+            results[alias] = 'deferred; database busy; previous inventory preserved'
         except (OSError, UnicodeError) as exc:
             SkillScan.objects.update_or_create(root_alias=alias,defaults={'scanned_at':timezone.now(),'success':False,'error':str(exc)[:1000]})
             results[alias] = 'failed; previous inventory preserved'
