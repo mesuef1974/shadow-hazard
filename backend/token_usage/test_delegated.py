@@ -69,6 +69,19 @@ class DelegatedUsageTests(TestCase):
         self.assertEqual(chart['models'][0]['tokens'],22000)
         self.assertEqual(sum(row['value'] for row in chart['composition']),22000)
 
+    def test_multiple_direct_jobs_on_one_execution_thread_are_summed(self):
+        second=ModelJob.objects.create(charter=self.job.charter,owner=self.owner,prompt='second turn',
+            requested_model='gpt-6-luna',requested_thinking='low',observed_model='gpt-6-luna',
+            execution_thread_id=self.session.external_id,state='completed',finished_at=timezone.now(),
+            token_usage={'input_tokens':90,'cached_input_tokens':20,'output_tokens':10,'reasoning_output_tokens':2})
+        sessions,totals=summarize(self.project)
+        self.assertEqual(totals['total'],21580)
+        self.assertEqual(sessions[0]['direct_job_count'],2)
+        self.assertIsNone(sessions[0]['delegated_job'].pk)
+        self.assertEqual(analyze(self.project)['measured'],21580)
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get('/usage/'),'استهلاك مباشر مجمع')
+
     def test_filters_and_invalid_counters(self):
         other=Project.objects.create(name='other')
         self.assertEqual(summarize(other)[1]['total'],0)

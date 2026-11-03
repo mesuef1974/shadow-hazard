@@ -85,10 +85,38 @@ class TokenUsageTests(TestCase):
             self.assertEqual(TokenSample.objects.count(),2)
             connection=sqlite3.connect(path)
             connection.execute("INSERT INTO usage_samples VALUES (4,'project-session','2026-10-31T06:00:04Z','model',-1,0,0,0,0,0,100)")
+            connection.execute("INSERT INTO usage_samples VALUES (5,'project-session','2026-10-31T06:00:05Z','model',170,150,20,20,5,50,100)")
             connection.commit();connection.close()
             with override_settings(TOKEN_USAGE_SOURCE=path):
-                self.assertFalse(synchronize().success)
-            self.assertEqual(TokenSample.objects.count(),2)
+                failed=synchronize()
+                self.assertFalse(failed.success)
+                self.assertEqual(failed.added,1)
+                retry=synchronize()
+                self.assertFalse(retry.success)
+                self.assertEqual(retry.added,0)
+            self.assertEqual(TokenSample.objects.count(),3)
+            self.assertEqual(summarize(self.project)[1]['total'],170)
+
+    def test_corrected_source_replaces_generation_without_stale_totals(self):
+        from .models import UsageSourceState
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'source.sqlite3'
+            def write_source(total):
+                with sqlite3.connect(path) as connection:
+                    connection.execute('DROP TABLE IF EXISTS usage_samples')
+                    connection.execute('CREATE TABLE usage_samples (sample_id INTEGER, session_id TEXT, sampled_at TEXT, model TEXT, cumulative_total_tokens INTEGER,cumulative_input_tokens INTEGER,cumulative_cached_input_tokens INTEGER,cumulative_output_tokens INTEGER,cumulative_reasoning_output_tokens INTEGER,context_total_tokens INTEGER,context_window_tokens INTEGER)')
+                    connection.execute('INSERT INTO usage_samples VALUES (1,?,?,?,?,?,?,?,?,?,?)',
+                        ('project-session','2026-10-31T06:00:01Z','model',total,total-20,20,20,5,50,100))
+            write_source(100)
+            with override_settings(TOKEN_USAGE_SOURCE=path):
+                self.assertEqual(synchronize().added,1)
+                first=UsageSourceState.objects.get(key='local').generation
+                write_source(180)
+                result=synchronize()
+                self.assertTrue(result.success)
+            self.assertNotEqual(UsageSourceState.objects.get(key='local').generation,first)
+            self.assertEqual(TokenSample.objects.count(),2) # prior generation retained
+            self.assertEqual(summarize(self.project)[1]['total'],180)
 
     def test_database_rejects_inconsistent_sample_counters(self):
         from django.db import IntegrityError, transaction

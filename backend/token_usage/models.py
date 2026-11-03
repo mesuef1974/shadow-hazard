@@ -1,4 +1,8 @@
 from django.db import models
+import uuid
+
+
+LEGACY_SOURCE_GENERATION = uuid.UUID(int=0)
 
 
 class TrackedSession(models.Model):
@@ -15,6 +19,7 @@ class TrackedSession(models.Model):
 class TokenSample(models.Model):
     session = models.ForeignKey(TrackedSession, on_delete=models.PROTECT, related_name='samples')
     source_id = models.PositiveBigIntegerField('معرف العينة بالمصدر')
+    source_generation = models.UUIDField('جيل قاعدة المصدر', default=LEGACY_SOURCE_GENERATION)
     sampled_at = models.DateTimeField('وقت الرصد')
     model = models.CharField('النموذج', max_length=160, blank=True)
     effort = models.CharField('مستوى الاستدلال', max_length=40, blank=True)
@@ -33,11 +38,24 @@ class TokenSample(models.Model):
         verbose_name_plural = 'عينات الرموز'
         indexes = [models.Index(fields=['session', 'sampled_at'], name='token_sample_session_time')]
         constraints = [
-            models.UniqueConstraint(fields=['session','source_id'],name='unique_project_token_sample'),
+            models.UniqueConstraint(fields=['session','source_generation','source_id'],name='unique_project_token_sample_generation'),
             models.CheckConstraint(condition=models.Q(total=models.F('input') + models.F('output')), name='token_total_matches_parts'),
             models.CheckConstraint(condition=models.Q(cached__lte=models.F('input')), name='token_cached_lte_input'),
             models.CheckConstraint(condition=models.Q(reasoning__lte=models.F('output')), name='token_reasoning_lte_output'),
         ]
+
+
+class UsageSourceState(models.Model):
+    key = models.CharField(max_length=40, unique=True, default='local')
+    identity = models.CharField(max_length=64, blank=True)
+    generation = models.UUIDField(default=LEGACY_SOURCE_GENERATION)
+    highwater = models.PositiveBigIntegerField(default=0)
+    anchor_digest = models.CharField(max_length=64, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'جيل مصدر الاستهلاك'
+        verbose_name_plural = 'أجيال مصدر الاستهلاك'
 
 
 class SyncRun(models.Model):
