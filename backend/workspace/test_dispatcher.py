@@ -145,9 +145,15 @@ class DispatcherTests(TestCase):
         payload=__import__('json').loads(output.getvalue())
         self.assertEqual(payload['thread_id'],self.charter.thread_id)
         self.assertIn('review the backend schema',payload['prompt'])
+        plan=SessionDispatch.objects.get().job.task_context
+        self.assertEqual(payload['prompt'],plan.manifest['dispatch_prompt'])
+        self.assertEqual(payload['prompt'].count(plan.manifest['task_marker']),1)
         self.assertEqual(SessionDispatch.objects.get().state,'claimed')
 
     def test_review_policy_escalates_once_on_evidenced_stuck_turn(self):
+        self.charter.allowed_model_profiles=[{'model':'gpt-6-luna','thinking':'low'},
+                                            {'model':'gpt-6.1-sol','thinking':'high'}]
+        self.charter.save(update_fields=['allowed_model_profiles'])
         import json
         import os
         from io import StringIO

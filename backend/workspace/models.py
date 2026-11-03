@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from .model_limits import default_model_profiles, validate_model_profiles
 
 class ProjectMemory(models.Model):
     project=models.ForeignKey('Project',on_delete=models.PROTECT)
@@ -48,6 +49,7 @@ class Task(models.Model):
     description = models.TextField('المطلوب ومعيار القبول')
     assignee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name='المسؤول', related_name='project_tasks')
     creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    owner_only = models.BooleanField('مهمة خاصة بإدارة حساب المالك', default=False)
     state = models.CharField('الحالة', max_length=16, choices=STATES, default='todo')
     due_date = models.DateField('الموعد المستهدف', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -109,6 +111,9 @@ class SessionCharter(models.Model):
     name = models.CharField('اسم الجلسة',max_length=160)
     project = models.ForeignKey(Project,on_delete=models.PROTECT)
     policy = models.ForeignKey(ModelPolicy,on_delete=models.PROTECT)
+    allowed_model_profiles = models.JSONField('سقف النماذج والتفكير المعتمد', default=default_model_profiles,
+        validators=[validate_model_profiles], blank=True,
+        help_text='تركيبات مسموحة صراحة لكل ميثاق. القائمة الفارغة تمنع تنفيذ النماذج؛ لا تتضمن ميزانية توكنز.')
     scope = models.TextField('نطاق الملكية')
     rules = models.TextField('الميثاق')
     thread_id = models.CharField('معرف محادثة Codex',max_length=100,blank=True)

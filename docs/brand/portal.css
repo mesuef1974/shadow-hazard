@@ -290,3 +290,13 @@ nav.library-pagination{justify-content:space-between;gap:12px;margin:14px 0 0;pa
 /* Keep the approved mascot unmistakable in every page header. */
 .header-mascot{width:64px;height:58px;padding:4px;border:1px solid var(--brand-accent);border-radius:50%;background:rgba(244,247,251,.16);outline:1px solid rgba(244,181,68,.62);outline-offset:2px}
 @media(max-width:700px){.header-mascot{width:56px;height:52px;padding:3px}}
+
+/* Keep all token metric cards readable on narrow phones. */
+/* Preserve complete identifiers and values inside charts and scrollable records. */
+.usage-dashboard .model-bar bdi{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.usage-dashboard .model-bar strong,.usage-dashboard .composition-list strong{white-space:nowrap;font-variant-numeric:tabular-nums}
+.usage-dashboard .hour-y-axis{flex-basis:auto;min-width:42px;white-space:nowrap}
+.usage-dashboard .usage-history td{white-space:nowrap;font-variant-numeric:tabular-nums}
+.usage-dashboard .usage-history td bdi{white-space:normal;overflow-wrap:anywhere}
+@media(max-width:480px){.usage-dashboard .model-bar>div{flex-direction:column;align-items:flex-start;gap:4px}.usage-dashboard .composition-list strong{flex-basis:100%;margin-inline-start:22px;font-size:14px}.usage-dashboard .pulse-peak{grid-template-columns:minmax(0,1fr);max-width:100%;box-sizing:border-box}.usage-dashboard .pulse-peak strong{white-space:nowrap}.usage-dashboard .pulse-panel .usage-history table{min-width:0}.usage-dashboard .usage-history td bdi{display:inline-block;max-width:18ch;vertical-align:middle}}
+@media(max-width:480px){.usage-dashboard .usage-metrics,.usage-dashboard .usage-total-metrics{grid-template-columns:minmax(0,1fr)}.usage-dashboard .usage-metrics strong{font-size:22px;white-space:nowrap;overflow-wrap:normal;font-variant-numeric:tabular-nums;direction:ltr;text-align:right}}

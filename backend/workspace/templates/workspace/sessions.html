@@ -37,10 +37,13 @@
   <p>نعرض جميع مواثيق المشروع. لا تكون الوجهة جاهزة للتوجيه إلا عند تفعيل السياسة وربط معرف جلسة. سياسة نوع المهمة موضحة أعلاه؛ يعرض سجل الطلب النموذج والتفكير المرصودين عند توفر دليل الدور.</p>
   <div class="session-grid">
     {% for charter in charters %}
-      <article class="work-panel session-card{% if not charter.thread_id or not charter.policy.enabled %} session-card-unready{% endif %}">
-        <div class="session-card-heading"><h3>{{ charter.name }}</h3><span class="job-state{% if not charter.thread_id or not charter.policy.enabled %} state-needs_review{% endif %}">{% if not charter.thread_id %}غير جاهز — يحتاج معرف جلسة{% elif not charter.policy.enabled %}غير جاهز — سياسة التوجيه متوقفة{% elif charter.state == 'ready_waiting_for_task' %}جاهز لتوجيه مهمة{% elif charter.state == 'active' %}الميثاق مفعّل{% elif charter.state == 'prepared' %}الميثاق مهيأ{% else %}{{ charter.state }}{% endif %}</span></div>
+      <article class="work-panel session-card{% if not charter.thread_id or not charter.policy.enabled or not charter.allowed_model_profiles %} session-card-unready{% endif %}">
+        <div class="session-card-heading"><h3>{{ charter.name }}</h3><span class="job-state{% if not charter.thread_id or not charter.policy.enabled or not charter.allowed_model_profiles %} state-needs_review{% endif %}">{% if not charter.thread_id %}غير جاهز — يحتاج معرف جلسة{% elif not charter.policy.enabled %}غير جاهز — سياسة التوجيه متوقفة{% elif not charter.allowed_model_profiles %}غير جاهز — لا يوجد سقف نماذج معتمد{% elif charter.state == 'ready_waiting_for_task' %}جاهز لتوجيه مهمة{% elif charter.state == 'active' %}الميثاق مفعّل{% elif charter.state == 'prepared' %}الميثاق مهيأ{% else %}{{ charter.state }}{% endif %}</span></div>
         <p><strong>تفعيل وجهة الجلسة</strong> {% if charter.policy.enabled %}مفعّلة{% else %}متوقفة{% endif %} · نموذج المهمة يحدده نوعها في سياسة التوجيه أعلاه.</p>
         <p class="session-scope">{{ charter.scope }}</p>
+        <p><strong>سقف النماذج المعتمد لهذا الميثاق</strong></p>
+        <ul>{% for profile in charter.allowed_model_profiles %}<li><bdi>{{ profile.model }}</bdi> · التفكير: {% if profile.thinking == 'low' %}منخفض{% elif profile.thinking == 'medium' %}متوسط{% elif profile.thinking == 'high' %}عالٍ{% else %}غير صالح{% endif %}</li>{% empty %}<li>لا توجد تركيبات معتمدة؛ تنفيذ النماذج محظور حتى اعتماد السقف.</li>{% endfor %}</ul>
+        <p class="note">اختيار سياسة التوجيه لا يمنح إذنًا بتجاوز هذا السقف. ميزانية التوكنز الرقمية تُعتمد بعد قياس خط الأساس.</p>
         <details><summary>حدود الجلسة ومعرفها</summary>
           <p>{{ charter.rules }}</p>
           <p>حد المحاولات والتصعيد الفعلي يحدده نوع المهمة في سياسة التوجيه أعلاه.</p>

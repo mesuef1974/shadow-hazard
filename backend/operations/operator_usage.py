@@ -83,7 +83,8 @@ def collect(project):
         selected=ProjectDocumentation.objects.filter(project=project,session_key='session_operator',task_key=KEY+':selected').first()
         if not selected:
             natural=ProjectDocumentation.objects.filter(project=project,session_key='session_operator',
-                task_key__startswith='operator-natural-batch:',created_at__gt=armed.created_at).order_by('created_at','pk').first()
+                task_key__startswith='operator-natural-batch:',created_at__gte=armed.created_at,
+                pk__gt=armed.pk).order_by('created_at','pk').first()
             if not natural:return None
             if not verified_document(natural):raise ValueError('مصدر التنبيه غير موثوق')
             selected=document(project,'session_operator',KEY+':selected','تثبيت أول تنبيه طبيعي للمقارنة دون استبداله بنتيجة لاحقة.',
@@ -95,7 +96,7 @@ def collect(project):
             raise ValueError('تغير دليل التنبيه الطبيعي')
         if (natural.evidence.get('job_id')!=selected.evidence['job_id']
                 or natural.task_key!=f"operator-natural-batch:{selected.evidence['job_id']}"
-                or natural.created_at<=armed.created_at):raise ValueError('دليل اختيار التنبيه غير مطابق')
+            or natural.created_at<armed.created_at or natural.pk<=armed.pk):raise ValueError('دليل اختيار التنبيه غير مطابق')
         job=ModelJob.objects.get(pk=selected.evidence['job_id'],charter__project=project,charter__key='session_operator')
         if job.state!='completed':return None
         analysis=ProjectDocumentation.objects.filter(project=project,session_key='session_operator',task_key=f'operator-analysis:{job.pk}').first()

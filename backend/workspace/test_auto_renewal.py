@@ -177,6 +177,12 @@ class AutoRenewalPolicyTests(AutoRenewalFixture, TestCase):
         phase = Phase.objects.create(project=self.project, title='Current phase', objective='bounded', order=1)
         Task.objects.create(phase=phase, title='Current work', description='active task from DB',
             assignee=self.owner, creator=self.owner, state='doing')
+        # Private administration must neither enter the project handover nor
+        # displace its active scientific tasks from the bounded selection.
+        for index in range(6):
+            Task.objects.create(phase=phase, title=f'Private account task {index}',
+                description='Private administration details', owner_only=True,
+                assignee=self.owner, creator=self.owner, state='doing')
         Decision.objects.create(project=self.project, title='Current decision', body='real decision reference',
             author=self.owner, private=False)
         DocumentAccess.objects.create(path='docs/decisions/example.md', team_visible=True)
@@ -184,6 +190,9 @@ class AutoRenewalPolicyTests(AutoRenewalFixture, TestCase):
             {'status': 'verified', 'synthetic': True})
         transfer = bounded_transfer(latch)
         self.assertIn('Current work', transfer.summary)
+        self.assertNotIn('Private account', transfer.summary)
+        self.assertEqual([row['title'] for row in transfer.evidence['payload']['tasks']],
+            ['Current work'])
         self.assertIn('Current decision', transfer.summary)
         self.assertIn('docs/decisions/example.md', transfer.summary)
         self.assertIn('تنفيذ اختبار التسليم الأخير', transfer.summary)

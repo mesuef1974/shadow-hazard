@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from .models import (TrackedSession, TokenSample, SyncRun, CollectorState,
     UsageSourceState, LEGACY_SOURCE_GENERATION)
-from .delegated import job_index, effective_samples
+from .delegated import job_index, effective_samples, dashboard_samples
 
 
 def synchronize():
@@ -167,13 +167,10 @@ def _source_sample(row):
     return values
 
 
-def summarize(project, session_id=None):
+def summarize(project, session_id=None, samples=None):
     sessions=[]; totals={key:0 for key in ['total','input','cached','output','reasoning']}
-    selected=TrackedSession.objects.filter(project=project)
-    if session_id:selected=selected.filter(pk=session_id)
-    jobs=job_index(project)
-    for session in selected.prefetch_related('samples'):
-        rows,job=effective_samples(session,jobs)
+    samples = dashboard_samples(project, session_id) if samples is None else samples
+    for session, rows, job in samples:
         latest=(max(rows,key=lambda row:row.total) if job else rows[-1]) if rows else None
         resets=sum(b.total<a.total for a,b in zip(rows,rows[1:]))
         if latest:

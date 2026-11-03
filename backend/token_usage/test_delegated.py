@@ -91,6 +91,36 @@ class DelegatedUsageTests(TestCase):
         self.job.token_usage['cached_input_tokens']=99999;self.job.save()
         self.assertEqual(summarize(self.project)[1]['total'],0)
 
+    def test_direct_turns_keep_their_dates_and_models_without_double_counting(self):
+        self.job.finished_at=timezone.now()-timedelta(days=8)
+        self.job.token_usage={'input_tokens':100,'cached_input_tokens':20,
+            'output_tokens':0,'reasoning_output_tokens':0}
+        self.job.save()
+        recent=ModelJob.objects.create(charter=self.job.charter,owner=self.owner,prompt='recent',
+            requested_model='other-model',observed_model='other-model',requested_thinking='low',
+            execution_thread_id=self.session.external_id,state='completed',finished_at=timezone.now(),
+            token_usage={'input_tokens':8,'cached_input_tokens':2,
+                'output_tokens':2,'reasoning_output_tokens':1})
+        TokenSample.objects.create(session=self.session,source_id=1,sampled_at=timezone.now(),
+            model=recent.observed_model,total=110,input=108,cached=22,output=2,reasoning=1,
+            context=0,context_limit=0)
+        self.assertEqual(summarize(self.project)[1]['total'],110)
+        for period in ('day','week'):
+            chart=analyze(self.project,period)
+            self.assertEqual(chart['measured'],10)
+            self.assertEqual(chart['intervals'],1)
+            self.assertEqual([(r['name'],r['tokens']) for r in chart['models']],[('other-model',10)])
+            self.assertEqual(sum(r['value'] for r in chart['composition']),10)
+        chart=analyze(self.project)
+        self.assertEqual(chart['measured'],110)
+        self.assertEqual({r['name']:r['tokens'] for r in chart['models']},
+            {'gpt-6-luna':100,'other-model':10})
+        self.assertEqual(chart['boundary'],0)
+        hourly={r['at']:r['tokens'] for r in chart['hourly'] if r['tokens']}
+        self.assertEqual(hourly,{
+            timezone.localtime(self.job.finished_at).strftime('%Y-%m-%d %H:00'):100,
+            timezone.localtime(recent.finished_at).strftime('%Y-%m-%d %H:00'):10})
+
     def test_unobserved_model_is_not_attributed_to_requested_model(self):
         self.job.observed_model='';self.job.save()
         chart=analyze(self.project)

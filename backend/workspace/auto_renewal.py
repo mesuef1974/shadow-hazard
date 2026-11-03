@@ -408,7 +408,8 @@ def bounded_transfer(latch):
              'sha256': _digest(payload)})
     memory, memory_digest = instructions(charter.project)
     decisions = list(Decision.objects.filter(project=charter.project, private=False).order_by('-created_at')[:MAX_DECISIONS])
-    tasks = list(Task.objects.filter(phase__project=charter.project, state__in=['todo', 'doing', 'review'])
+    tasks = list(Task.objects.filter(phase__project=charter.project, owner_only=False,
+        state__in=['todo', 'doing', 'review'])
         .select_related('phase', 'assignee').order_by('-created_at')[:MAX_TASKS])
     references = list(DocumentAccess.objects.filter(team_visible=True).order_by('path')[:MAX_REFERENCES])
     project_documents = list(ProjectDocumentation.objects.filter(project=charter.project,

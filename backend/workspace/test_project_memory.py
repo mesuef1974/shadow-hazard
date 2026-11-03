@@ -110,8 +110,8 @@ class ProjectMemoryTests(TestCase):
 
     def test_exact_duplicates_are_removed_but_distinct_restrictions_survive(self):
         from workspace.instruction_text import merge_instructions
-        self.assertEqual(merge_instructions(['- keep rule','- keep rule\n- keep rule unless approved']),
-                         '- keep rule\n\n- keep rule unless approved')
+        self.assertEqual(merge_instructions(['- keep rule','- keep rule','- keep rule\n- keep rule unless approved']),
+                         '- keep rule\n\n- keep rule\n- keep rule unless approved')
         ProjectMemory.objects.create(project=self.project,key='context.code',instruction='CODE_ONLY_SENTINEL')
         details=instructions(self.project,'code',include_core=False)[0]
         self.assertIn('CODE_ONLY_SENTINEL',details)

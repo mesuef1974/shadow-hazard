@@ -57,6 +57,15 @@ class OperatorUsageTests(TestCase):
         self.assertEqual(counts,(ModelJob.objects.count(),TokenSample.objects.count()))
         self.assertEqual(snapshot(self.project)['state'],'completed')
 
+    def test_natural_receipt_with_same_clock_timestamp_is_selected_by_insert_order(self):
+        first=self.job()
+        with patch('django.utils.timezone.now',return_value=self.armed.created_at):
+            natural=self.natural(first)
+        self.assertEqual(natural.created_at,self.armed.created_at)
+        self.assertGreater(natural.pk,self.armed.pk)
+        self.assertIsNone(collect(self.project))
+        self.assertEqual(snapshot(self.project)['selected_job'],first.pk)
+
     def test_bad_analysis_or_foreign_receipt_does_not_complete(self):
         job=self.job('completed');self.natural(job)
         other=Project.objects.create(name='other')

@@ -124,11 +124,17 @@ def recover_auto_preintent(request_id, actor):
 
 
 def _unchanged(row):
-    if (row.charter.thread_id != row.source_thread_id or _context(row.charter) != row.context
-            or _hash(row.bootstrap_prompt) != row.bootstrap_digest):
+    if row.charter.thread_id != row.source_thread_id or _context(row.charter) != row.context:
         raise RenewalError('Source binding or context changed')
     if SessionCharter.objects.filter(thread_id=row.source_thread_id).exclude(pk=row.charter_id).exists():
         raise RenewalError('Source thread is bound to another charter')
+    _stored_evidence(row)
+
+
+def _stored_evidence(row):
+    """Validate original evidence independently of subsequent memory changes."""
+    if _hash(row.bootstrap_prompt) != row.bootstrap_digest:
+        raise RenewalError('Source binding or context changed')
     for record_id, checksum in [(row.handover_id, row.handover_digest), (row.bootstrap_id, None)]:
         record = ProjectDocumentation.objects.get(pk=record_id)
         if (not _verified(record) or record.project_id != row.charter.project_id

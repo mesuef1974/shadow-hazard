@@ -1,17 +1,13 @@
-"""Remove exact repeated instruction lines, without guessing semantic equivalence."""
+"""Remove identical blocks while preserving their internal structure and order."""
 
 
 def merge_instructions(blocks):
     seen=set()
-    lines=[]
+    unique=[]
     for block in blocks:
-        if lines and block.strip():
-            lines.append('')
-        for line in block.splitlines():
-            key=' '.join(line.split())
-            if key and key in seen:
-                continue
-            if key:
-                seen.add(key)
-            lines.append(line)
-    return '\n'.join(lines).strip()
+        text=block.strip('\r\n')
+        if not text.strip() or text in seen:
+            continue
+        seen.add(text)
+        unique.append(text)
+    return '\n\n'.join(unique)

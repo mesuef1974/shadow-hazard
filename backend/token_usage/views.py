@@ -1,6 +1,9 @@
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, redirect
+from django.urls import reverse
+from urllib.parse import urlencode
+from .delegated import dashboard_samples
 from django.views.decorators.http import require_POST
 from workspace.views import project
 from .models import SyncRun, TrackedSession, CollectorState
@@ -27,7 +30,8 @@ def dashboard(request):
     chosen=request.GET.get('session','')
     selected=choices.filter(pk=int(chosen)).first() if chosen.isdecimal() and len(chosen)<=18 else None
     session_id=selected.pk if selected else None
-    sessions, totals=summarize(project(),session_id)
+    samples=dashboard_samples(project(),session_id)
+    sessions, totals=summarize(project(),session_id,samples=samples)
     period=request.GET.get('period','week')
     if period not in {'all','day','week'}:period='week'
     state=CollectorState.objects.filter(key='local').first()
@@ -39,12 +43,12 @@ def dashboard(request):
     collector['recent']=bool(heartbeat and timezone.is_aware(heartbeat) and 0<=(timezone.now()-heartbeat).total_seconds()<180 and collector.get('status') in {'success','running'})
     try:weekly['reset_date']=datetime.fromtimestamp(weekly['weekly_resets_at'],dt_timezone.utc) if weekly.get('weekly_resets_at') else None
     except (ValueError,TypeError,OverflowError,OSError):weekly['reset_date']=None
-    weekly['available']=isinstance(weekly.get('weekly_used_percent'),(float,int)) and 0<=weekly['weekly_used_percent']<=100
+    weekly['available']=type(weekly.get('weekly_used_percent')) in (float,int) and 0<=weekly['weekly_used_percent']<=100
     if weekly['available']:weekly['remaining']=round(100-weekly['weekly_used_percent'],1)
-    weekly['historical']=not weekly.get('sampled_at') or (timezone.now()-weekly['sampled_at']).total_seconds()>300 or not weekly['reset_date'] or weekly['reset_date']<=timezone.now()
+    weekly['historical']=not weekly.get('sampled_at') or not 0 <= (timezone.now()-weekly['sampled_at']).total_seconds() <= 300 or not weekly['reset_date'] or weekly['reset_date']<=timezone.now()
     from operations.operator_usage import snapshot as operator_usage_snapshot
     operator_comparison=operator_usage_snapshot(project())
-    return render(request,'token_usage/dashboard.html',{'operator_comparison':operator_comparison,'runtime_context':runtime_snapshot(project(),session_id,period),'capacity_snapshot':capacity_snapshot(project()),'sessions':sessions,'totals':totals,'analytics':analyze(project(),period,session_id),'last_sync':SyncRun.objects.order_by('-started_at').first(),'last_success_sync':SyncRun.objects.filter(success=True).order_by('-started_at').first(),'session_choices':choices,'selected_session':session_id,'collector':collector,'weekly':weekly})
+    return render(request,'token_usage/dashboard.html',{'operator_comparison':operator_comparison,'runtime_context':runtime_snapshot(project(),session_id,period),'capacity_snapshot':capacity_snapshot(project()),'sessions':sessions,'totals':totals,'analytics':analyze(project(),period,session_id,samples=samples),'last_sync':SyncRun.objects.order_by('-started_at').first(),'last_success_sync':SyncRun.objects.filter(success=True).order_by('-started_at').first(),'session_choices':choices,'selected_session':session_id,'collector':collector,'weekly':weekly})
 
 
 @require_POST
@@ -52,4 +56,8 @@ def dashboard(request):
 def sync(request):
     if request.user.role!='supervisor':return HttpResponseForbidden()
     synchronize()
-    return redirect('token-dashboard')
+    chosen=request.POST.get('session','')
+    selected=TrackedSession.objects.filter(project=project(),pk=int(chosen)).first() if chosen.isdecimal() and len(chosen)<=18 else None
+    period=request.POST.get('period','week')
+    if period not in {'all','day','week'}:period='week'
+    return redirect(reverse('token-dashboard')+'?'+urlencode({'session':selected.pk if selected else '', 'period':period}))

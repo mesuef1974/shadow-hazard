@@ -3,41 +3,47 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from django.utils import timezone
 from .models import TrackedSession
-from .delegated import job_index, effective_samples
+from .delegated import job_index, effective_samples, dashboard_samples
 
 
-def analyze(project, period='all', session_id=None):
+def analyze(project, period='all', session_id=None, samples=None):
     cutoff = timezone.now()-timedelta(days=1 if period=='day' else 7) if period in {'day','week'} else None
     models=defaultdict(lambda:{'tokens':0,'intervals':0})
     hours=defaultdict(int)
     split={'input':0,'cached':0,'output':0,'reasoning':0}
     transitions=[]; baseline=0; boundary=0; resets=0; intervals=0; measured=0; anomalies=0
     context=[]
-    selected=TrackedSession.objects.filter(project=project)
-    if session_id:selected=selected.filter(pk=session_id)
-    jobs=job_index(project)
-    for session in selected.prefetch_related('samples'):
-        rows,job=effective_samples(session,jobs)
+    samples = dashboard_samples(project, session_id) if samples is None else samples
+    for session, rows, job in samples:
         if not rows:continue
         if job:
-            # One independent CLI execution has an explicit per-turn counter.
-            # Unlike an arbitrary collector baseline, its entire usage is known.
-            row=rows[0]
-            if not cutoff or row.sampled_at>=cutoff:
-                measured+=row.total;intervals+=1
-                hours[timezone.localtime(row.sampled_at).strftime('%Y-%m-%d %H:00')]+=row.total
-                if row.model:
-                    models[row.model]['tokens']+=row.total
-                    models[row.model]['intervals']+=1
-                else:boundary+=row.total
-                for key in split:split[key]+=getattr(row,key)
+            # Attribute verified per-turn usage at its own time and model.
+            # The combined anchor below only prevents collector double counting.
+            fields={'input':'input_tokens','cached':'cached_input_tokens',
+                    'output':'output_tokens','reasoning':'reasoning_output_tokens'}
+            for execution in job.jobs:
+                if cutoff and execution.finished_at<cutoff:continue
+                usage=execution.token_usage
+                total=usage['input_tokens']+usage['output_tokens']
+                measured+=total;intervals+=1
+                hours[timezone.localtime(execution.finished_at).strftime('%Y-%m-%d %H:00')]+=total
+                if execution.observed_model:
+                    models[execution.observed_model]['tokens']+=total
+                    models[execution.observed_model]['intervals']+=1
+                else:boundary+=total
+                for key,field in fields.items():split[key]+=usage[field]
         if not cutoff and not job:baseline+=rows[0].total
         high_total=rows[0].total
         high_split={key:getattr(rows[0],key) for key in split}
+        session_context = []
         for row in rows:
             if job and row is rows[0]:continue
             if cutoff and row.sampled_at<cutoff:continue
-            context.append({'timestamp':row.sampled_at.isoformat(),'at':timezone.localtime(row.sampled_at).strftime('%m/%d %H:%M'),'percent':round(row.context/row.context_limit*100,1) if row.context_limit else None,'tokens':row.context,'limit':row.context_limit,'session':session.name,'session_id':session.pk})
+            session_context.append({'timestamp':row.sampled_at.isoformat(),'at':timezone.localtime(row.sampled_at).strftime('%m/%d %H:%M'),'percent':round(row.context/row.context_limit*100,1) if row.context_limit else None,'tokens':row.context,'limit':row.context_limit,'session':session.name,'session_id':session.pk})
+        # Bound rendering only; accounting below still uses every sample.
+        if len(session_context) > 500:
+            session_context = [session_context[round(i*(len(session_context)-1)/499)] for i in range(500)]
+        context.extend(session_context)
         for previous,current in zip(rows,rows[1:]):
             delta=max(0,current.total-high_total)
             diffs={key:max(0,getattr(current,key)-high_split[key]) for key in split}

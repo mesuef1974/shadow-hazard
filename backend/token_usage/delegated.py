@@ -1,6 +1,6 @@
 """Direct per-job usage is a source, not an extra charge beside session samples."""
 from dataclasses import dataclass
-from .models import TokenSample
+from .models import TokenSample, TrackedSession
 from workspace.models import ModelJob
 
 
@@ -65,3 +65,14 @@ def effective_samples(session, jobs, generation=None):
     # Retain the known CLI anchor and only subsequent growth, never add
     # a second cumulative copy of the completed execution.
     return [point]+[row for row in rows if row.total>total],job
+
+
+def dashboard_samples(project, session_id=None):
+    selected = TrackedSession.objects.filter(project=project)
+    if session_id:
+        selected = selected.filter(pk=session_id)
+    jobs = job_index(project)
+    from .models import UsageSourceState
+    generation=UsageSourceState.objects.filter(key='local').values_list('generation',flat=True).first()
+    return [(session, *effective_samples(session, jobs, generation))
+            for session in selected.prefetch_related('samples')]

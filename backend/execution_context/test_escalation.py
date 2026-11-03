@@ -91,6 +91,8 @@ class EscalationTests(TestCase):
         self.assertFalse(hasattr(forged,'session_dispatch'))
 
     def test_approved_readonly_waits_without_desktop_dispatch_or_double_counting(self):
+        self.charter.allowed_model_profiles=[{'model':'gpt-6.1-sol','thinking':'medium'}]
+        self.charter.save(update_fields=['allowed_model_profiles'])
         request=decide(self.proposal().pk,self.owner,True)
         self.source.execution_thread_id='original';self.source.save()
         TrackedSession.objects.create(external_id='original',name='original',project=self.project)
@@ -104,6 +106,8 @@ class EscalationTests(TestCase):
         self.assertEqual(request.approved_job.token_usage, {})
 
     def test_approved_workspace_write_enters_desktop_outbox(self):
+        self.charter.allowed_model_profiles=[{'model':'gpt-6.1-sol','thinking':'medium'}]
+        self.charter.save(update_fields=['allowed_model_profiles'])
         self.source=enqueue(self.charter,self.owner,'مراجعة اختبار مسار جلسة قائمة',mode='workspace-write')
         self.source.state='completed';self.source.finished_at=timezone.now();self.source.save()
         request=decide(self.proposal().pk,self.owner,True)
@@ -112,3 +116,10 @@ class EscalationTests(TestCase):
         self.assertEqual(job.state,'waiting_delivery')
         self.assertEqual(job.session_dispatch.requested_model,'gpt-6.1-sol')
         self.assertEqual(job.mode,'workspace-write')
+
+    def test_per_task_approval_does_not_bypass_charter_ceiling(self):
+        request=decide(self.proposal().pk,self.owner,True)
+        job=run_one()
+        self.assertEqual(job.pk,request.approved_job_id)
+        self.assertEqual(job.state,'awaiting_approval')
+        self.assertFalse(hasattr(job,'session_dispatch'))

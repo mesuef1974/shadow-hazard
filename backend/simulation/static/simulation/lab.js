@@ -40,7 +40,7 @@ function describe(config, savedId=null){
   const choice=(name)=>form.elements[name].querySelector(`option[value="${config[name]}"]`)?.textContent||'';
   $('scene-title').textContent='تجربة من اختياراتك';
   $('scene-description').textContent=`الطالب: ${choice('pedestrian_behavior')} · السائق: ${choice('driver_behavior')} · الإشارات: ${choice('signals')} · الانطلاق: ${choice('crossing_side')} · الرصد: ${choice('sensor_fault')}. زمن تغير السلوك ${config.behavior_time} ث، والتوقف داخل الممر ${config.pause_duration} ث.`;
-  $('scene-config').textContent=`${savedId?'سجل #'+savedId:'معاينة غير محفوظة'} · السيارة ${config.car_speed} م/ث · الطالب ${config.pedestrian_speed} م/ث · التأخير ${config.pedestrian_delay} ث · أفق التوقع ${config.horizon} ث`;
+  $('scene-config').textContent=`${savedId?'سجل #'+savedId:'معاينة غير محفوظة'} · السيارة ${config.car_speed} م/ث · الطالب ${config.pedestrian_speed} م/ث · التأخير ${config.pedestrian_delay} ث · أفق التوقع ${config.horizon} ث · مدة المتابعة ${config.duration ?? 20} ث`;
   return;
  }
  const original=presets.find(s=>s.key===config.key);

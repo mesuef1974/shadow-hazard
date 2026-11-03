@@ -3,7 +3,7 @@ from .models import Task, TaskUpdate, Decision, SessionCharter
 class TaskForm(forms.ModelForm):
     class Meta:
         model=Task
-        fields=['phase','title','description','assignee','due_date']
+        fields=['phase','title','description','assignee','due_date','owner_only']
         widgets={'due_date':forms.DateInput(attrs={'type':'date'})}
 class UpdateForm(forms.ModelForm):
     class Meta:

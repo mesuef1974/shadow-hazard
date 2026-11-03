@@ -13,10 +13,20 @@ MAX_BYTES = 64 * 1024 * 1024
 
 
 def snapshot(thread_id):
+    return _snapshot(thread_id)
+
+
+def retired_source_snapshot(thread_id):
+    """Recovery-only source proof; never evidence for a candidate or live renewal."""
+    return _snapshot(thread_id, retired_source=True)
+
+
+def _snapshot(thread_id, *, retired_source=False):
     uuid.UUID(thread_id)
     path = find_rollout(thread_id)
     active = (Path(os.environ.get('CODEX_HOME', Path.home() / '.codex')) / 'sessions').resolve()
-    if not path.resolve().is_relative_to(active):
+    archived = not path.resolve().is_relative_to(active)
+    if archived and not retired_source:
         raise RolloutEvidenceError('Archived rollout cannot be adopted for renewal')
     before = path.stat()
     if before.st_size > MAX_BYTES:raise RolloutEvidenceError('Rollout exceeds bounded verification size')
@@ -73,12 +83,14 @@ def snapshot(thread_id):
             active=None;active_start=None
     if active is not None:raise RolloutEvidenceError('Unclosed source turn')
     latest = starts[-1][1]['turn_id']
+    terminal_types = {'task_complete', 'turn_aborted'} if retired_source else {'task_complete'}
     finished = [(i, r['payload']) for i, r in records if r.get('type') == 'event_msg'
-        and r.get('payload', {}).get('type') == 'task_complete' and r['payload'].get('turn_id') == latest]
+        and r.get('payload', {}).get('type') in terminal_types and r['payload'].get('turn_id') == latest]
     if len(finished) != 1 or finished[0][0] <= starts[-1][0]:
         raise RolloutEvidenceError('Latest source turn is active or ambiguous')
     return {'records': records, 'starts': starts, 'completed': finished[0], 'meta': sessions[0],
-            'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest(), 'latest_turn': latest}
+            'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest(), 'latest_turn': latest,
+            'archived': archived, 'terminal_type': finished[0][1]['type']}
 
 
 def _texts(content):
@@ -94,6 +106,11 @@ def _assistant_text(content, text_type):
 
 def bootstrap_evidence(row, thread_id):
     data = snapshot(thread_id)
+    return _bootstrap_evidence(row, thread_id, data)
+
+
+def _bootstrap_evidence(row, thread_id, data):
+    """Shared validation; only bootstrap_evidence supplies live idle evidence."""
     if len(data['starts']) != 1 or data['meta'].get('cwd') != row.context['cwd']:
         raise RolloutEvidenceError('Candidate is not a fresh, same-project bootstrap')
     intent = row.events.filter(state='owner_create_intent').select_related('receipt').get().receipt

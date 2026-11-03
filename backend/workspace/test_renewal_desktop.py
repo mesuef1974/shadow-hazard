@@ -457,3 +457,246 @@ class DesktopRenewalTests(RenewalFixture, TestCase):
         with patch.object(DesktopRenewalAdapter,'assert_binding_authority',new=becomes_active):
             with self.assertRaises(OwnerToolsError):commit_binding(self.row.pk,self.owner)
         self.charter.refresh_from_db();self.assertEqual(self.charter.thread_id,self.old)
+
+    def test_historical_bootstrap_accepts_later_activity_without_relaxing_live_proof(self):
+        from execution_context.renewal_history_evidence import historical_bootstrap_evidence
+        self.create_real()
+        records=[json.loads(line) for line in self.path(self.target).read_text(encoding='utf-8').splitlines()]
+        records.append({'type':'event_msg','payload':{'type':'task_started','turn_id':str(uuid.uuid4())}})
+        self.save(self.target,records)
+        proof=historical_bootstrap_evidence(self.row,self.target)
+        self.assertFalse(proof['live_idle_proven'])
+        self.assertNotIn('sha256',proof)
+        self.assertEqual(len(proof['prefix_sha256']),64)
+        with self.assertRaises(RolloutEvidenceError):bootstrap_evidence(self.row,self.target)
+
+    def test_recovery_preparation_preserves_request_and_is_not_binding_permission(self):
+        from workspace.renewal_recovery import prepare_recovery
+        from workspace.models import ProjectMemory
+        self.create_real()
+        original=copy.deepcopy(self.row.context)
+        ProjectMemory.objects.create(project=self.project,key='recovery-test',instruction='new rules')
+        receipt=prepare_recovery(self.row.pk,self.owner)
+        self.assertEqual(prepare_recovery(self.row.pk,self.owner).pk,receipt.pk)
+        self.assertIn('memory_digest',receipt.evidence['changed_context_keys'])
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.context,original)
+        self.assertEqual(self.row.state,'created')
+        self.assertIsNone(self.row.delivery_receipt_id)
+        with self.assertRaises(RenewalError):commit_binding(self.row.pk,self.owner)
+        self.charter.refresh_from_db();self.assertEqual(self.charter.thread_id,self.old)
+
+    def test_historical_prefix_rejects_partial_and_changed_data(self):
+        from execution_context.renewal_history_evidence import historical_bootstrap_evidence, _prefix
+        self.create_real()
+        path=self.path(self.target);original=path.read_bytes()
+        path.write_bytes(original[:-1])
+        with self.assertRaises(RolloutEvidenceError):historical_bootstrap_evidence(self.row,self.target)
+        path.write_bytes(original)
+        raw,records=_prefix(path)
+        with patch('execution_context.renewal_history_evidence._prefix',side_effect=[(raw,records),(raw+b'changed',records)]):
+            with self.assertRaises(RolloutEvidenceError):historical_bootstrap_evidence(self.row,self.target)
+
+    def test_historical_evidence_rejects_tampered_original_and_wrong_target(self):
+        from execution_context.renewal_history_evidence import historical_bootstrap_evidence
+        self.create_real()
+        with self.assertRaises(RolloutEvidenceError):historical_bootstrap_evidence(self.row,self.old)
+        records=[json.loads(line) for line in self.path(self.target).read_text(encoding='utf-8').splitlines()]
+        records[3]['payload']['output']='untrusted prompt'
+        self.save(self.target,records)
+        with self.assertRaises(RolloutEvidenceError):historical_bootstrap_evidence(self.row,self.target)
+
+    def test_recovery_rejects_corrupt_original_receipts_and_prompt_digest(self):
+        from workspace.renewal_recovery import prepare_recovery
+        self.create_real()
+        saved=self.row.bootstrap_digest
+        SessionRenewal.objects.filter(pk=self.row.pk).update(bootstrap_digest='0'*64)
+        with self.assertRaises(RenewalError):prepare_recovery(self.row.pk,self.owner)
+        SessionRenewal.objects.filter(pk=self.row.pk).update(bootstrap_digest=saved)
+        for receipt in [self.row.handover,self.row.bootstrap]:
+            digest=receipt.digest
+            ProjectDocumentation.objects.filter(pk=receipt.pk).update(digest='0'*64)
+            with self.assertRaises(RenewalError):prepare_recovery(self.row.pk,self.owner)
+            ProjectDocumentation.objects.filter(pk=receipt.pk).update(digest=digest)
+        SessionRenewal.objects.filter(pk=self.row.pk).update(handover_digest='0'*64)
+        with self.assertRaises(RenewalError):prepare_recovery(self.row.pk,self.owner)
+        self.assertFalse(ProjectDocumentation.objects.filter(task_key__startswith='renewal-recovery-preparation:').exists())
+
+    def test_recovery_rejects_revoked_approval_without_receipt_or_rpc(self):
+        from workspace.renewal_recovery import prepare_recovery
+        self.create_real()
+        count=self.rpc_mock.call_count
+        ProjectDocumentation.objects.filter(pk=self.approval.pk).update(digest='0'*64)
+        with self.assertRaises(RenewalError):prepare_recovery(self.row.pk,self.owner)
+        self.assertEqual(self.rpc_mock.call_count,count)
+        self.assertFalse(ProjectDocumentation.objects.filter(task_key__startswith='renewal-recovery-preparation:').exists())
+
+    def adoption_setup(self, *, archive_source=False):
+        from workspace.renewal_adoption import authorize_adoption
+        self.create_real()
+        self.stack.enter_context(patch('workspace.renewal_adoption.load_config',return_value=self.config))
+        if archive_source:
+            destination=Path(self.folder.name)/'archived_sessions'/self.path(self.old).name
+            destination.parent.mkdir(parents=True,exist_ok=True)
+            self.path(self.old).rename(destination)
+        return authorize_adoption(self.row.pk,self.owner,user_instruction='Explicit synthetic adoption request')
+
+    def write_adoption_ack(self, approval, *, marker=None, existing_turn=False):
+        records=[json.loads(line) for line in self.path(self.target).read_text(encoding='utf-8').splitlines()]
+        turn=records.pop()['payload']['turn_id'] if existing_turn else str(uuid.uuid4())
+        self.latest[self.target]=turn;stamp=timezone.now().timestamp()
+        text=marker or approval.evidence['acknowledgement']; item_id='ack-'+turn
+        records.extend([
+            {'type':'event_msg','payload':{'type':'task_started','turn_id':turn,'started_at':stamp}},
+            {'type':'event_msg','payload':{'type':'item_completed','thread_id':self.target,'turn_id':turn,
+                'item':{'type':'AgentMessage','id':item_id,'phase':'final_answer','content':[{'type':'Text','text':text}]}}},
+            {'type':'response_item','payload':{'type':'message','role':'assistant','id':item_id,'phase':'final_answer',
+                'status':'completed','content':[{'type':'output_text','text':text}]}},
+            {'type':'event_msg','payload':{'type':'task_complete','turn_id':turn,'completed_at':stamp,'last_agent_message':text}},
+        ])
+        self.save(self.target,records)
+
+    def test_manual_adoption_of_archived_source_and_existing_candidate_is_idempotent(self):
+        from workspace.renewal_adoption import commit_adoption
+        approval=self.adoption_setup(archive_source=True);self.write_adoption_ack(approval)
+        with self.assertRaises(RolloutEvidenceError):snapshot(self.old)
+        result=commit_adoption(self.row.pk,self.owner,approval_id=approval.pk)
+        self.assertEqual(commit_adoption(self.row.pk,self.owner,approval_id=approval.pk).pk,result.pk)
+        self.charter.refresh_from_db();self.assertEqual(self.charter.thread_id,self.target)
+        self.row.refresh_from_db();self.assertEqual(self.row.state,'manually_adopted')
+        self.assertIsNone(self.row.delivery_receipt_id)
+        self.assertEqual(self.count_creates(),1)
+        self.assertFalse(any(p['name']=='send_message_to_thread' for _,p in self.rpc_calls))
+        self.client.force_login(self.owner)
+        page=self.client.get('/exhibition/')
+        self.assertNotContains(page,'اكتمل اعتماد محادثة التنسيق القائمة')
+        self.charter.thread_id=self.old;self.charter.save(update_fields=['thread_id'])
+        self.assertNotContains(self.client.get('/exhibition/'),'اكتمل اعتماد محادثة التنسيق القائمة')
+
+    def test_manual_adoption_rejects_missing_wrong_and_unpaired_ack(self):
+        from workspace.renewal_adoption import commit_adoption
+        approval=self.adoption_setup()
+        with self.assertRaises(RenewalError):commit_adoption(self.row.pk,self.owner,approval_id=approval.pk)
+        original=self.path(self.target).read_bytes()
+        self.write_adoption_ack(approval,marker='ADOPTION_READY:wrong')
+        with self.assertRaises(RenewalError):commit_adoption(self.row.pk,self.owner,approval_id=approval.pk)
+        self.path(self.target).write_bytes(original);self.write_adoption_ack(approval)
+        records=[json.loads(line) for line in self.path(self.target).read_text(encoding='utf-8').splitlines()]
+        records[-2]['payload']['id']='different-response'
+        self.save(self.target,records)
+        with self.assertRaises(RenewalError):commit_adoption(self.row.pk,self.owner,approval_id=approval.pk)
+        self.charter.refresh_from_db();self.assertEqual(self.charter.thread_id,self.old)
+
+    def test_manual_adoption_rejects_active_target_and_changed_context(self):
+        from workspace.renewal_adoption import commit_adoption
+        from workspace.models import ProjectMemory
+        approval=self.adoption_setup();self.write_adoption_ack(approval)
+        self.states[self.target]='active'
+        with self.assertRaises(RenewalError):commit_adoption(self.row.pk,self.owner,approval_id=approval.pk)
+        self.states[self.target]='idle'
+        ProjectMemory.objects.create(project=self.project,key='changed-after-approval',instruction='new context')
+        with self.assertRaises(RenewalError):commit_adoption(self.row.pk,self.owner,approval_id=approval.pk)
+
+    def test_manual_adoption_rechecks_activity_at_final_boundary(self):
+        from workspace.renewal_adoption import commit_adoption, _inspect
+        approval=self.adoption_setup();self.write_adoption_ack(approval)
+        calls=0
+        def changed(client,row,thread_id,**kwargs):
+            nonlocal calls
+            calls+=1
+            if calls==4:self.states[self.target]='active'
+            return _inspect(client,row,thread_id,**kwargs)
+        with patch('workspace.renewal_adoption._inspect',side_effect=changed):
+            with self.assertRaises(RenewalError):commit_adoption(self.row.pk,self.owner,approval_id=approval.pk)
+        self.charter.refresh_from_db();self.assertEqual(self.charter.thread_id,self.old)
+
+    def test_manual_adoption_rejects_corrupt_authority_and_ceiling_change(self):
+        from workspace.renewal_adoption import commit_adoption
+        approval=self.adoption_setup();self.write_adoption_ack(approval)
+        digest=approval.digest
+        ProjectDocumentation.objects.filter(pk=approval.pk).update(digest='0'*64)
+        with self.assertRaises(RenewalError):commit_adoption(self.row.pk,self.owner,approval_id=approval.pk)
+        ProjectDocumentation.objects.filter(pk=approval.pk).update(digest=digest)
+        self.charter.allowed_model_profiles=[];self.charter.save(update_fields=['allowed_model_profiles'])
+        with self.assertRaises(RenewalError):commit_adoption(self.row.pk,self.owner,approval_id=approval.pk)
+
+    def test_manual_adoption_rejects_invalid_acknowledgement_chronology(self):
+        from workspace.renewal_adoption import _acknowledged
+        approval=self.adoption_setup();self.write_adoption_ack(approval)
+        data=snapshot(self.target)
+        stamp=approval.created_at.timestamp()
+        for start,end in [(stamp+10,stamp-10),(stamp-20,stamp-10),
+                          (stamp,stamp+3600),(True,stamp),(stamp,float('nan'))]:
+            with self.subTest(start=start,end=end):
+                altered=copy.deepcopy(data)
+                altered['starts'][-1][1]['started_at']=start
+                altered['completed'][1]['completed_at']=end
+                with self.assertRaises(RenewalError):_acknowledged(altered,approval)
+
+    def test_explicit_limited_history_adoption_preserves_and_reports_old_gap(self):
+        from workspace.renewal_adoption import authorize_adoption,commit_adoption
+        self.adoption_setup()
+        original=[json.loads(line) for line in self.path(self.target).read_text(encoding='utf-8').splitlines()]
+        gap={'type':'event_msg','payload':{'type':'task_started','turn_id':str(uuid.uuid4()),'started_at':timezone.now().timestamp()}}
+        self.save(self.target,[*original,gap])
+        self.write_adoption_ack(self.approval,marker='earlier completed work')
+        records=[json.loads(line) for line in self.path(self.target).read_text(encoding='utf-8').splitlines()]
+        turn=str(uuid.uuid4());self.latest[self.target]=turn
+        records.append({'type':'event_msg','payload':{'type':'task_started','turn_id':turn,'started_at':timezone.now().timestamp()}})
+        self.save(self.target,records)
+        limited=authorize_adoption(self.row.pk,self.owner,user_instruction='Explicit acceptance of declared historical gaps',accept_historical_gaps=True)
+        self.assertEqual(len(limited.evidence['history_scope']['historical_gaps']),1)
+        self.write_adoption_ack(limited,existing_turn=True)
+        with self.assertRaises(RolloutEvidenceError):snapshot(self.target)
+        result=commit_adoption(self.row.pk,self.owner,approval_id=limited.pk)
+        self.assertEqual(result.evidence['history_scope'],limited.evidence['history_scope'])
+
+    def test_limited_reader_rejects_gap_adjacent_to_acknowledgement(self):
+        from execution_context.adoption_snapshot import history_scope
+        self.create_real()
+        records=[json.loads(line) for line in self.path(self.target).read_text(encoding='utf-8').splitlines()]
+        for _ in range(2):
+            records.append({'type':'event_msg','payload':{'type':'task_started','turn_id':str(uuid.uuid4())}})
+        self.save(self.target,records)
+        with self.assertRaises(RolloutEvidenceError):history_scope(self.target)
+
+    def test_limited_reader_rejects_activity_after_completion(self):
+        from execution_context.adoption_snapshot import latest_adoption_snapshot
+        approval=self.adoption_setup();self.write_adoption_ack(approval)
+        records=[json.loads(line) for line in self.path(self.target).read_text(encoding='utf-8').splitlines()]
+        records.append({'type':'response_item','payload':{'type':'function_call','name':'unexpected'}})
+        self.save(self.target,records)
+        with self.assertRaises(RolloutEvidenceError):latest_adoption_snapshot(self.target)
+
+    def test_limited_reader_records_overlaps_even_when_both_old_turns_completed(self):
+        from execution_context.adoption_snapshot import history_scope
+        self.create_real()
+        records=[json.loads(line) for line in self.path(self.target).read_text(encoding='utf-8').splitlines()]
+        a,b,c=[str(uuid.uuid4()) for _ in range(3)]
+        for kind,turn in [('task_started',a),('task_started',b),('task_complete',a),('task_complete',b),('task_started',c)]:
+            records.append({'type':'event_msg','payload':{'type':kind,'turn_id':turn}})
+        self.save(self.target,records)
+        scope=history_scope(self.target)
+        self.assertEqual(scope['historical_gaps'],[])
+        self.assertEqual(scope['historical_overlaps'][0]['turn_id'],b)
+        self.assertEqual(scope['historical_overlaps'][0]['earlier'][0]['turn_id'],a)
+
+    def test_adoption_ack_allows_prior_question_but_rejects_duplicate_or_later_host_final(self):
+        from workspace.renewal_adoption import _acknowledged
+        approval=self.adoption_setup();self.write_adoption_ack(approval)
+        data=snapshot(self.target)
+        final_line=next(i for i,r in data['records'] if r.get('type')=='event_msg'
+            and r['payload'].get('item',{}).get('id','').startswith('ack-'))
+        question={'type':'event_msg','payload':{'type':'item_completed','thread_id':self.target,
+            'turn_id':data['latest_turn'],'item':{'type':'AgentMessage','id':'call-question',
+                'phase':'final_answer','content':[{'type':'Text','text':'Choose an option'}]}}}
+        earlier=copy.deepcopy(data)
+        index=next(n for n,(line,_) in enumerate(earlier['records']) if line==final_line)
+        earlier['records'].insert(index,(final_line-0.5,question))
+        _acknowledged(earlier,approval)
+        duplicate=copy.deepcopy(earlier)
+        duplicate['records'].insert(index+1,duplicate['records'][index+1])
+        with self.assertRaises(RenewalError):_acknowledged(duplicate,approval)
+        later=copy.deepcopy(data)
+        later['records'].insert(-1,(data['completed'][0]-0.5,question))
+        with self.assertRaises(RenewalError):_acknowledged(later,approval)

@@ -93,10 +93,6 @@ def run_one():
             job.outcome_note+=f' إيصال توثيق متحقق: {receipt.pk}'
             job.state='completed'
             return job
-        from execution_context.escalation import authorized
-        if (job.requested_model in {'gpt-6.1-sol','gpt-6-astra'} and not authorized(job)):
-            job.state='awaiting_approval';job.outcome_note='لم يبدأ الإرسال: هذا النموذج يتطلب موافقة صريحة مرتبطة بالمهمة.'
-            return job
         category=plan.kind if plan else 'text'
         # The owner-selected charter is the explicit destination. Task category
         # chooses model/thinking policy only; it must not silently reroute work.
@@ -113,11 +109,21 @@ def run_one():
         if job.requested_model in {'gpt-6.1-sol','gpt-6-astra'}:
             model,thinking=job.requested_model,job.requested_thinking
         if model not in MODELS or thinking not in EFFORTS:raise ValueError('سياسة توجيه النموذج غير صالحة')
+        from .model_limits import model_limit_error
+        job.requested_model=model;job.requested_thinking=thinking
+        limit_error=model_limit_error(target,model,thinking)
+        if limit_error:
+            job.state='awaiting_approval';job.outcome_note=limit_error
+            return job
+        plan.manifest={**plan.manifest,'model_ceiling':target.allowed_model_profiles,
+            'execution_profile':{'model':model,'thinking':thinking}}
+        plan.save(update_fields=['manifest'])
         if job.mode=='read-only':
             job.requested_model=model;job.requested_thinking=thinking
             job.state='waiting_readonly';job.finished_at=None
             job.outcome_note='ينتظر عامل القراءة المعزول بالحاوية؛ لا يرسل إلى جلسة سطح المكتب.'
             plan.manifest={**plan.manifest,'readonly_target':{'key':target.key,'scope':target.scope,'rules':target.rules},
+                'readonly_routing_profile':{'model':routing_policy.model,'thinking':routing_policy.thinking},
                 'readonly_policy':{'model':model,'thinking':thinking,'category':route_category}}
             plan.save(update_fields=['manifest'])
             return job

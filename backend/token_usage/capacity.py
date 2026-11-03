@@ -65,9 +65,13 @@ def thresholds_enabled(policy):
         and evidence.get('activation_authorized') is True)
 
 
-def inspect(charter, policy, now, state=None):
+_SOURCE_UNSET = object()
+
+
+def inspect(charter, policy, now, state=None, *, source=_SOURCE_UNSET):
     """Read-only inspection. Only current runtime observations; no legacy samples."""
-    source = ContextSource.objects.filter(key='codex-runtime').first()
+    if source is _SOURCE_UNSET:
+        source = ContextSource.objects.filter(key='codex-runtime').first()
     observation = None
     def result(reason):
         return observation, source, reason
@@ -228,8 +232,9 @@ def snapshot(project, *, now=None):
     policy = selected_policy(project)
     enabled = thresholds_enabled(policy)
     rows = []
+    source = ContextSource.objects.filter(key='codex-runtime').first() if policy else None
     for charter in SessionCharter.objects.filter(project=project).order_by('pk'):
-        observation, source, reason = inspect(charter,policy,now) if policy else (None,None,'policy_missing')
+        observation, source, reason = inspect(charter,policy,now,source=source) if policy else (None,None,'policy_missing')
         state = CapacityState.objects.filter(charter=charter,policy=policy,thread_id=charter.thread_id).first() if policy else None
         events = CapacityEvent.objects.filter(measurement__state=state,measurement__trusted=True,
             measurement__observation__generation=source.generation,measurement__observation__thread_id=charter.thread_id).order_by('-pk') if state and source and enabled and not reason else CapacityEvent.objects.none()

@@ -67,7 +67,7 @@ jobs:
       - run: python backend/manage.py check --fail-level WARNING
       - run: python backend/manage.py makemigrations --check --dry-run
       - run: python backend/manage.py migrate --noinput
-      - run: python backend/manage.py test accounts execution_context registry token_usage workspace --noinput
+      - run: python backend/manage.py test accounts execution_context registry token_usage workspace operations releases knowledge simulation --noinput
       - run: python backend/manage.py collectstatic --noinput
 
   report:

@@ -105,6 +105,8 @@ class ContextRoutingTests(TestCase):
         with self.assertRaises(ValueError):enqueue(self.charter,self.owner,'test',submission_key=key)
 
     def test_only_selected_skill_is_in_bridge_prompt(self):
+        self.charter.allowed_model_profiles=[{'model':'gpt-6.1-sol','thinking':'medium'}]
+        self.charter.save(update_fields=['allowed_model_profiles'])
         with TemporaryDirectory() as folder,patch('execution_context.routing.Path.home',return_value=Path(folder)):
             skill=Path(folder)/'.codex/skills/minimal-code-edit/SKILL.md'
             skill.parent.mkdir(parents=True);skill.write_text('SELECTED_SKILL_SENTINEL',encoding='utf-8')

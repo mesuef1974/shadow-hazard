@@ -59,5 +59,8 @@ class CapacityUiTests(SimpleTestCase):
         map_template = (root / 'backend/workspace/templates/workspace/automation_model.html').read_text(encoding='utf-8')
         self.assertLess(map_template.index("registry/_capacity.html"), map_template.index('map_content|safe'))
         diagram = (root / 'docs/blueprint/automation-map-ar.html').read_text(encoding='utf-8')
-        for text in ['تحقق موثق معلّق', 'بعد التحقق فقط', 'انتظار قرار المالك', 'غير مفعّلتين حاليًا']:
+        for text in ['قراءة موثوقة وحديثة', 'تقادم البيانات أو تضاربها يمنع التنفيذ',
+                     'الطلب ينتظر الخمول والتفويض وسلامة المسار',
+                     'راجع متابعة الاستهلاك للحالة الفعلية الحالية']:
             self.assertIn(text, diagram)
+        self.assertNotIn('غير مفعّلتين حاليًا', diagram)

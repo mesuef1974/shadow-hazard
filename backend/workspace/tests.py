@@ -105,3 +105,36 @@ class WorkspacePermissionsTests(TestCase):
         self.assertContains(response,'السياسة متوقفة')
         self.assertContains(response,'gpt-6.1-sol')
         self.assertContains(response,'مهام القراءة فقط تعمل في حاوية منفصلة')
+
+
+    def test_owner_tasks_are_separate_and_private(self):
+        private = Task.objects.create(phase=self.task.phase, title='OWNER_ONLY_SENTINEL',
+            description='private', assignee=self.saud, creator=self.owner, owner_only=True, state='review')
+        for user in [self.owner, self.saud]:
+            self.client.force_login(user)
+            for path in ['/', '/phases/', '/tasks/']:
+                self.assertNotContains(self.client.get(path), private.title)
+        self.assertEqual(self.client.get('/tasks/?scope=owner').status_code, 403)
+        url=f'/tasks/{private.pk}/'
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.assertEqual(self.client.post(url, {'body':'attempt','state':'doing'}).status_code, 403)
+        private.refresh_from_db(); self.assertEqual(private.state, 'review')
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get('/tasks/?scope=owner&state=review'), private.title)
+        self.assertNotContains(self.client.get('/tasks/?scope=owner'), self.task.title)
+        self.assertContains(self.client.get(url), private.title)
+        self.assertEqual(self.client.get('/').context['total'], 1)
+
+
+    def test_task_reclassified_private_during_update_is_denied(self):
+        from unittest.mock import patch
+        from django.shortcuts import get_object_or_404
+        def reclassify(*args, **kwargs):
+            item=get_object_or_404(*args, **kwargs)
+            Task.objects.filter(pk=item.pk).update(owner_only=True)
+            return item
+        self.client.force_login(self.saud)
+        with patch('workspace.views.get_object_or_404', side_effect=reclassify):
+            response=self.client.post(f'/tasks/{self.task.pk}/', {'body':'attempt','state':'doing'})
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(TaskUpdate.objects.filter(task=self.task).exists())

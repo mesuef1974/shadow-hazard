@@ -89,7 +89,7 @@ class MotionTests(SimpleTestCase):
         camera=MarkerCamera()
         positions=[camera.capture('car',(3,-9.6+.75*t*t))[0] for t in (0,.1,.2,.3)]
         self.assertEqual(positions[0],positions[1])
-        self.assertEqual(positions[1],positions[2])
+        self.assertGreater(positions[2][1],positions[1][1])
         self.assertGreater(positions[3][1],positions[2][1])
 
     def test_direct_displacement_vetoes_zero_smoothed_speed(self):
@@ -98,7 +98,7 @@ class MotionTests(SimpleTestCase):
         self.assertFalse(observed_car_stopped({**track,'direct_motion':True},.2))
 
     def test_premature_motion_detection_and_signal_delays_match_frames(self):
-        for mode, delay in (('synthetic',.1),('vision',.3)):
+        for mode, delay in (('synthetic',.1),('vision',.2)):
             r=run(Scenario(key='custom',signals='auto',pedestrian_behavior='obey',driver_behavior='premature',horizon=2,mode=mode))
             m=r['metrics']
             self.assertEqual(m['resume_start'],6.4)
@@ -108,8 +108,8 @@ class MotionTests(SimpleTestCase):
             detected=next(f for f in r['frames'] if f['time']==m['motion_detected_after_resume'])
             self.assertTrue(detected['car_motion_detected'])
             self.assertEqual(detected['pedestrian_signal'],'RED')
-            self.assertEqual(m['first_collision'],9.7 if mode=='synthetic' else 9.6)
-            self.assertEqual(m['green_while_car_moving_samples'],0 if mode=='synthetic' else 2)
+            self.assertEqual(m['first_collision'],9.7)
+            self.assertEqual(m['green_while_car_moving_samples'],0 if mode=='synthetic' else 1)
 
     def test_missing_observations_do_not_claim_direct_motion(self):
         r=run(Scenario(key='custom',signals='auto',pedestrian_behavior='obey',dropout=1))
@@ -340,7 +340,7 @@ class MotionTests(SimpleTestCase):
     def test_vision_pipeline_warns(self):
         result=run(replace(Scenario(),mode='vision'))
         self.assertGreater(result['metrics']['lead_before_visible'],0)
-        self.assertEqual(result['observations'][0]['algorithm'],'hsv-marker-v1')
+        self.assertEqual(result['observations'][0]['algorithm'],'hsv-marker-v2-40px')
 
     def test_utc_metadata_and_source_identity(self):
         rows=run(Scenario())['observations']
@@ -353,6 +353,22 @@ class MotionTests(SimpleTestCase):
 
 
 class LabTests(TestCase):
+    def test_history_omits_result_payload_but_detail_checks_it(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        self.client.force_login(self.supervisor)
+        row=save_run(Scenario(),self.supervisor)
+        with CaptureQueriesContext(connection) as queries:
+            response=self.client.get('/simulation/')
+        self.assertContains(response,f'data-load="{row.pk}"')
+        selected=[q['sql'] for q in queries if 'FROM "simulation_simulationrun"' in q['sql'] and 'COUNT(' not in q['sql']]
+        self.assertTrue(selected)
+        self.assertTrue(all('"result"' not in sql for sql in selected))
+        row.refresh_from_db()
+        self.assertEqual(self.client.get(f'/simulation/runs/{row.pk}/').json()['result'],row.result)
+        SimulationRun.objects.filter(pk=row.pk).update(result={'tampered':True})
+        self.assertEqual(self.client.get(f'/simulation/runs/{row.pk}/').status_code,409)
+
     def test_builder_save_replay_and_enum_validation(self):
         self.client.force_login(self.supervisor)
         payload={'key':'custom','pedestrian_behavior':'obey','driver_behavior':'respond','signals':'auto','crossing_side':'left','sensor_fault':'','horizon':2}

@@ -15,7 +15,8 @@ patterns = [
 ]
 for name in filter(None, paths):
     path = ROOT / name
-    if '.local' in path.parts or path.suffix in {'.sqlite3', '.key', '.pem'} or path.name == '.env':
+    if ('.local' in path.parts or Path(name).parts[0] in {'.codex', 'sessions'}
+            or path.suffix in {'.sqlite3', '.key', '.pem'} or path.name == '.env'):
         errors.append(f'Private runtime file tracked: {name}')
     if path.is_file() and path.suffix in {'.py', '.js', '.mjs', '.json', '.yml', '.yaml', '.md', '.txt', '.html', '.css'}:
         if any(pattern.search(path.read_bytes()) for pattern in patterns):

@@ -47,6 +47,9 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / ".local" / "static"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_COOKIE_HTTPONLY = True
+# Local applications share cookies across ports; keep this platform isolated.
+SESSION_COOKIE_NAME = "shadow_platform_session"
+CSRF_COOKIE_NAME = "shadow_platform_csrf"
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = PRODUCTION
 CSRF_COOKIE_SECURE = PRODUCTION

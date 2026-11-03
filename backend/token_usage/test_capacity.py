@@ -29,6 +29,23 @@ def policy_record(case, version='synthetic-runtime-enabled', **values):
 
 
 class CapacityTests(TestCase):
+    def test_snapshot_reads_shared_source_once_and_preserves_inspection(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from .capacity import inspect, selected_policy
+        self.sample(80)
+        SessionCharter.objects.create(project=self.project,policy=self.charter.policy,
+            key='review',name='Review',scope='bounded',thread_id=str(uuid.uuid4()))
+        for missing in (False,True):
+            if missing:
+                ContextSource.objects.all().delete()
+            policy=selected_policy(self.project)
+            expected={c.pk:inspect(c,policy,self.now)[2] or None for c in SessionCharter.objects.filter(project=self.project)}
+            with CaptureQueriesContext(connection) as queries:
+                data=snapshot(self.project,now=self.now)
+            self.assertEqual({r['charter_id']:r['uncertain_reason'] for r in data['sessions']},expected)
+            self.assertEqual(sum('FROM "token_usage_contextsource"' in q['sql'] for q in queries),1)
+
     def setUp(self):
         self.owner=get_user_model().objects.create(username='mesuef',role='supervisor')
         self.project=Project.objects.create(name='synthetic runtime')

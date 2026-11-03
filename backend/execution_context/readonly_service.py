@@ -24,13 +24,16 @@ def run_pending(job_id=None):
         if not target or target.scope!=target_data.get('scope') or target.rules!=target_data.get('rules'):raise IsolationError('تغير ميثاق القراءة؛ يلزم طلب جديد')
         policy=SessionRoutingPolicy.objects.filter(category=policy_data.get('category'),enabled=True).first()
         if not policy or (job.requested_model,job.requested_thinking)!=(policy_data.get('model'),policy_data.get('thinking')):raise IsolationError('تغيرت سياسة الطلب')
-        if (job.requested_model,job.requested_thinking)!=(policy.model,policy.thinking):
-            from .escalation import authorized
-            if not authorized(job):
-                job.state='awaiting_approval';job.started_at=None;job.finished_at=None
-                job.outcome_note='لم يبدأ التنفيذ المعزول: النموذج المطلوب أعلى من سياسة المهمة ويحتاج موافقة موثقة.'
-                job.save(update_fields=['state','started_at','finished_at','outcome_note'])
-                return None
+        routing_profile=plan.manifest.get('readonly_routing_profile')
+        if routing_profile is not None and routing_profile!={'model':policy.model,'thinking':policy.thinking}:
+            raise IsolationError('تغيرت سياسة التوجيه أثناء الانتظار؛ يلزم طلب جديد')
+        from workspace.model_limits import model_limit_error
+        limit_error=model_limit_error(target,job.requested_model,job.requested_thinking)
+        if limit_error:
+            job.state='awaiting_approval';job.started_at=None;job.finished_at=None
+            job.outcome_note=limit_error
+            job.save(update_fields=['state','started_at','finished_at','outcome_note'])
+            return None
         if not ModelJob.objects.filter(pk=job.pk,state='waiting_readonly').update(state='running',started_at=timezone.now(),finished_at=None):return None
     try:
         result=execute(job,None)

@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseForbidden
 from django.db import transaction, connection
+from django.db.models import Prefetch
 from .models import Project, Phase, Task, TaskUpdate, Decision
 from .forms import TaskForm, UpdateForm, DecisionForm
 from .models import SessionCharter, ModelJob, DispatcherHeartbeat, DispatcherRun
@@ -20,10 +21,11 @@ def supervisor(user): return user.is_authenticated and user.role=='supervisor'
 @login_required(login_url='/login/')
 def sessions(request):
     if not supervisor(request.user):return HttpResponseForbidden()
-    coordination=SessionCharter.objects.filter(project=project(),key='coordination').first()
+    current_project=project()
+    coordination=SessionCharter.objects.filter(project=current_project,key='coordination').first()
     thread_id=coordination.thread_id if coordination else ''
     execution=ExecutionSession.objects.filter(external_key=thread_id).first()
-    tracked=TrackedSession.objects.filter(external_id=thread_id,project=project()).first()
+    tracked=TrackedSession.objects.filter(external_id=thread_id,project=current_project).first()
     latest_model_sample=tracked.samples.filter(model__gt='').order_by('-sampled_at','-source_id').first() if tracked else None
     coordination_session=None
     if execution and tracked:
@@ -34,8 +36,8 @@ def sessions(request):
             'model_sample':latest_model_sample,
         }
     return render(request,'workspace/sessions.html',{
-        'capacity_snapshot':capacity_snapshot(project()),
-        'charters':SessionCharter.objects.filter(project=project()).select_related('policy'),
+        'capacity_snapshot':capacity_snapshot(current_project),
+        'charters':SessionCharter.objects.filter(project=current_project).select_related('policy'),
         'coordination_session':coordination_session,
         'routing_policies':SessionRoutingPolicy.objects.order_by('category'),
     })
@@ -89,7 +91,7 @@ def model_jobs(request):
 @login_required(login_url='/login/')
 def dashboard(request):
     current=project()
-    tasks=Task.objects.filter(phase__project=current).select_related('assignee','phase')
+    tasks=Task.objects.filter(phase__project=current,owner_only=False).select_related('assignee','phase')
     focus=tasks.filter(state='review') if supervisor(request.user) else tasks.filter(assignee=request.user).exclude(state='accepted')
     decisions=Decision.objects.filter(project=current)
     if not supervisor(request.user):decisions=decisions.filter(private=False)
@@ -97,15 +99,17 @@ def dashboard(request):
 
 @login_required(login_url='/login/')
 def phases(request):
-    return render(request,'workspace/phases.html',{'phases':Phase.objects.filter(project=project()).prefetch_related('tasks')})
+    return render(request,'workspace/phases.html',{'phases':Phase.objects.filter(project=project()).prefetch_related(Prefetch('tasks',queryset=Task.objects.filter(owner_only=False)))})
 
 @login_required(login_url='/login/')
 def tasks(request):
-    items=Task.objects.filter(phase__project=project()).select_related('assignee','phase')
+    owner_tasks=request.GET.get('scope')=='owner'
+    if owner_tasks and not supervisor(request.user):return HttpResponseForbidden()
+    items=Task.objects.filter(phase__project=project(),owner_only=owner_tasks).select_related('assignee','phase')
     state=request.GET.get('state','')
     if state:items=items.filter(state=state)
     if request.GET.get('mine'):items=items.filter(assignee=request.user)
-    return render(request,'workspace/tasks.html',{'tasks':items,'states':Task.STATES,'selected_state':state})
+    return render(request,'workspace/tasks.html',{'tasks':items,'states':Task.STATES,'selected_state':state,'owner_tasks':owner_tasks})
 
 @login_required(login_url='/login/')
 def task_create(request):
@@ -120,6 +124,7 @@ def task_create(request):
 @login_required(login_url='/login/')
 def task_detail(request,pk):
     item=get_object_or_404(Task,pk=pk,phase__project=project())
+    if item.owner_only and not supervisor(request.user):return HttpResponseForbidden()
     can_update=supervisor(request.user) or item.assignee_id==request.user.pk and item.state!='accepted'
     form=UpdateForm(request.POST or None,supervisor=supervisor(request.user))
     if request.method=='POST':
@@ -127,7 +132,7 @@ def task_detail(request,pk):
         if form.is_valid():
             with transaction.atomic():
                 locked=Task.objects.select_for_update().get(pk=pk)
-                if not supervisor(request.user) and (locked.assignee_id!=request.user.pk or locked.state=='accepted'):return HttpResponseForbidden()
+                if not supervisor(request.user) and (locked.owner_only or locked.assignee_id!=request.user.pk or locked.state=='accepted'):return HttpResponseForbidden()
                 update=form.save(commit=False);update.task=locked;update.author=request.user;update.save()
                 locked.state=update.state;locked.save(update_fields=['state'])
             return redirect('task-detail',pk=pk)
@@ -151,7 +156,15 @@ def decisions(request):
 @login_required(login_url='/login/')
 def exhibition(request):
     if not supervisor(request.user):return HttpResponseForbidden('وضع العرض للمشرف فقط')
-    return render(request,'workspace/exhibition.html',{'project':project()})
+    from .models import SessionRenewal
+    from token_usage.capacity import verified_document
+    current_project=project()
+    adoption=SessionRenewal.objects.filter(charter__project=current_project,
+        charter__key='coordination',state='manually_adopted').select_related('binding_receipt','charter').order_by('-updated_at').first()
+    if adoption and (adoption.charter.thread_id!=adoption.target_thread_id
+                     or not adoption.binding_receipt or not verified_document(adoption.binding_receipt)):
+        adoption=None
+    return render(request,'workspace/exhibition.html',{'project':current_project,'coordination_adoption':adoption})
 
 
 AUTOMATION_EVIDENCE_LABELS = {

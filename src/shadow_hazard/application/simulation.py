@@ -24,6 +24,7 @@ class Scenario:
     mode: str = 'synthetic'
     seed: int = 1
     horizon: float = 6.
+    duration: int = 20
     margin: float = .2
     reaction_time: float = .8
     braking_deceleration: float = 3.
@@ -75,6 +76,8 @@ def validate(s):
         value = getattr(s, name)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
             raise ValueError(f'قيمة غير صالحة: {name}')
+    if s.duration not in (20, 30) or isinstance(s.duration, bool):
+        raise ValueError('مدة التجربة يجب أن تكون20أو30ثانية')
     if s.mode not in ('synthetic', 'vision') or type(s.seed) is not int or not 0 <= s.seed <= 1000000:
         raise ValueError('مصدر الرصد أو بذرة التجربة غير صالحة')
     if s.fault not in {v.fault for v in catalogue()}:
@@ -132,7 +135,7 @@ def run(s):
     events = []
     previous_signal = signal
     previous_warning = False
-    for index in range(201):
+    for index in range(int(s.duration*10)+1):
         now = round(index*.1, 2)
         speeds = {'car': s.car_speed, 'pedestrian': s.pedestrian_speed if now >= s.pedestrian_delay else 0.}
         event_time = s.behavior_time if custom else 2
@@ -265,7 +268,7 @@ def run(s):
                 resume_start = None
                 if first_brake_start is None:
                     first_brake_start = brake_start
-                elif custom and brake_start <= 20:
+                elif custom and brake_start <= s.duration:
                     events.append({'time': brake_start, 'event': 'بداية فرملة جديدة'})
                 response_cycles.append({'alert': now, 'brake_start': brake_start, 'stopped': None, 'resume': None})
         # A simulated driver resumes only after a fresh, trusted observation shows
@@ -375,7 +378,7 @@ def run(s):
                             else f['truth']['pedestrian'][0] > 7.3+s.margin))
         for event, time in [('بداية الفرملة', 0. if driver_behavior == 'brake' else intervention_start), ('توقف السيارة', stopped_at), ('استئناف السيارة', resume_start),
                             ('تداخل فعلي', collision), ('اكتمال العبور', completion), ('توقف الطالب داخل الممر', pause_start)]:
-            if time is not None and time <= 20:
+            if time is not None and time <= s.duration:
                 events.append({'time': round(time, 2), 'event': event})
         for event, time in [('أول عينة حركة بعد الاستئناف', resumed_sample), ('كشف مباشر للحركة بعد الاستئناف', detected_after_resume), ('سحب الأخضر بعد الاستئناف', revoked_after_resume)]:
             if time is not None:
@@ -400,7 +403,7 @@ def run(s):
             'tp': tp, 'fp': fp, 'fn': fn, 'tn': tn, 'unavailable': unavailable,
             'intervened': intervened,
             'position_samples': len(observation_log), 'success': success if comparison else None,
-            'brake_start': (0. if driver_behavior == 'brake' else intervention_start if intervention_start is not None and intervention_start <= 20 else None) if custom else brake_start,
+            'brake_start': (0. if driver_behavior == 'brake' else intervention_start if intervention_start is not None and intervention_start <= s.duration else None) if custom else brake_start,
             'hazards_start': response_alert,
             'resume_start': resume_start,
             'car_stopped': stopped_at,

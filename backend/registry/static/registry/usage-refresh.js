@@ -42,6 +42,9 @@
       if (document.hidden || controller.signal.aborted) return;
       // Preserve the user's current state after the request, not when it started.
       if (current.contains(document.activeElement) && document.activeElement.matches('input,select,textarea')) return;
+      const active = document.activeElement;
+      const focused = current.contains(active) ? {id:active.id, hour:active.dataset?.hour, tag:active.tagName, text:active.textContent, fold:active.closest('details')?.dataset.refreshKey} : null;
+      const selectedHour = current.querySelector('.hour-column[aria-pressed="true"]')?.dataset.hour;
       const folds = new Map([...current.querySelectorAll('details')].map(node => [key(node), node.open]));
       const session = current.querySelector('#context-session')?.value;
       const point = current.querySelector('#context-point')?.value;
@@ -63,6 +66,15 @@
       }
       const chart = next.querySelector('.hour-chart');
       if (chart && chartScroll !== undefined) chart.scrollLeft = chartScroll;
+      const hour = [...next.querySelectorAll('.hour-column')].find(node => node.dataset.hour === selectedHour);
+      hour?.click();
+      if (focused) {
+        const target = [...next.querySelectorAll('button,a,summary,[tabindex]')].find(node =>
+          focused.id ? node.id === focused.id : focused.hour ? node.dataset.hour === focused.hour :
+          focused.fold ? node.tagName === focused.tag && node.closest('details')?.dataset.refreshKey === focused.fold :
+          node.tagName === focused.tag && node.textContent === focused.text);
+        target?.focus({preventScroll:true});
+      }
       window.scrollTo(scroll);
       status.textContent = 'تم تحديث العرض تلقائيًا في ' + new Intl.DateTimeFormat('ar-QA', {hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date()) + '؛ موعد مزامنة البيانات الفعلي موضح أدناه.';
     } catch (error) {

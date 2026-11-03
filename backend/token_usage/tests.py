@@ -9,6 +9,44 @@ from .services import synchronize,summarize
 
 
 class TokenUsageTests(TestCase):
+    def test_future_quota_and_boolean_are_not_current_numbers(self):
+        from .models import CollectorState
+        from django.utils import timezone
+        from datetime import timedelta
+        owner=get_user_model().objects.create_user(username='mesuef',role='supervisor')
+        self.client.force_login(owner)
+        now=timezone.now()
+        state=CollectorState.objects.create(key='local',payload={'weekly':{'weekly_used_percent':20,'sampled_at':(now+timedelta(hours=1)).isoformat(),'weekly_resets_at':(now+timedelta(days=1)).timestamp()}})
+        self.assertTrue(self.client.get('/usage/').context['weekly']['historical'])
+        state.payload['weekly']['weekly_used_percent']=True
+        state.save()
+        self.assertFalse(self.client.get('/usage/').context['weekly']['available'])
+
+    def test_manual_sync_preserves_valid_filters(self):
+        from unittest.mock import patch
+        owner=get_user_model().objects.create_user(username='mesuef',role='supervisor')
+        self.client.force_login(owner)
+        with patch('token_usage.views.synchronize'):
+            response=self.client.post('/usage/sync/',{'session':self.session.pk,'period':'day'})
+        self.assertEqual(response.status_code,302)
+        self.assertEqual(response.url,f'/usage/?session={self.session.pk}&period=day')
+
+    def test_shared_samples_avoid_second_read_and_bound_only_chart(self):
+        from .delegated import dashboard_samples
+        from .analytics import analyze
+        from django.utils import timezone
+        from datetime import timedelta
+        now=timezone.now()
+        TokenSample.objects.bulk_create([TokenSample(session=self.session,source_id=i+1,sampled_at=now-timedelta(seconds=600-i),total=i,input=i,output=0,cached=0,reasoning=0,context=i,context_limit=1000) for i in range(600)])
+        samples=dashboard_samples(self.project)
+        with self.assertNumQueries(0):
+            _, totals=summarize(self.project,samples=samples)
+            data=analyze(self.project,samples=samples)
+        self.assertEqual(totals['total'],599)
+        self.assertEqual(data['measured'],599)
+        self.assertEqual(len(data['context']),500)
+        self.assertEqual(data['context'][-1]['tokens'],599)
+
     def test_historical_quota_and_unknown_context(self):
         from .models import CollectorState
         from .analytics import analyze

@@ -42,6 +42,8 @@ class OwnerDeliveryTests(TestCase):
                         type(self.job).objects.filter(pk=self.job.pk).update(owner=student)
                     elif mode=='revoke_policy':
                         type(self.target.policy).objects.filter(pk=self.target.policy_id).update(enabled=False)
+                    elif mode=='revoke_model_ceiling':
+                        SessionCharter.objects.filter(pk=self.target.pk).update(allowed_model_profiles=[])
                     elif mode=='replace_claim':
                         SessionDispatch.objects.filter(pk=self.dispatch.pk).update(claim_token=uuid.uuid4())
                     elif mode=='change_context':
@@ -69,6 +71,34 @@ class OwnerDeliveryTests(TestCase):
         self.assertEqual(self.sends,1)
         self.assertEqual(self.dispatch.events.filter(state='owner_call_intent').count(),1)
         self.assertEqual(SessionDispatchTurn.objects.count(),0)
+
+    def test_preclaim_failure_is_recorded_without_sending_or_leaking_error_text(self):
+        with patch('execution_context.owner_delivery.call_command',side_effect=ValueError('private-value')):
+            with self.assertRaises(BridgeError):
+                self.invoke()
+        self.dispatch.refresh_from_db()
+        self.assertEqual(self.dispatch.state,'queued')
+        self.assertIsNone(self.dispatch.claim_token)
+        event=self.dispatch.events.get(state='owner_preclaim_error')
+        self.assertEqual(event.detail,{'stage':'claim','error_type':'ValueError',
+                                      'before_send':True,'no_send_intent':True})
+        self.assertNotIn('private-value',json.dumps(event.detail))
+        self.assertFalse(self.dispatch.events.filter(state='owner_call_intent').exists())
+        self.assertEqual(self.sends,0)
+
+    def test_preapproved_execution_profile_survives_claim_and_send_with_lower_routing_default(self):
+        self.dispatch.state='completed';self.dispatch.save(update_fields=['state'])
+        self.job.state='completed';self.job.save(update_fields=['state'])
+        self.target.allowed_model_profiles=[{'model':'gpt-6-luna','thinking':'low'},
+                                            {'model':'gpt-6.1-sol','thinking':'medium'}]
+        self.target.save(update_fields=['allowed_model_profiles'])
+        self.job=enqueue(self.target,self.owner,'Preapproved elevated task',mode='workspace-write',task_kind='text')
+        self.job.requested_model='gpt-6.1-sol';self.job.requested_thinking='medium'
+        self.job.save(update_fields=['requested_model','requested_thinking'])
+        run_one();self.dispatch=SessionDispatch.objects.get(job=self.job)
+        self.assertEqual(self.dispatch.routing_policy.model,'gpt-6-luna')
+        self.assertEqual(self.invoke(),self.dispatch.pk)
+        self.assertEqual(self.sends,1)
 
     def test_active_session_and_activity_race_do_not_send(self):
         self.assertIsNone(self.invoke('busy'));self.assertEqual(self.sends,0)
@@ -192,6 +222,11 @@ class OwnerDeliveryTests(TestCase):
     def test_policy_revocation_during_idle_check_cannot_send(self):
         with self.assertRaises(BridgeError):self.invoke('revoke_policy')
         self.assertEqual(self.sends,0)
+
+    def test_model_ceiling_revocation_before_send_intent_blocks_delivery(self):
+        with self.assertRaises(BridgeError):self.invoke('revoke_model_ceiling')
+        self.assertEqual(self.sends,0)
+        self.assertFalse(self.dispatch.events.filter(state='owner_call_intent').exists())
 
     def test_changed_claim_is_preserved_without_send_or_reset(self):
         with self.assertRaises(BridgeError):self.invoke('replace_claim')

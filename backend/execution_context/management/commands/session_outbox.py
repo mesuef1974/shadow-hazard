@@ -59,6 +59,9 @@ class Command(BaseCommand):
                 can_escalate=(policy and policy.enabled and dispatch.attempt_no<min(dispatch.max_attempts,policy.max_attempts)
                     and dispatch.escalation_count<policy.max_escalations and policy.stuck_model=='gpt-6.1-sol'
                     and policy.stuck_thinking=='high')
+                from workspace.model_limits import model_limit_error
+                ceiling_error=model_limit_error(dispatch.target_charter,policy.stuck_model,policy.stuck_thinking) if policy else None
+                can_escalate=can_escalate and not ceiling_error
                 SessionDispatchEvent.objects.create(dispatch=dispatch,state='stuck',detail={'reason':reason,'turn_id':evidence['turn_id'],'model':evidence['model'],'evidence':evidence['evidence']})
                 if can_escalate:
                     dispatch.attempt_no+=1;dispatch.escalation_count+=1
@@ -73,7 +76,7 @@ class Command(BaseCommand):
                     dispatch.job.outcome_note='رُصد تعثر موثق في الدور؛ أُنشئت محاولة تصعيد تلقائية ضمن حد السياسة المحفوظة.'
                 else:
                     dispatch.state='uncertain';dispatch.job.state='needs_review'
-                    dispatch.job.outcome_note='المهمة تعثرت ووصلت إلى حد المحاولات/التصعيد؛ تحتاج مراجعة بشرية ولا تعاد تلقائيًا.'
+                    dispatch.job.outcome_note=ceiling_error or 'المهمة تعثرت ووصلت إلى حد المحاولات/التصعيد؛ تحتاج مراجعة بشرية ولا تعاد تلقائيًا.'
                 dispatch.save()
                 dispatch.job.save(update_fields=['state','requested_model','requested_thinking','started_at','outcome_note'])
                 if not can_escalate:
@@ -152,7 +155,10 @@ class Command(BaseCommand):
             if not all(snap.get(key) for key in ('target_snapshot','policy_snapshot','job_snapshot','task_marker')):
                 raise CommandError('طلب قديم بلا لقطة تفويض مكتملة؛ يلزم طلب جديد')
             policy_values=snap['policy_snapshot']
-            expected_pair=(policy_values['model'],policy_values['thinking']) if dispatch.attempt_no==1 else (policy_values['stuck_model'],policy_values['stuck_thinking'])
+            from workspace.model_limits import model_limit_error, execution_pair
+            limit_error=model_limit_error(target,dispatch.requested_model,dispatch.requested_thinking)
+            if limit_error:raise CommandError(limit_error)
+            expected_pair=execution_pair(snap,dispatch.attempt_no)
             if (dispatch.requested_model,dispatch.requested_thinking)!=expected_pair or not 1<=dispatch.attempt_no<=dispatch.max_attempts:
                 raise CommandError('نموذج المحاولة أو حدها لا يطابق السياسة المثبتة')
             if snap.get('target_snapshot') and snap['target_snapshot']!={'thread_id':target.thread_id,'scope':target.scope,'rules':target.rules}:
@@ -166,11 +172,17 @@ class Command(BaseCommand):
             dispatch.job.started_at=None if opts.get('enqueue_only') else dispatch.claimed_at
             dispatch.job.save(update_fields=['state','started_at'])
             plan=dispatch.job.task_context
+            marker=plan.manifest.get('task_marker','')
+            prompt=plan.manifest.get('dispatch_prompt','')
+            # Current snapshots already begin with the complete marker. Preserve
+            # every instruction byte and only avoid repeating this exact prefix.
+            if not marker or not prompt.startswith(marker+'\n'):
+                prompt=marker+'\n'+prompt
             payload={'dispatch_id':dispatch.pk,'dispatch_key':str(dispatch.dispatch_key),'claim_token':str(token),
                 'thread_id':dispatch.target_thread_id,'charter':dispatch.target_charter.key,
                 'model':dispatch.requested_model,'thinking':dispatch.requested_thinking,
                 'mode':dispatch.job.mode,'read_only_enforcement':'unsupported_read_only_delivery_blocked',
-                'prompt':plan.manifest.get('task_marker','')+'\n'+plan.manifest.get('dispatch_prompt',''),'route_reason':dispatch.route_reason,
+                'prompt':prompt,'route_reason':dispatch.route_reason,
                 'attempt_no':dispatch.attempt_no,'max_attempts':dispatch.max_attempts}
             last_stuck=dispatch.events.filter(state='stuck').order_by('-created_at').first()
             if last_stuck:payload['prompt']+=f"\n\nمحاولة تصعيد رقم {dispatch.attempt_no} بعد التعثر الموثق: {last_stuck.detail['reason']}"

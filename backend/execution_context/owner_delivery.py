@@ -60,6 +60,10 @@ def _final_authority(candidate,claimed,config,context_snapshot):
     fresh=SessionDispatch.objects.select_for_update().select_related(
         'job__owner','job__charter','target_charter__policy','routing_policy').get(pk=candidate.pk)
     job=fresh.job;target=fresh.target_charter
+    from workspace.model_limits import model_limit_error
+    limit_error=model_limit_error(target,fresh.requested_model,fresh.requested_thinking)
+    if limit_error:
+        raise BridgeError(limit_error)
     caller=SessionCharter.objects.filter(project_id=config['project_id'],thread_id=config['caller_thread_id'],
         policy__enabled=True,state__in=['active','prepared','ready_waiting_for_task']).first()
     if (not caller or job.owner_id!=config['authorizing_user_id'] or not job.owner.is_active
@@ -82,7 +86,8 @@ def _final_authority(candidate,claimed,config,context_snapshot):
             or manifest.get('target_snapshot')!={'thread_id':target.thread_id,'scope':target.scope,'rules':target.rules}
             or not 1<=fresh.attempt_no<=fresh.max_attempts):
         raise BridgeError('تغيرت لقطة السياسة أو الميثاق أو المهمة')
-    expected=(policy.get('model'),policy.get('thinking')) if fresh.attempt_no==1 else (policy.get('stuck_model'),policy.get('stuck_thinking'))
+    from workspace.model_limits import execution_pair
+    expected=execution_pair(manifest,fresh.attempt_no)
     if ((fresh.requested_model,fresh.requested_thinking)!=expected
             or (job.requested_model,job.requested_thinking)!=expected
             or (claimed['model'],claimed['thinking'])!=expected
@@ -191,13 +196,15 @@ def deliver_one():
             'new_endpoint_sha256':hashlib.sha256(config['pipe'].encode()).hexdigest(),
             'image_sha256':config['owner_identity']['sha256'],
             'read_verified':True,'before_claim':True,'no_send':True,'worker_pid':os.getpid()})
-    call_id=str(uuid.uuid4());claimed=None;intent=False
+    call_id=str(uuid.uuid4());claimed=None;intent=False;stage='owner_client'
     try:
         with OwnerTools(config) as client:
             with transaction.atomic():
                 SessionDispatch.objects.filter(pk=candidate.pk,state='queued').update(updated_at=timezone.now())
                 output=io.StringIO()
+                stage='claim'
                 call_command('session_outbox','claim',dispatch=candidate.pk,consumer='codex-owner-mcp',stdout=output)
+                stage='claim_response'
                 value=json.loads(output.getvalue() or '{}')
                 if not value:return None
                 if value['dispatch_id']!=candidate.pk:raise BridgeError('تغيرت وجهة المطالبة؛ لم يرسل الموصل')
@@ -230,6 +237,12 @@ def deliver_one():
             record_owner_delivery(candidate,config,call_id,context_id)
             return candidate.pk
     except Exception as exc:
+        if not claimed:
+            # This runs after the claim transaction rolled back. Preserve safe
+            # diagnostics on the actual candidate, without logging prompts or secrets.
+            SessionDispatchEvent.objects.create(dispatch_id=candidate.pk,state='owner_preclaim_error',
+                detail={'stage':stage,'error_type':type(exc).__name__,
+                        'before_send':True,'no_send_intent':True})
         if claimed:
             if intent:
                 _mark_uncertain(candidate.pk,claimed['claim_token'],'إرسال المالك ملتبس؛ لا إعادة تلقائية')
