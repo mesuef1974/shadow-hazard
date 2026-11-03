@@ -317,9 +317,12 @@ class OwnerDeliveryTests(TestCase):
         def deliver():
             SessionDispatch.objects.filter(pk=queued.pk,state='queued').update(state='sent')
             return queued.pk
+        # TestCase owns this transaction; worker cleanup must not close its
+        # connection while this test exercises delivery and closure verification.
         with patch('execution_context.rollout_usage.find_rollout',return_value=Path('proof')),patch(
                 'execution_context.rollout_usage.read_turn_evidence',return_value=proof),patch(
                 'workspace.management.commands.run_model_dispatcher.single_worker',return_value=nullcontext(True)),patch(
+                'workspace.management.commands.run_model_dispatcher.close_old_connections'),patch(
                 'workspace.management.commands.run_model_dispatcher.DispatcherWakeup'),patch(
                 'workspace.management.commands.run_model_dispatcher.run_one',return_value=None),patch(
                 'execution_context.readonly_service.run_pending',return_value=None),patch(
