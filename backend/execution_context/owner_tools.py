@@ -37,7 +37,7 @@ def load_config():
         raise OwnerToolsError('إعداد موصل المالك غير متاح أو تغير إصدار الخادم؛ لا إرسال') from exc
 
 
-def save_config(value, *, expected=None):
+def save_config(value, *, expected=None, expected_sha256=None):
     """Serialize initialization and compare-and-replace renewal across processes."""
     from workspace.worker_lock import single_worker
     path=config_path()
@@ -45,6 +45,11 @@ def save_config(value, *, expected=None):
     try:
         with single_worker(path.with_suffix('.lock')) as acquired:
             if not acquired:raise OwnerToolsError('إعداد المالك محجوز؛ لا استبدال')
+            # Explicit repair may replace a config whose pinned runtime no
+            # longer exists; compare its bytes without trusting or loading it.
+            if (expected_sha256 is not None
+                    and hashlib.sha256(path.read_bytes()).hexdigest()!=expected_sha256):
+                raise OwnerToolsError('تغير إعداد المالك أثناء إصلاح النسخة')
             if expected is not None and load_config()!=expected:
                 raise OwnerToolsError('تغير إعداد المالك أثناء تجديد القناة')
             temporary.write_text(json.dumps(value),encoding='utf8')

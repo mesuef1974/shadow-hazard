@@ -95,6 +95,18 @@ class OwnerChannelTests(SimpleTestCase):
                 save_config({**self.config,'pipe':'new'},expected=self.config)
         self.assertEqual(json.loads(self.path.read_text()),self.config)
 
+    def test_explicit_runtime_repair_compares_raw_config_before_replacement(self):
+        import hashlib
+        from .owner_tools import save_config
+        fingerprint=hashlib.sha256(self.path.read_bytes()).hexdigest()
+        with patch('execution_context.owner_tools.config_path',return_value=self.path), \
+                patch('execution_context.owner_tools.load_config',side_effect=OwnerToolsError('old runtime missing')):
+            fresh={**self.config,'server_sha256':'new-runtime'}
+            save_config(fresh,expected_sha256=fingerprint)
+            with self.assertRaises(OwnerToolsError):
+                save_config(self.config,expected_sha256=fingerprint)
+        self.assertEqual(json.loads(self.path.read_text()),fresh)
+
     def test_discovery_namespace_is_strict(self):
         self.assertTrue(PIPE_PATTERN.fullmatch('\\\\.\\pipe\\codex-app-tools-'+'a'*36))
         for pipe in ('remote','\\\\remote\\pipe\\codex-app-tools-'+'a'*36,'\\\\.\\pipe\\unrelated','\\\\.\\pipe\\codex-app-tools-x'):

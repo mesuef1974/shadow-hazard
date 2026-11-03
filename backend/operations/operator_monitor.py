@@ -31,6 +31,42 @@ LOCAL_DOCUMENTATION = (
 )
 
 
+def _notification_proof_channel(policy, evidence):
+    """Keep historical delivery proof across explicitly authorized runtime updates.
+
+    Updating a signed app must not rewrite the old proof or silently grant a
+    different caller, scope, cooldown, or notification policy its authority.
+    """
+    ignored={'owner_channel','runtime_refresh','report_title','report_sections'}
+    seen=set()
+    for _ in range(16):
+        refresh=evidence.get('runtime_refresh')
+        if refresh is None:
+            return evidence.get('owner_channel')
+        if (not isinstance(refresh,dict)
+                or refresh.get('status')!='same_owner_runtime_refresh_authorized'
+                or type(refresh.get('prior_activation_id')) is not int
+                or refresh['prior_activation_id'] in seen):
+            return None
+        seen.add(refresh['prior_activation_id'])
+        prior=ProjectDocumentation.objects.filter(pk=refresh['prior_activation_id'],
+            project_id=policy.project_id,session_key=policy.charter.key).first()
+        if (not prior or not verified_document(prior)
+                or prior.digest!=refresh.get('prior_activation_digest')):
+            return None
+        before=prior.evidence
+        old_channel=before.get('owner_channel',{})
+        new_channel=evidence.get('owner_channel',{})
+        if (not isinstance(old_channel,dict) or not isinstance(new_channel,dict)
+                or not old_channel.get('caller_thread_id')
+                or old_channel.get('caller_thread_id')!=new_channel.get('caller_thread_id')
+                or {k:v for k,v in before.items() if k not in ignored}
+                    != {k:v for k,v in evidence.items() if k not in ignored}):
+            return None
+        evidence=before
+    return None
+
+
 def self_notification_allowed(policy, config):
     """Permit idle self-notification only after a proved official delivery."""
     if not policy.activation_receipt or not verified_document(policy.activation_receipt):return False
@@ -43,8 +79,9 @@ def self_notification_allowed(policy, config):
         project_id=policy.project_id,session_key=policy.charter.key).first()
     if (not proof or not verified_document(proof) or proof.digest!=evidence.get('self_notification_proof_digest')):return False
     data=proof.evidence
-    if (data.get('status')!='operator_idle_self_notification_verified' or data.get('owner_id')!=policy.owner_id
-            or data.get('owner_channel')!=evidence.get('owner_channel')):return False
+    proof_channel=_notification_proof_channel(policy,evidence)
+    if (not proof_channel or data.get('status')!='operator_idle_self_notification_verified'
+            or data.get('owner_id')!=policy.owner_id or data.get('owner_channel')!=proof_channel):return False
     dispatch=SessionDispatch.objects.select_related('job').filter(pk=data.get('dispatch_id'),
         target_charter=policy.charter,target_thread_id=policy.charter.thread_id,state='completed',
         turn_key=data.get('turn_id'),job__state='completed',job__owner_id=policy.owner_id).first()

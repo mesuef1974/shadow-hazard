@@ -107,8 +107,37 @@ class OperatorMonitorTests(TestCase):
             'self_notification_proof_digest':proof.digest}
         self.policy.activation_receipt=document(self.project,self.operator.key,'self-activation','approved',evidence)
         self.assertTrue(self_notification_allowed(self.policy,channel))
+        for version in (1,2):
+            previous=self.policy.activation_receipt
+            evidence={**previous.evidence,'owner_channel':{**owner_channel,'server_sha256':f'server-{version}',
+                'owner_image_sha256':f'image-{version}'},'runtime_refresh':{
+                    'status':'same_owner_runtime_refresh_authorized','prior_activation_id':previous.pk,
+                    'prior_activation_digest':previous.digest}}
+            self.policy.activation_receipt=document(self.project,self.operator.key,f'runtime-{version}','approved runtime refresh',evidence)
+            channel={**channel,'server_sha256':f'server-{version}','owner_identity':{'sha256':f'image-{version}'}}
+            self.assertTrue(self_notification_allowed(self.policy,channel))
         dispatch.state='uncertain';dispatch.save(update_fields=['state'])
         self.assertFalse(self_notification_allowed(self.policy,channel))
+
+    def test_runtime_refresh_cannot_change_authority_or_reference_unverified_approval(self):
+        from .operator_monitor import _notification_proof_channel
+        previous=self.policy.activation_receipt
+        evidence={**previous.evidence,'owner_channel':{**previous.evidence['owner_channel'],
+            'server_sha256':'new-server','owner_image_sha256':'new-image'},'runtime_refresh':{
+                'status':'same_owner_runtime_refresh_authorized','prior_activation_id':previous.pk,
+                'prior_activation_digest':previous.digest}}
+        self.assertEqual(_notification_proof_channel(self.policy,evidence),previous.evidence['owner_channel'])
+        for changed in [
+            {**evidence,'scopes':['delivery_uncertain']},
+            {**evidence,'cooldown_seconds':120},
+            {**evidence,'owner_id':self.owner.pk+1},
+            {**evidence,'owner_channel':{**evidence['owner_channel'],'caller_thread_id':'another'}},
+            {**evidence,'runtime_refresh':{**evidence['runtime_refresh'],'prior_activation_digest':'wrong'}},
+            {**evidence,'runtime_refresh':{'status':'unapproved'}},
+        ]:
+            self.assertIsNone(_notification_proof_channel(self.policy,changed))
+        previous.evidence['extra']='tampered';previous.save()
+        self.assertIsNone(_notification_proof_channel(self.policy,evidence))
 
     def test_changed_scope_revokes_approval(self):
         self.operator.scope='changed';self.operator.save()
