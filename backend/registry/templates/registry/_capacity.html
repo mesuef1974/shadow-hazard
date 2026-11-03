@@ -1,0 +1,38 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'registry/capacity.css' %}?v=1">
+<section class="capacity-panel" aria-label="{% if capacity_snapshot.source_kind == 'runtime_context' %}مراقبة تقدير السياق{% else %}مراقبة حجم آخر طلب{% endif %}">
+  <details class="capacity-fold" data-refresh-key="capacity-snapshot">
+    {% if capacity_snapshot.source_kind == 'runtime_context' %}
+    <summary>مراقبة الجلسات · {% if capacity_snapshot.thresholds_enabled %}العتبات معتمدة بحسب الخادم{% else %}عرض فقط · العتبتان غير مفعّلتين{% endif %}</summary>
+    <p><strong>تقدير السياق عند نهاية الخطوة</strong> من سجلات التشغيل، مقارنة بسعة نافذة السياق الكاملة. ليس عدّادًا لحظيًا مستمرًا؛ تتوقف الإجراءات عند غياب الدليل أو تقادمه أو تضاربه.</p>
+    <p>{% if capacity_snapshot.thresholds_enabled %}وفق القرار #272: تنبيه عند 70٪ وتجهيز تسليم محدود في قاعدة المشروع عند 85٪، للقياسات الحديثة المتحققة فقط. يُعاد تسليح التنبيه دون 65٪ والتجهيز دون 80٪.{% else %}وفق القرار #269: رُبط المحرك بمصدر السياق، ويظل تفعيل العتبات منتظرًا اعتمادًا صريحًا.{% endif %}</p>
+    {% else %}
+    <summary>مراقبة الجلسات: عرض فقط · التحقق الموثق معلّق</summary>
+    <p><strong>المقاس حجم آخر طلب، وليس إشغال نافذة السياق.</strong> النسبة المعروضة للمقارنة فقط؛ لا تثبت ضغط السياق أو جاهزية التجديد.</p>
+    <p>وفق القرار #224: لا تنبيه 70٪ أو تجهيز تسليم 85٪ قبل مطابقة سجلات Codex الأصلية مع الجامع والتحقق من معنى الحقول وحداثتها وهوية الجلسة والنموذج وتغيرات الضغط.</p>
+    {% endif %}
+    {% if capacity_snapshot %}
+    <p>نسخة السياسة: <bdi>{{ capacity_snapshot.policy_version|default:'غير متاحة' }}</bdi> · {% if capacity_snapshot.thresholds_enabled %}الخادم يبلغ عن تفعيل العتبات؛ يُراجع دليل اعتماده{% else %}<strong>العتبتان غير مفعّلتين</strong>{% endif %}.</p>
+    {% if capacity_snapshot.policy %}<p>حد حداثة القياس حسب السياسة: {{ capacity_snapshot.policy.max_age_seconds }} ثانية. غياب البيانات أو تقادمها أو تضاربها يجعلها غير مؤكدة ويمنع الإجراءات.</p>{% endif %}
+    {% for row in capacity_snapshot.sessions %}
+    <details class="capacity-row"><summary>{{ row.name }} · {% if row.trusted and row.mode == 'thresholds_enabled' and capacity_snapshot.thresholds_enabled %}قياس موثوق بحسب الخادم{% else %}غير مؤكدة{% endif %}</summary>
+      <p>{% if row.uncertain_reason == 'display_only_runtime' %}عرض فقط: العتبتان معطّلتان في السياسة الحالية.{% elif row.uncertain_reason == 'display_only_last_request' %}عرض فقط: دلالة حجم آخر طلب لا تثبت إشغال السياق.{% elif row.uncertain_reason == 'sample_stale' or row.uncertain_reason == 'sync_stale' or row.uncertain_reason == 'source_stale' %}القياس أو المزامنة متقادمان؛ غير مؤكدة.{% elif row.uncertain_reason == 'conflicting_samples' or row.uncertain_reason == 'conflicting_observations' or row.uncertain_reason == 'source_order_conflict' %}تضارب في العينات أو ترتيب المصدر؛ غير مؤكدة.{% elif row.uncertain_reason == 'missing_sample' or row.uncertain_reason == 'missing_tracked_session' or row.uncertain_reason == 'missing_thread' or row.uncertain_reason == 'current_generation_observation_missing' %}بيانات الجلسة أو عينتها مفقودة؛ غير مؤكدة.{% elif row.uncertain_reason %}لم يكتمل تحقق المصدر أو التوقيت أو معنى الحقل؛ غير مؤكدة.{% else %}تعرض القيم وفق حالة التحقق التي يعلنها الخادم.{% endif %}</p>
+      {% if row.measurement %}<dl>
+        <dt>{% if row.measurement.source_kind == 'runtime_context' %}تقدير السياق المرصود{% else %}حجم آخر طلب المرصود{% endif %}</dt><dd>{{ row.measurement.current }} رمز</dd>
+        <dt>{% if row.measurement.source_kind == 'runtime_context' %}سعة نافذة السياق الكاملة{% else %}السعة المرجعية المسجلة{% endif %}</dt><dd>{{ row.measurement.limit }} رمز</dd>
+        <dt>{% if capacity_snapshot.thresholds_enabled %}نسبة السياق المقدرة{% else %}نسبة العرض فقط{% endif %}</dt><dd>{% if row.measurement.display_percent != None %}{{ row.measurement.display_percent|floatformat:1 }}٪{% else %}غير متاحة{% endif %}؛ {% if row.measurement.source_kind == 'runtime_context' %}تقدير عند نهاية الخطوة{% else %}لا تثبت إشغال السياق{% endif %}</dd>
+        <dt>نوع المصدر</dt><dd>{% if row.measurement.source_kind == 'runtime_context' %}سجلات تشغيل السياق{% elif row.measurement.source_kind == 'last_request' %}آخر طلب{% else %}دلالة المصدر تحتاج تحققًا{% endif %}</dd>
+        <dt>وقت العينة</dt><dd><bdi>{{ row.measurement.sampled_at }}</bdi></dd>
+        <dt>وقت الاستيراد</dt><dd><bdi>{{ row.measurement.imported_at }}</bdi></dd>
+        <dt>معرّف سجل المصدر</dt><dd>{{ row.measurement.source_id }}</dd>
+      </dl>{% else %}<p>لا توجد عينة متاحة؛ غير مؤكدة.</p>{% endif %}
+      {% if capacity_snapshot.thresholds_enabled and row.trusted and row.mode == 'thresholds_enabled' %}
+        {% if row.recent_warning %}<p>تنبيه مسجل #{{ row.recent_warning.id }} · <bdi>{{ row.recent_warning.at }}</bdi></p>{% endif %}
+        {% if row.recent_preparation %}<p>تجهيز مسجل #{{ row.recent_preparation.id }} · إيصال {{ row.recent_preparation.receipt_id|default:'غير متاح' }}</p>{% endif %}
+      {% else %}<p>لا إجراء معتمد من هذه القراءة. السجلات القديمة تاريخية وليست تفعيلًا للسياسة الحالية.</p>{% endif %}
+    </details>
+    {% empty %}<p>لا قياسات جلسات متاحة؛ الحالة غير مؤكدة.</p>{% endfor %}
+    {% else %}<p role="status">غير مؤكدة: لقطة المراقبة غير متاحة لهذه الصفحة. لا تُستنتج حالة الجلسات من السجل القديم.</p>{% endif %}
+    <p>التجديد والأرشفة وتغيير الربط تلقائيًا غير مفعّلة. أي انتقال لاحق ينتظر قرار المالك.</p>
+  </details>
+</section>

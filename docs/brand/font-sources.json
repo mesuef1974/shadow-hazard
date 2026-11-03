@@ -1,0 +1,98 @@
+[
+  {
+    "family": "ibmplexsansarabic",
+    "filename": "ibmplexsansarabic-IBMPlexSansArabic-Regular.ttf",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsansarabic/IBMPlexSansArabic-Regular.ttf",
+    "sha256": "6f611412270a132bbac838da9259d4c68569b4175f3b3b8fa3fa36a30b56dab9",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "ibmplexsansarabic",
+    "filename": "ibmplexsansarabic-IBMPlexSansArabic-SemiBold.ttf",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsansarabic/IBMPlexSansArabic-SemiBold.ttf",
+    "sha256": "597bd5502e5997be4414e4c9c88834b30ff3784250c84f20bce2b20e53ebd467",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "ibmplexsansarabic",
+    "filename": "ibmplexsansarabic-OFL.txt",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsansarabic/OFL.txt",
+    "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "ibmplexsans",
+    "filename": "ibmplexsans-IBMPlexSans-Italic[wdth,wght].ttf",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsans/IBMPlexSans-Italic%5Bwdth%2Cwght%5D.ttf",
+    "sha256": "0b94c5e981993764db32bf9c610ecc60cbd34ad77ec2f10ba03c64ab75124d8e",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "ibmplexsans",
+    "filename": "ibmplexsans-IBMPlexSans[wdth,wght].ttf",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsans/IBMPlexSans%5Bwdth%2Cwght%5D.ttf",
+    "sha256": "3b031aa4216174205bd8471f88a49b91f093169e9e87bd5262242bc5967fe2e3",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "ibmplexsans",
+    "filename": "ibmplexsans-OFL.txt",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsans/OFL.txt",
+    "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "notokufiarabic",
+    "filename": "notokufiarabic-NotoKufiArabic[wght].ttf",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notokufiarabic/NotoKufiArabic%5Bwght%5D.ttf",
+    "sha256": "494f6b61469d7a02a2d63f0fc4930bb007388d8cfe551de5eb98354e100889f3",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "notokufiarabic",
+    "filename": "notokufiarabic-OFL.txt",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notokufiarabic/OFL.txt",
+    "sha256": "07fc70bfeb985cc1a87a8587d0a0c80bab11c86c9dc3fd95b6f0cb332f983e96",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "manrope",
+    "filename": "manrope-Manrope[wght].ttf",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/Manrope%5Bwght%5D.ttf",
+    "sha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "manrope",
+    "filename": "manrope-OFL.txt",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/OFL.txt",
+    "sha256": "58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "readexpro",
+    "filename": "readexpro-ReadexPro[HEXP,wght].ttf",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/readexpro/ReadexPro%5BHEXP%2Cwght%5D.ttf",
+    "sha256": "268bba7e1e8f3b14d798b3fb0e40ebaa3fc39308c9ac0020e2faf6df181cc30e",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  },
+  {
+    "family": "readexpro",
+    "filename": "readexpro-OFL.txt",
+    "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/readexpro/OFL.txt",
+    "sha256": "b41267a3903a45955f77b44596e080480c577fb7221df59672d0bc8cd8cd4b6f",
+    "downloaded_at": "2026-10-30T20:04:11.261695+00:00",
+    "purpose": "self-hosted font specimen and OFL license; not installed in OS"
+  }
+]

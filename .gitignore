@@ -35,3 +35,11 @@ desktop.ini
 
 # Local exports / previous platform report
 /تقرير-تحدي-علوم-المستقبل.html
+
+# Private local Django runtime
+/.local/
+/.codex/
+/sessions/
+/backend/.local/
+*.sqlite3
+*.sqlite3-journal

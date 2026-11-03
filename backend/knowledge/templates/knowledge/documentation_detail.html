@@ -1,0 +1,30 @@
+{% extends 'registry/base.html' %}
+{% load tz %}
+{% block content %}
+<main class="knowledge-page knowledge-document">
+  <p><a href="{% url 'knowledge-page' %}?q={{ return_query|urlencode }}">العودة إلى البحث</a></p>
+  <h1>{{ display_title }}</h1>
+  <dl class="knowledge-meta">
+    <div><dt>رقم سجل التوثيق</dt><dd>{{ record.pk }}</dd></div>
+    {% if not student_plan %}<div><dt>الجلسة</dt><dd>{{ record.session_key }}</dd></div>
+    <div><dt>المهمة</dt><dd><bdi>{{ record.task_key }}</bdi></dd></div>{% endif %}
+    <div><dt>تاريخ السجل</dt><dd><time datetime="{{ record.created_at|date:'c' }}">{{ record.created_at|localtime|date:'Y/m/d — H:i' }} بتوقيت قطر</time></dd></div>
+  </dl>
+  <section aria-labelledby="evidence-title">
+    <h2 id="evidence-title">{% if student_plan %}تفاصيل الدراسة{% else %}الإطار البحثي الكامل{% endif %}</h2>
+    {% if sections %}
+      <div class="knowledge-protocol" dir="rtl">
+      {% for section in sections %}
+        <section class="knowledge-protocol-section">
+          <h3>{{ section.title }}</h3>
+          {% for paragraph in section.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+          {% if section.bullets %}<ul>{% for item in section.bullets %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+        </section>
+      {% endfor %}
+      </div>
+    {% else %}
+      <pre class="knowledge-evidence" dir="auto">{{ evidence_json }}</pre>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

@@ -1,0 +1,74 @@
+{
+  "release": "1.0",
+  "direction": "reveal-occlusion",
+  "name": "ظل الخطر",
+  "english_name": "Shadow Hazard",
+  "mascot": "راصد",
+  "status": "approved",
+  "approval_event": "brand-identity-v1-approved",
+  "approved_by": "mesuef",
+  "approval_recorded_at": "2026-10-30T20:58:46.631226+00:00",
+  "colors": {
+    "primary": "#142D4E",
+    "secondary": "#007F82",
+    "accent": "#F4B544",
+    "background": "#F4F7FB"
+  },
+  "fonts": [
+    {
+      "script": "ar",
+      "family": "IBM Plex Sans Arabic",
+      "version_id": "91687311-75b7-4d5f-b1dd-802e8adf25e3",
+      "sha256": "6f611412270a132bbac838da9259d4c68569b4175f3b3b8fa3fa36a30b56dab9"
+    },
+    {
+      "script": "en",
+      "family": "IBM Plex Sans",
+      "version_id": "64794bf0-7a44-43ad-a484-0e2d4324776d",
+      "sha256": "3b031aa4216174205bd8471f88a49b91f093169e9e87bd5262242bc5967fe2e3"
+    }
+  ],
+  "assets": [
+    {
+      "path": "docs/brand/approved-v1/logo.png",
+      "sha256": "dd4a6908db78eb329c1d81d2ed7fcd63a579800176dd3863786ec06dca8bc747",
+      "kind": "logo_png"
+    },
+    {
+      "path": "docs/brand/approved-v1/logo.svg",
+      "sha256": "899bca0214cb7efa0000449143e37377a0d2dedf604d06fd438b84bb505efa93",
+      "kind": "logo_svg"
+    },
+    {
+      "path": "docs/brand/approved-v1/logo-navy.svg",
+      "sha256": "ee91102f3c7985ecc403d2f3097fd83274c40e43decd772111ef65be4178bdb5",
+      "kind": "logo_svg"
+    },
+    {
+      "path": "docs/brand/approved-v1/logo-white.svg",
+      "sha256": "786cf1728a6162a2bfeab0f750a7605740868811839c93811d9c0b86de08c7fc",
+      "kind": "logo_svg"
+    },
+    {
+      "path": "docs/brand/approved-v1/rased.png",
+      "sha256": "17038d953aa3628e4110aefd6784f84414b2e8862b5e64cc16660499417ddd19",
+      "kind": "mascot_png"
+    },
+    {
+      "path": "docs/brand/approved-v1/rased.svg",
+      "sha256": "93c43a563955866350ef6b5053e14ee3e73f01b0d0653520ccee2feeb7a223c9",
+      "kind": "mascot_svg"
+    },
+    {
+      "path": "docs/brand/approved-v1/tokens.css",
+      "sha256": "9e6b6364963cc0d7966118b66598ca7ea09e9302783492561c864ed9dfd4ff95",
+      "kind": "brand_tokens"
+    },
+    {
+      "path": "docs/brand/approved-v1/README.md",
+      "sha256": "b27de477bcbb90e50497eddd8beaf7f5a8775842ad19ac2a5f67512a1dde9f04",
+      "kind": "brand_guidelines"
+    }
+  ],
+  "vector_note": "SVG uses real paths; mascot shading quantized to 64 colors; PNG retains continuous shading"
+}

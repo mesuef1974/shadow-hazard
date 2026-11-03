@@ -1,0 +1,128 @@
+{% extends 'registry/base.html' %}
+{% block content %}
+{% include 'registry/_page_heading.html' with eyebrow='تفويض مضبوط عبر جلسات المشروع' title='طلبات المهام' description='أنشئ طلبًا مرتبطًا بميثاق واضح، وتابع إرساله وحالته بأدلة منفصلة.' %}
+<p><a href="{% url 'escalations' %}">مراجعة مقترحات التصعيد</a></p>
+<p>يرتبط كل طلب بميثاق ومالك واضحين. إنشاء الطلب يحفظه في صندوق الإرسال؛ ولا يعني أن الجلسة استلمته أو أن المهمة اكتملت.</p>
+
+<section class="work-panel dispatch-health-panel" aria-labelledby="dispatch-health-title">
+  <h2 id="dispatch-health-title">حالة المعالجة</h2>
+  <p role="status" class="dispatch-health">
+    {% if worker_uncertain %}يوجد تنفيذ غير محسوم؛ أوقف الإرسال التلقائي حتى المراجعة.
+    {% elif worker_busy and worker_online %}الموزع المحلي يعالج طلبًا؛ لا يُعاد الطلب تلقائيًا.
+    {% elif worker_online %}الموزع المحلي متصل ويستطيع تجهيز الطلبات.
+    {% elif delivery_bridge_online %}جسر جلسة التنسيق يفحص الطلبات دوريًا أثناء توفر تطبيق Codex.
+    {% else %}تُحفظ الطلبات حتى يتوفر جسر جلسة التنسيق.
+    {% endif %}
+  </p>
+  {% if delivery_bridge_online %}<p class="note">العامل المحلي متصل؛ يلتقط المهمة فور حفظها، وينتظر إذا كانت الجلسة المحددة مشغولة.</p>{% else %}<p class="note">لا يوجد نبض حديث لجسر الجلسات؛ تبقى الطلبات محفوظة حتى عودة العامل المحلي.</p>{% endif %}
+  <div class="outbox-counts"><p><strong>{% if outbox_queued != None %}{{ outbox_queued }}{% else %}غير متاح{% endif %}</strong> في صندوق الإرسال، ولم تُرسل بعد</p><p><strong>{% if delivery_uncertain != None %}{{ delivery_uncertain }}{% else %}غير متاح{% endif %}</strong> نتيجة غير محسومة</p></div>
+  <p class="note">إرسال الرسالة، وظهور الدور في الجلسة، واكتماله حالات منفصلة؛ لا نعرض أيًّا منها إلا بعد تسجيل دليلها.</p>
+  {% if worker_health %}
+    <details><summary>تفاصيل تشغيل الموزع</summary>
+      <p>طريقة التشغيل: {{ worker_health.startup_method|default:'غير مسجلة' }} · رقم العملية: {{ worker_health.pid }}</p>
+      <p>آخر نبض: {{ worker_health.updated_at|date:'Y-m-d H:i:s' }} · آخر بدء: {{ worker_health.started_at|date:'Y-m-d H:i:s' }}</p>
+      {% if worker_health.last_error %}<p role="alert">{{ worker_health.last_error }}</p>{% endif %}
+      {% for run in worker_runs %}<p>{{ run.started_at|date:'Y-m-d H:i:s' }} · {{ run.state }}{% if run.finished_at %} · انتهى {{ run.finished_at|date:'Y-m-d H:i:s' }}{% endif %}</p>{% empty %}<p>لا يوجد سجل تشغيل بعد.</p>{% endfor %}
+    </details>
+  {% endif %}
+</section>
+
+<section class="work-panel job-compose" aria-labelledby="job-compose-title">
+  <h2 id="job-compose-title">مهمة جديدة</h2>
+  <p>اختر الجلسة المستهدفة ونوع المهمة. يبقى اختيارك للجلسة كما هو؛ ويحدد نوع المهمة سياسة النموذج والتفكير فقط.</p>
+  <form method="post" class="editor">
+    {% csrf_token %}{{ form.non_field_errors }}{{ form.submission_key }}
+    <p>{{ form.charter.label_tag }}{{ form.charter }}{{ form.charter.errors }}</p>
+    <p>{{ form.task_kind.label_tag }}{{ form.task_kind }}{{ form.task_kind.errors }}<small>{{ form.task_kind.help_text }}</small></p>
+    <p>{{ form.prompt.label_tag }}{{ form.prompt }}{{ form.prompt.errors }}</p>
+    <p>{{ form.mode.label_tag }}{{ form.mode }}{{ form.mode.errors }}</p>
+    <p class="note">القراءة فقط تستخدم عاملًا معزولًا بالحاوية ونسخة قراءة من الملفات والبيانات، مع فحص العزل قبل التنفيذ. الحسابات المباشرة محلية. مهام التعديل تذهب إلى جلسة Codex القائمة.</p>
+    <p class="note">الحسابات المباشرة لا تستدعي نموذجًا. البرمجة والتصميم يضيفان المهارة المناسبة؛ لا تُحمّل الموصلات إلا عند تحديد نوع يحتاج موصلًا.</p>
+    <details class="usage-fold"{% if form.skills.errors %} open{% endif %}><summary>مهارات إضافية</summary><p class="note">{{ form.skills.help_text }}</p>{{ form.skills.errors }}{{ form.skills }}</details>
+    <details class="usage-fold"{% if form.plugins.errors %} open{% endif %}><summary>موصلات محددة عند الحاجة</summary><p class="note">{{ form.plugins.help_text }}</p>{{ form.plugins.errors }}{{ form.plugins }}</details>
+    <button>حفظ الطلب وتوجيهه</button>
+  </form>
+</section>
+
+<section class="job-list" aria-labelledby="job-list-title">
+  <h2 id="job-list-title">سجل الطلبات</h2>
+  {% for job in jobs %}
+    <details class="work-panel usage-fold job-card">
+      <summary><span>طلب {{ job.pk }} · {{ job.charter.name }}</span>
+        {% if job.mode == 'read-only' and job.session_dispatch.state == 'queued' %}<span class="job-state state-needs_review">محجوب — عزل القراءة فقط غير متاح</span>{% elif job.session_dispatch %}<span class="job-state state-{{ job.session_dispatch.state }}">
+          {% if job.session_dispatch.state == 'queued' %}في قائمة الإرسال — لم يُرسل بعد
+          {% elif job.session_dispatch.state == 'claimed' %}استلمه الجسر — الإرسال غير مؤكد بعد
+          {% elif job.session_dispatch.state == 'sent' %}أُرسل إلى الجلسة
+          {% elif job.session_dispatch.state == 'acknowledged' %}ظهر الدور في سجل الجلسة
+          {% elif job.session_dispatch.state == 'completed' %}اكتمل الدور بدليل
+          {% elif job.session_dispatch.state == 'uncertain' %}غير محسوم — يحتاج مراجعة
+          {% else %}{{ job.session_dispatch.state }}{% endif %}
+        </span>{% else %}<span class="job-state state-{{ job.state }}">
+          {% if job.state == 'queued' %}في قائمة الانتظار
+          {% elif job.state == 'waiting_readonly' %}ينتظر عامل القراءة المعزول
+          {% elif job.state == 'waiting_delivery' %}ينتظر الإرسال
+          {% elif job.state == 'running' %}قيد المعالجة
+          {% elif job.state == 'completed' %}مكتمل
+          {% elif job.state == 'awaiting_approval' %}ينتظر الموافقة
+          {% elif job.state == 'needs_review' %}يحتاج مراجعة
+          {% elif job.state == 'uncertain' %}غير محسوم — يحتاج مراجعة
+          {% elif job.state == 'failed' %}تعذر التجهيز
+          {% else %}{{ job.state }}{% endif %}
+        </span>{% endif %}
+      </summary>
+      <div class="job-facts">
+        <p><strong>مالك المهمة</strong> {{ job.owner.get_full_name|default:job.owner.username }}</p>
+        <p><strong>الميثاق المختار</strong> {{ job.charter.name }}</p>
+        <p><strong>أُنشئ الطلب</strong> <time>{{ job.created_at|date:'Y-m-d H:i:s' }}</time></p>
+      </div>
+      {% if job.session_dispatch %}
+        {% with dispatch=job.session_dispatch %}
+          <div class="job-facts dispatch-facts">
+            <p><strong>الجلسة المستهدفة</strong> {{ dispatch.target_charter.name }}</p>
+            <p><strong>المحاولة</strong> {{ dispatch.attempt_no }} من {{ dispatch.max_attempts }} · تصعيدات هذه المهمة {{ dispatch.escalation_count }}</p>
+            <p><strong>النموذج المطلوب</strong> <bdi>{{ dispatch.requested_model }}</bdi> · التفكير
+              {% if dispatch.requested_thinking == 'low' %}منخفض{% elif dispatch.requested_thinking == 'medium' %}متوسط{% elif dispatch.requested_thinking == 'high' %}عالٍ{% elif dispatch.requested_thinking == 'none' %}دون نموذج{% else %}{{ dispatch.requested_thinking }}{% endif %}
+            </p>
+            {% with observed_turn=dispatch.turns.last %}<p><strong>النموذج المرصود</strong> {% if job.observed_model %}<bdi>{{ job.observed_model }}</bdi>{% elif observed_turn.model %}<bdi>{{ observed_turn.model }}</bdi>{% else %}لا يوجد تأكيد بعد{% endif %}</p>{% endwith %}
+            {% for turn in dispatch.turns.all %}
+            <p><strong>التفكير المرصود</strong> {% if not turn.source_evidence %}غير متاح بدليل مستقل{% elif turn.thinking == 'low' %}منخفض{% elif turn.thinking == 'medium' %}متوسط{% elif turn.thinking == 'high' %}عالٍ{% else %}غير متاح{% endif %} · <bdi>{{ turn.model }}</bdi></p>
+            {% if turn.source_evidence and turn.usage.total_tokens != None %}<p>إجمالي الدور {{ turn.usage.total_tokens }} توكن · الإدخال {{ turn.usage.input_tokens }} · الإخراج {{ turn.usage.output_tokens }} · المخزن ضمن الإدخال {{ turn.usage.cached_input_tokens }}</p>{% else %}<p>استهلاك هذا الدور غير متاح بدليل مكتمل.</p>{% endif %}
+            {% if turn.source_evidence %}<details><summary>دليل الدور</summary><p><bdi>{{ turn.turn_key }}</bdi></p><p>بصمة المصدر: <bdi>{{ turn.source_evidence.sha256 }}</bdi></p><p>أسطر الدليل: {{ turn.source_evidence.start_line }} — {{ turn.source_evidence.complete_line }}</p></details>{% else %}<p>مصدر دليل الدور غير متاح.</p>{% endif %}
+            {% empty %}<p>التفكير المرصود غير متاح بعد.</p>{% endfor %}
+            <p><strong>تصنيف المهمة</strong> {% if dispatch.category == 'code' %}برمجة أو مراجعة كود{% elif dispatch.category == 'design' %}تصميم واجهة{% elif dispatch.category == 'connected' %}مهمة تتطلب موصلًا محددًا{% elif dispatch.category == 'text' %}نص أو سؤال{% else %}{{ dispatch.category }}{% endif %}</p>
+            <p class="route-reason"><strong>سبب التوجيه المسجل</strong> {{ dispatch.route_reason }}</p>
+          </div>
+          <ol class="dispatch-timeline" aria-label="تاريخ إرسال المهمة">
+            {% for event in dispatch.events.all %}<li>
+              <span>{% if event.state == 'queued' %}أُضيف إلى قائمة الإرسال ولم يُرسل بعد{% elif event.state == 'claimed' %}استلمه الجسر؛ لم يتأكد الإرسال بعد{% elif event.state == 'sent' %}أُرسل إلى الجلسة{% elif event.state == 'acknowledged' %}ظهر الدور في سجل الجلسة{% elif event.state == 'completed' %}اكتمل الدور بعد التحقق{% elif event.state == 'stuck' %}رُصد تعثر{% if event.detail.reason %}: {{ event.detail.reason }}{% endif %}{% elif event.state == 'uncertain' %}نتيجة الإرسال غير مؤكدة؛ تلزم مراجعة{% else %}{{ event.state }}{% endif %}</span>
+              <time>{{ event.created_at|date:'Y-m-d H:i:s' }}</time>
+            </li>{% empty %}<li>لا توجد أحداث إرسال مسجلة بعد.</li>{% endfor %}
+          </ol>
+          {% if dispatch.sent_at %}<p>وقت الإرسال المسجل: <time>{{ dispatch.sent_at|date:'Y-m-d H:i:s' }}</time></p>{% endif %}
+          {% if dispatch.acknowledged_at %}<p>وقت تأكيد الاستلام: <time>{{ dispatch.acknowledged_at|date:'Y-m-d H:i:s' }}</time></p>{% endif %}
+          {% if dispatch.completed_at %}<p>وقت اكتمال الدور: <time>{{ dispatch.completed_at|date:'Y-m-d H:i:s' }}</time></p>{% endif %}
+          {% if dispatch.claimed_by %}<p>الجسر المستلم: <bdi>{{ dispatch.claimed_by }}</bdi></p>{% endif %}
+          <details><summary>معرف الجلسة المستهدفة</summary><p dir="ltr"><bdi>{{ dispatch.target_thread_id }}</bdi></p></details>
+        {% endwith %}
+      {% else %}<p class="note">لم يُنشأ سجل توجيه لهذه المهمة بعد؛ لا يوجد دليل إرسال لعرضه.</p>{% endif %}
+      {% if job.task_context %}
+        <p>نوع المهمة: {{ job.task_context.kind_label }} · المهارات: {{ job.task_context.skills|join:', '|default:'لا توجد' }} · الموصلات: {{ job.task_context.plugins|join:', '|default:'لا توجد' }}</p>
+        <details><summary>تعليمات المشروع والميثاق المحفوظان</summary>{{ job.task_context.charter|linebreaks }}{{ job.task_context.instructions|linebreaks }}</details>
+      {% endif %}
+      <h3>المهمة ومعيار الإنجاز</h3>{{ job.prompt|linebreaks }}
+      {% if job.outcome_note %}<p class="note">{{ job.outcome_note }}</p>{% endif %}
+      {% if job.result %}<details><summary>النتيجة المسجلة</summary>{{ job.result|linebreaks }}</details>{% endif %}
+      {% if job.token_usage %}<p>الاستخدام المسجل: إدخال {{ job.token_usage.input_tokens }} · مخزن ضمن الإدخال {{ job.token_usage.cached_input_tokens }} · إخراج {{ job.token_usage.output_tokens }}</p>{% endif %}
+      {% if job.escalation_request %}<p><a href="{% url 'escalations' %}">عرض اقتراح التصعيد وقراره</a></p>
+      {% elif job.state == 'completed' or job.state == 'needs_review' %}
+        {% if job.requested_model == 'gpt-6-luna' or job.requested_model == 'gpt-6.1-sol' %}
+          <details><summary>اقتراح تصعيد للمراجعة</summary><form method="post" action="{% url 'request-escalation' job.pk %}" class="editor">{% csrf_token %}
+            <label for="target-{{ job.pk }}">النموذج المطلوب للمقارنة</label><select id="target-{{ job.pk }}" name="model">{% if job.requested_model == 'gpt-6-luna' %}<option value="gpt-6.1-sol">Sol</option>{% endif %}<option value="gpt-6-astra">Astra</option></select>
+            <label for="reason-{{ job.pk }}">العائق وسبب الحاجة إلى نموذج أعلى</label><textarea id="reason-{{ job.pk }}" name="reason" minlength="20" maxlength="2000" required></textarea><button>إرسال اقتراح للموافقة — لا يشغّل النموذج</button>
+          </form></details>
+        {% endif %}
+      {% endif %}
+    </details>
+  {% empty %}<p>لا توجد طلبات حتى الآن. فتح الصفحة لا يرسل مهمة.</p>{% endfor %}
+</section>
+{% endblock %}

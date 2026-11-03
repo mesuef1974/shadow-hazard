@@ -1,0 +1,44 @@
+[
+  {
+    "direction": "sightline",
+    "foreground": "#142D4E",
+    "background": "#F4F7FB",
+    "ratio": 12.9,
+    "normal_text_4_5_pass": true
+  },
+  {
+    "direction": "sightline",
+    "foreground": "#142D4E",
+    "background": "#F4B544",
+    "ratio": 7.62,
+    "normal_text_4_5_pass": true
+  },
+  {
+    "direction": "horizon",
+    "foreground": "#352533",
+    "background": "#FAF7F0",
+    "ratio": 13.41,
+    "normal_text_4_5_pass": true
+  },
+  {
+    "direction": "horizon",
+    "foreground": "#FFFFFF",
+    "background": "#946022",
+    "ratio": 5.31,
+    "normal_text_4_5_pass": true
+  },
+  {
+    "direction": "perception",
+    "foreground": "#252044",
+    "background": "#F6F5FC",
+    "ratio": 14.16,
+    "normal_text_4_5_pass": true
+  },
+  {
+    "direction": "perception",
+    "foreground": "#252044",
+    "background": "#A6E4D5",
+    "ratio": 10.72,
+    "normal_text_4_5_pass": true
+  }
+]

@@ -1,0 +1,9 @@
+{% load static %}
+<section class="work-panel context-panel" aria-labelledby="context-panel-title"><div class="context-heading"><div><p class="eyebrow">قراءات تاريخية للعرض فقط · حتى 500 نقطة ممثلة لكل جلسة</p><h2 id="context-panel-title">حجم آخر طلب لكل جلسة</h2><p>عرض تاريخي لحجم آخر طلب نسبة إلى السعة المرجعية المسجلة؛ ليس إشغال نافذة السياق ولا حصة الحساب. الدلالة غير مؤكدة حتى اكتمال التحقق الموثق، ولا تفعّل القراءات القديمة تنبيهًا أو تجهيزًا.</p></div></div>
+<div class="context-controls"><label for="context-session">الجلسة</label><select id="context-session" aria-label="اختر جلسة لعرض حجم آخر طلب"></select></div>
+<svg id="context-chart" viewBox="0 0 900 270" role="img" aria-labelledby="context-chart-title" aria-describedby="context-summary context-detail" class="interactive-chart"><title id="context-chart-title">تغير نسبة حجم آخر طلب إلى السعة المرجعية؛ عرض غير مؤكد</title></svg>
+<p class="context-chart-key"><span aria-hidden="true"></span> ينقطع الخط عند فجوة رصد تتجاوز 5 دقائق، وتظهر علامة عند حدود الفجوات الواسعة.</p>
+<div class="context-slider-heading"><label for="context-point">استعراض القراءات</label><span id="context-index"></span></div><input id="context-point" type="range" min="0" max="0" value="0" step="1" aria-label="التنقل بين عينات حجم آخر طلب"><output id="context-detail" aria-live="polite"></output>
+<p id="context-summary" class="context-summary" aria-live="polite"></p>
+<noscript><p>فعّل JavaScript للتفاعل. بيانات آخر طلب المرصودة متاحة في بطاقات الجلسات.</p></noscript></section>
+{{ analytics|json_script:'usage-chart-data' }}<script src="{% static 'registry/usage-charts.js' %}?v=10" defer></script>

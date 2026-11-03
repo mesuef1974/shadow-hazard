@@ -1,0 +1,11 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>{{ version.service }} — {{ version.version_label }}</h2>
+<p>ملفات محفوظة للقراءة والتنزيل. الروابط الرمزية توصف في البيان دون تتبعها.</p>
+{% if files %}<p><a class="button" href="?download=1">تنزيل هذه النسخة ZIP</a></p>{% else %}<p>لم يحفظ محتوى لهذه النسخة التاريخية.</p>{% endif %}
+<form method="get"><label for="compare">قارن النسخة المعروضة مع:</label>
+<select name="compare" id="compare">{% for item in versions %}<option value="{{ item.pk }}" {% if comparison.pk == item.pk %}selected{% endif %}>{{ item.version_label }} — {{ item.created_at }}</option>{% endfor %}</select><button type="submit">عرض المقارنة</button></form>
+{% if comparison %}<h2>التغييرات من {{ comparison.version_label }} إلى {{ version.version_label }}</h2>{% for row in changes %}<h3><bdi>{{ row.path }}</bdi> — {{ row.status }}</h3><pre dir="ltr" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:32rem;overflow:auto">{{ row.diff }}</pre>{% empty %}<p>لا توجد تغييرات في الملفات.</p>{% endfor %}{% endif %}
+<h2>ملفات هذه النسخة ({{ files|length }})</h2>
+<table><thead><tr><th>المسار</th><th>النوع</th><th>الحجم بالبايت</th><th>البصمة</th></tr></thead><tbody>{% for file in files %}<tr><td><bdi>{{ file.path }}</bdi></td><td>{{ file.get_kind_display }}</td><td>{{ file.blob.size }}</td><td><bdi>{{ file.blob_id }}</bdi></td></tr>{% endfor %}</tbody></table>
+{% endblock %}

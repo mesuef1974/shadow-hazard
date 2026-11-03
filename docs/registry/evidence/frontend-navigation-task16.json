@@ -1,0 +1,35 @@
+{
+  "verified_at": "2026-10-31T12:24:47.018364+03:00",
+  "origin": "http://127.0.0.1:8012",
+  "method": "Live browser DOM inspection after server reload; supervisor session; no form submission",
+  "stylesheet": "/static/brand/portal.css?v=8",
+  "console_warn_error": [],
+  "navigation": [
+    {
+      "path": "/sessions/",
+      "active_href": "/sessions/",
+      "active_label": "الجلسات",
+      "active_count": 1
+    },
+    {
+      "path": "/usage/",
+      "active_href": "/usage/",
+      "active_label": "استهلاك الرموز",
+      "active_count": 1
+    },
+    {
+      "path": "/exhibition/",
+      "active_href": "/exhibition/",
+      "active_label": "عرض المسابقة",
+      "active_count": 1
+    },
+    {
+      "path": "/documents/architecture.md",
+      "active_href": "/library/",
+      "active_label": "الوثائق",
+      "active_count": 1
+    }
+  ],
+  "skill_file_sha256": "b8009ae690dfa69edc7f08bb8715f32db8817112cfa4388741dbaf876c237df8",
+  "skill_bundle_sha256": "fe1578a4dae33ad18ee94f5cf525262495922ce5c89d3851deb51f557a809f56"
+}

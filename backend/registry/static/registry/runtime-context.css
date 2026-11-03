@@ -1,0 +1,26 @@
+.runtime-context{min-width:0;overflow-wrap:anywhere;border-inline-start:4px solid var(--brand-secondary)}
+.runtime-context-heading,.runtime-history-heading{display:flex;align-items:start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.runtime-context h2,.runtime-context h3{margin-block:0 8px}.runtime-context p{max-width:78ch}
+.runtime-mode{border:1px solid var(--platform-border);padding:4px 12px;border-radius:4px;white-space:nowrap}
+.runtime-gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:20px;margin-block:20px}
+.runtime-gauge{min-width:0;padding-inline:12px;border-inline-start:1px solid var(--platform-border)}
+.runtime-status{font-size:.85rem;color:var(--platform-muted)}
+.runtime-context .runtime-number{font-size:2rem;font-weight:600;margin:6px 0;color:var(--platform-text)}
+.runtime-meter{position:relative;height:12px;background:var(--platform-border);border-radius:3px;overflow:hidden;direction:ltr}
+.runtime-meter>span{display:block;height:100%;background:var(--brand-secondary)}
+.runtime-reference{position:absolute;top:0;bottom:0;width:2px;border-inline-start:2px dashed var(--platform-muted)}
+.runtime-reference.ref70{left:70%}.runtime-reference.ref85{left:85%}
+.runtime-reference-note{font-size:.9rem;color:var(--platform-muted)}
+.runtime-history{border-block-start:1px solid var(--platform-border);padding-block-start:20px}
+.runtime-history select{max-width:100%;min-height:44px}.runtime-history label{display:block}
+.runtime-history svg{display:block;width:100%;height:220px;direction:ltr;overflow:visible}
+.runtime-history input[type=range]{display:block;width:100%;min-height:44px;direction:ltr;accent-color:var(--brand-secondary)}
+.runtime-history svg .grid{stroke:var(--platform-border);stroke-width:1}
+.runtime-history svg .reference{stroke:var(--platform-muted);stroke-dasharray:5 5;opacity:.65}
+.runtime-history svg .series{fill:none;stroke:var(--brand-secondary);stroke-width:2.5}
+.runtime-history svg .point{fill:var(--brand-accent);stroke:var(--platform-text);stroke-width:1.5}
+.runtime-history svg text{fill:var(--platform-muted);font-size:12px}
+.runtime-evidence summary{min-height:44px;cursor:pointer;padding-block:12px}
+.runtime-context :is(summary,select,input):focus-visible{outline:3px solid var(--platform-focus);outline-offset:3px}
+@media(max-width:600px){.runtime-gauges{grid-template-columns:1fr 1fr;gap:16px 6px}.runtime-gauge{padding-inline:8px}.runtime-context .runtime-number{font-size:1.6rem}.runtime-history-heading{display:block}.runtime-history select{width:100%}.runtime-history svg{height:180px}}
+@media(max-width:360px){.runtime-gauges{grid-template-columns:1fr}}

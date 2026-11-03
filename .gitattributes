@@ -6,3 +6,7 @@
 *.jpeg binary
 *.pdf binary
 *.mp4 binary
+# Release files are content-addressed in the registry; preserve exact bytes.
+docs/brand/approved-v1/** -text
+docs/brand/active-identity.json -text
+docs/brand/fonts/** -text

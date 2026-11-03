@@ -1,0 +1,22 @@
+{% if operator_comparison %}
+<style>
+.operator-comparison{margin-block:24px;padding:20px;border:1px solid var(--platform-border);border-inline-start:4px solid var(--brand-secondary);border-radius:8px;background:var(--platform-surface);color:var(--platform-text);overflow-wrap:anywhere}
+.operator-comparison h2{font-size:1.3rem;margin:0 0 12px}.operator-comparison p{line-height:1.8}.operator-comparison .op-note{color:var(--platform-muted);font-size:.9rem}.operator-comparison .op-row{display:grid;grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr));gap:8px;padding:10px 0;border-block-end:1px solid var(--platform-border);align-items:center}.operator-comparison .op-row>*{min-width:0}.operator-comparison .op-head{font-weight:600;color:var(--platform-muted)}.operator-comparison .op-value{font-family:var(--brand-font-en);font-variant-numeric:tabular-nums}.operator-comparison details{margin-top:14px}@media(max-width:450px){.operator-comparison{padding:12px}.operator-comparison .op-row{font-size:.85rem;grid-template-columns:minmax(0,1.5fr) repeat(2,minmax(0,1fr))}}
+</style>
+<section class="operator-comparison" aria-labelledby="operator-comparison-title" id="operator-comparison">
+  <h2 id="operator-comparison-title">مقارنة استهلاك مشغّل الجلسات</h2>
+  {% if operator_comparison.state == 'untrusted' %}<p role="status">{{ operator_comparison.message }}</p>
+  {% else %}
+  {% if operator_comparison.state == 'completed' %}
+  <p role="status">اكتملت المقارنة تلقائيًا · قبل: طلب {{ operator_comparison.before.job_id }} · بعد: طلب {{ operator_comparison.after.job_id }}</p>
+  <p>تغير الإجمالي: <bdi class="op-value">{{ operator_comparison.total_delta }}</bdi> توكن · <bdi>{{ operator_comparison.change_percent }}٪</bdi> · تغير استدعاءات الأدوات: <bdi>{{ operator_comparison.tools_delta }}</bdi>.</p>
+  <p class="op-note">{{ operator_comparison.caveat }}</p>
+  {% else %}<p role="status">{{ operator_comparison.message }}</p>{% endif %}
+  <div role="table" aria-label="الاستهلاك واستدعاءات الأدوات قبل وبعد">
+    <div role="row" class="op-row op-head"><span role="columnheader">القياس</span><span role="columnheader">قبل · {{ operator_comparison.before.job_id }}</span><span role="columnheader">بعد{% if operator_comparison.selected_job %} · {{ operator_comparison.selected_job }}{% endif %}</span></div>
+    {% for row in operator_comparison.metrics %}<div role="row" class="op-row"><span role="rowheader">{{ row.label }}</span><bdi role="cell" class="op-value">{{ row.before|default_if_none:'غير متاح' }}</bdi><bdi role="cell" class="op-value">{{ row.after|default_if_none:'بانتظار الدليل' }}</bdi></div>{% endfor %}
+  </div>
+  <details><summary>المنهجية والتوثيق</summary><p class="op-note">المرجع اختبار اصطناعي سابق؛ نلتقط أول دفعة طبيعية يصدرها المراقب بعد إعداد المقارنة، وننتظر اكتمال الدور وتحليل موثق. يُحسب كل استدعاء مسجل في الدور مرة واحدة؛ لا يشمل ذلك الاستدعاءات الداخلية غير المرئية داخل الأداة. المخزن المؤقت ضمن الإدخال. المقارنة لا تضيف توكنز إلى حساب الاستهلاك.</p><p class="op-note">إيصال الإعداد: {{ operator_comparison.armed_receipt }}{% if operator_comparison.result_receipt %} · إيصال النتيجة: {{ operator_comparison.result_receipt }} · إيصال التحليل: {{ operator_comparison.analysis_receipt }}{% endif %}. لا يُوقظ نموذج لإجراء المقارنة.</p></details>
+  {% endif %}
+</section>
+{% endif %}

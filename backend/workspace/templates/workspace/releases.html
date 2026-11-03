@@ -1,0 +1,104 @@
+{% extends 'registry/base.html' %}
+{% load static %}
+{% block extra_head %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+<link rel="stylesheet" href="{% static 'registry/releases.css' %}?v=1">
+<script src="{% static 'registry/releases.js' %}?v=1" defer></script>
+{% endblock %}
+{% block content %}
+{% include 'registry/_page_heading.html' with eyebrow='إصدارات المشروع' title='دورة الإصدار' description='من نسخة محددة إلى قرار موثق؛ راجع الأدلة والموافقات والمحاولات لكل إصدار.' %}
+<div class="releases" id="release-app" data-api-root="{{ release_api_root|default:'/releases/' }}" data-role="{{ user.role }}" data-user-id="{{ user.pk }}">
+  <aside class="release-notice" aria-label="حدود لوحة الإصدار">
+    <strong>هذه اللوحة لا تعني نشرًا فعليًا.</strong>
+    <p>السجل والأدلة والفحوص هي المرجع. لا تُستعاد البيانات تلقائيًا عند التراجع عن إصدار، واكتمال مهمة نموذج لا يعني قبول الإصدار.</p>
+  </aside>
+  <p id="release-status" role="status" aria-live="polite" aria-atomic="true">جارٍ تحميل سجل الإصدارات…</p>
+  <div id="release-unknown" class="release-notice" role="alert" hidden></div>
+  <noscript>يلزم تفعيل JavaScript لقراءة سجل الإصدارات وإرسال الإجراءات. لا يُنفّذ أي إجراء من هذه الصفحة دونه.</noscript>
+  <div class="release-toolbar">
+    <label for="release-picker">الإصدار</label>
+    <select id="release-picker"><option value="">اختر إصدارًا</option></select>
+    <button type="button" id="release-reload">تحديث السجل</button>
+  </div>
+  {% if user.is_authenticated %}
+  <details class="release-fold" id="release-create-panel">
+    <summary>إنشاء مسودة إصدار</summary>
+    <p>أدخل البصمات فقط؛ لا تلصق ملفات التهيئة أو كلمات المرور أو قيم الأسرار. الخادم يتحقق من الصلاحيات ومن ارتباط المهمة.</p>
+    <form id="release-create" class="release-form" data-mutation>
+      {% csrf_token %}
+      <label>نوع المصدر<select name="source_type"><option value="task_id">مهمة المشروع</option><option value="job_id">طلب التنفيذ</option></select></label>
+      <label>رقم المصدر<input name="source_id" type="number" min="1" step="1" required></label>
+      <label>اسم المستودع المسجل<input name="repository" dir="ltr" pattern="[a-zA-Z0-9_-]{1,80}" maxlength="80" required></label>
+      <label>البيئة<input name="environment" dir="ltr" pattern="[a-zA-Z0-9_-]{1,80}" maxlength="80" required></label>
+      <label>مرجع فرع المصدر<input name="source_ref" dir="ltr" placeholder="refs/heads/feature" pattern="refs/heads/[a-zA-Z0-9_/-]+" maxlength="200" required></label>
+      <label>مرجع فرع الدمج<input name="target_branch" dir="ltr" placeholder="refs/heads/main" pattern="refs/heads/[a-zA-Z0-9_/-]+" maxlength="200" required></label>
+      <label class="release-wide">معرّف النسخة الكامل (commit)<input name="commit" dir="ltr" pattern="([0-9a-f]{40}|[0-9a-f]{64})" minlength="40" maxlength="64" required></label>
+      <label class="release-wide">معرّف نسخة فرع الدمج الكامل<input name="target_commit" dir="ltr" pattern="([0-9a-f]{40}|[0-9a-f]{64})" minlength="40" maxlength="64" required></label>
+      <label class="release-wide">بصمة الحزمة (SHA-256)<input name="artifact_sha256" dir="ltr" pattern="[0-9a-f]{64}" minlength="64" maxlength="64" required></label>
+      <label class="release-wide">بصمة خطة الهجرات (SHA-256)<input name="migration_plan_sha256" dir="ltr" pattern="[0-9a-f]{64}" minlength="64" maxlength="64" required></label>
+      <label class="release-wide">بصمة التهيئة (SHA-256)<input name="settings_sha256" dir="ltr" pattern="[0-9a-f]{64}" minlength="64" maxlength="64" required></label>
+      <button type="submit">حفظ المسودة</button>
+    </form>
+  </details>
+  {% endif %}
+  <section id="release-detail" aria-labelledby="release-detail-title" aria-busy="false">
+    <h2 id="release-detail-title" tabindex="-1">تفاصيل الإصدار</h2>
+    <p id="release-empty">اختر إصدارًا لقراءة مصدره ومراحل قبوله. لا يُستنتج النجاح من غياب السجل.</p>
+    <div id="release-content" hidden>
+      <div class="release-identity"><h3 id="release-name"></h3><p id="release-state"></p><dl id="release-facts"></dl><details><summary>الفروع وبصمات الحزمة والهجرات والتهيئة</summary><dl id="release-technical"></dl></details></div>
+      <h3>مسار القبول</h3>
+      <ol id="release-stages" class="release-stages" aria-label="مراحل الإصدار والأدلة المسجلة"></ol>
+      <p class="release-help">كل قرار مرتبط ببصمة الإصدار. تغيير النسخة يستلزم إعادة التحقق؛ لا يُثبت ترتيب المراحل وحده اجتيازها.</p>
+      <details class="release-fold"><summary>الأدلة والمراجعة المستقلة والموافقات</summary><div id="release-evidence"></div></details>
+      <details class="release-fold"><summary>محاولات الدمج والنشر والفحوص والتراجع</summary><div id="release-attempts"></div></details>
+      <details class="release-fold"><summary>الأدوار وسجل الأحداث</summary><div id="release-events"></div></details>
+      {% if user.is_authenticated %}
+      <details class="release-fold" id="release-controls" hidden><summary>الإجراءات المتاحة لدورك</summary>
+        <p>كل إرسال إجراء مستقل. لن تعيد الصفحة إرسال الطلب تلقائيًا إذا انقطع الاتصال. الخادم هو المرجع النهائي للصلاحيات.</p>
+        <div class="release-toolbar" id="release-author-actions" hidden>
+          <button type="button" data-action="pin" data-mutation>تثبيت بصمة المسودة</button>
+          <button type="button" id="release-revise-toggle">تعديل المسودة</button>
+        </div>
+        <form id="release-revise" class="release-form" data-mutation hidden>
+          <label>معرّف النسخة الكامل<input name="commit" dir="ltr" pattern="([0-9a-f]{40}|[0-9a-f]{64})" maxlength="64" required></label>
+          <label>البيئة<input name="environment" dir="ltr" pattern="[a-zA-Z0-9_-]{1,80}" maxlength="80" required></label>
+          <label class="release-wide">بصمة الحزمة<input name="artifact_sha256" dir="ltr" pattern="[0-9a-f]{64}" maxlength="64" required></label>
+          <label class="release-wide">بصمة خطة الهجرات<input name="migration_plan_sha256" dir="ltr" pattern="[0-9a-f]{64}" maxlength="64" required></label>
+          <label class="release-wide">بصمة التهيئة<input name="settings_sha256" dir="ltr" pattern="[0-9a-f]{64}" maxlength="64" required></label>
+          <button type="submit">حفظ تعديل المسودة</button>
+        </form>
+        <form id="release-review" class="release-form" data-mutation hidden>
+          <label>قرار المراجعة المستقلة<select name="accepted"><option value="false">رفض</option><option value="true">قبول</option></select></label>
+          <button type="submit">تسجيل المراجعة</button>
+        </form>
+        {% if user.role == 'supervisor' %}
+        <form id="release-add-evidence" class="release-form" data-mutation hidden>
+          <label>نوع الدليل<select name="kind"><option value="tests">الاختبارات</option><option value="migration">خطة الهجرات</option><option value="settings">التهيئة</option></select></label>
+          <label>مرجع الدليل<input name="reference" maxlength="500" required aria-describedby="release-ref-help"></label>
+          <p id="release-ref-help" class="release-wide release-help">مرجع تتبّع آمن فقط، دون أسرار أو محتوى ملفات التهيئة.</p>
+          <label>قرار فحص الدليل<select name="accepted"><option value="false">رفض</option><option value="true">قبول</option></select></label>
+          <button type="submit">تسجيل الدليل</button>
+        </form>
+        <div id="release-supervisor-actions" class="release-toolbar" hidden>
+          <button type="button" data-action="merge" data-mutation>طلب الدمج المحلي</button>
+          <button type="button" data-action="withdraw" data-mutation>سحب الموافقات</button>
+        </div>
+        <form id="release-approve" class="release-form" data-mutation hidden>
+          <label>غرض موافقة سفيان<select name="purpose"><option value="deploy">النشر</option><option value="rollback">التراجع</option></select></label>
+          <label class="release-check"><input type="checkbox" required>أؤكد مراجعة بصمة الإصدار والبيئة المعروضتين لهذه الموافقة</label>
+          <button type="submit">تسجيل موافقة المشرف</button>
+        </form>
+        <form id="release-deploy" class="release-form" data-mutation hidden>
+          <label>رقم النسخة الاحتياطية المتحققة<input name="backup_id" type="number" min="1" step="1" required></label>
+          <label>رقم إصدار التراجع (اختياري)<input name="target_id" type="number" min="1" step="1" aria-describedby="release-rollback-help"></label>
+          <p id="release-rollback-help" class="release-wide release-help">اترك الهدف فارغًا للنشر. التراجع يحتاج إصدارًا سليمًا في البيئة نفسها وموافقة صريحة للهدف. البيانات لا تُستعاد تلقائيًا.</p>
+          <label class="release-check"><input type="checkbox" required>أؤكد طلب تنفيذ العملية على البيئة المعروضة بعد مراجعة النسخة الاحتياطية والموافقات</label>
+          <button type="submit">إرسال طلب النشر أو التراجع</button>
+        </form>
+        {% endif %}
+      </details>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends 'registry/base.html' %}
+{% block content %}
+{% include 'registry/_page_heading.html' with eyebrow='سجل التشغيل الموثق' title='متابعة الأتمتة' description='تابع انتقال كل طلب عبر مراحله، واقرأ العوائق والنتائج والنسخ المسجلة من قاعدة المشروع.' %}
+{% include 'operations/_operator_comparison.html' %}
+<style>
+.automation{--auto-line:var(--platform-border);--auto-panel:var(--platform-surface);--auto-soft:var(--platform-surface-muted);color:var(--platform-text)}
+.automation *{min-width:0}.automation h2{font-size:clamp(21px,3vw,28px);line-height:1.4}.automation h3{font-size:18px;line-height:1.45;margin:0}.automation p{margin:8px 0}.automation section{margin:28px 0}.auto-panel{background:var(--auto-panel,#fff);border:1px solid var(--auto-line);border-radius:10px;padding:22px;margin:16px 0}.auto-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.auto-pill{display:inline-flex;align-items:center;border-radius:999px;padding:3px 12px;background:var(--auto-soft);font-size:14px;font-weight:600}.auto-pill.good{border-inline-start:4px solid var(--brand-secondary)}.auto-pill.warn{border-inline-start:4px solid var(--brand-accent)}.auto-muted{color:var(--platform-muted);font-size:14px}.auto-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.auto-fact{padding:12px;background:var(--auto-soft);border-radius:6px;overflow-wrap:anywhere}.auto-fact strong{display:block;font-size:13px;color:var(--platform-muted-strong)}.auto-timeline{display:grid;grid-template-columns:repeat(7,minmax(110px,1fr));gap:0;overflow-x:auto;padding:12px 0 8px;scrollbar-width:thin}.auto-stage{position:relative;padding:14px 12px 4px;border-top:2px solid var(--auto-line)}.auto-stage::before{content:"";position:absolute;top:-7px;right:12px;width:10px;height:10px;border:2px solid var(--auto-line);border-radius:50%;background:var(--auto-panel)}.auto-stage[data-state="verified"]::before,.auto-stage[data-state="closed"]::before,.auto-stage[data-state="confirmed"]::before,.auto-stage[data-state="recorded"]::before{background:var(--brand-secondary);border-color:var(--brand-secondary)}.auto-stage summary,.auto-fold summary{cursor:pointer;font-weight:600;color:var(--platform-text);padding:8px 0}.auto-stage details{font-size:13px}.auto-evidence{padding:10px;background:var(--auto-soft);border-radius:6px;margin-top:8px;overflow-wrap:anywhere}.auto-evidence p{font-size:12px}.auto-issues,.auto-backups{display:grid;gap:10px}.auto-issue,.auto-backup{border-inline-start:4px solid var(--brand-accent);padding:12px;background:var(--auto-soft);border-radius:5px}.auto-issue.critical{border-color:#a52a2a}.auto-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.auto-fold{padding:12px 18px}.auto-fold[open]>summary{border-bottom:1px solid var(--auto-line);margin-bottom:12px;padding-bottom:12px}.auto-table-wrap{overflow-x:auto;max-width:100%}.auto-table{width:100%;border-collapse:collapse;font-size:14px}.auto-table th,.auto-table td{text-align:right;padding:10px;border-bottom:1px solid var(--auto-line);vertical-align:top}.auto-table th{white-space:nowrap}.auto-notice{padding:14px 18px;background:var(--auto-soft);border-inline-start:4px solid var(--brand-secondary);border-radius:6px}.auto-error{border-color:#a52a2a}.auto-empty{padding:14px;border:1px dashed var(--auto-line);border-radius:8px}.auto-safe{overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:700px){.auto-panel{padding:16px}.auto-overview,.auto-grid{grid-template-columns:1fr}.auto-timeline{grid-template-columns:1fr;overflow:visible;padding-inline-start:8px}.auto-stage{border-top:0;border-inline-start:2px solid var(--auto-line);padding:8px 18px 14px}.auto-stage::before{top:13px;right:auto;left:-7px}.auto-stage:last-child{border-color:transparent}.auto-table{min-width:520px}.auto-heading{align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){.automation *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+.automation .auto-job{padding:8px 16px;margin:8px 0}.auto-job>summary{cursor:pointer;min-height:44px;padding:6px 0;list-style:disclosure-closed}.auto-job[open]>summary{border-bottom:1px solid var(--auto-line);padding-bottom:12px;margin-bottom:12px;list-style:disclosure-open}.auto-job>summary:focus-visible{outline:3px solid var(--platform-focus);outline-offset:3px}.auto-job>summary strong{font-size:16px}
+.automation .auto-pill{max-width:100%;overflow-wrap:anywhere}.automation summary{overflow-wrap:anywhere}@media(max-width:700px){.auto-stage::before{right:-7px;left:auto}.auto-job>summary.auto-heading{display:flex;gap:8px}.auto-job>summary .auto-pill{font-size:12px}}
+</style>
+<div class="automation">
+  {% include 'registry/_capacity.html' %}
+  <p class="auto-notice" role="status">النسخ الاحتياطي التلقائي والاستعادة هنا مخصصان لقاعدة SQLite المحلية. عند استخدام PostgreSQL يلزم نظام نسخ واستعادة خاص به؛ هذه الآلية لا توفر نسخة PostgreSQL ولا حماية ما قبل هجراته.</p>
+  {% if not backup_supported %}<p class="auto-notice auto-error" role="alert">نسخ قاعدة التشغيل الحالية غير مدعوم بهذه الآلية. وجود سجلات نسخ سابقة لا يثبت حماية PostgreSQL الحالية.</p>{% endif %}
+  <p class="auto-notice">قراءة فقط. يُظهر سجل الطابور إعدادات الجلسة الحالية كما هي؛ لا تفرض هذه الصفحة نموذجًا أو مستوى تفكير ولا تستدعي نموذجًا.</p>
+  {% if automation_error %}<p class="auto-notice auto-error" role="status">{{ automation_error }}</p>{% endif %}
+  <section aria-labelledby="automation-cycle-title">
+    <h2 id="automation-cycle-title">دورة المهمة</h2>
+    <details class="auto-panel auto-fold"><summary>عرض سجل دورة المهام ({{ jobs|length }})</summary>
+    {% for job in jobs %}
+      <details class="auto-panel auto-job"><summary class="auto-heading"><strong>الطلب #{{ job.id }}</strong><span class="auto-pill {% if job.success_verified %}good{% elif job.violations %}warn{% endif %}">{% if job.success_verified %}اكتمل التحقق بالأدلة{% elif job.violations %}يحتاج مراجعة{% elif job.state == 'queued' %}في الانتظار{% elif job.state == 'running' %}قيد التنفيذ{% elif job.state == 'blocked' %}متوقف بعائق{% elif job.state == 'uncertain' %}الحالة غير مؤكدة{% else %}{{ job.state_label }} — التحقق غير مكتمل{% endif %}</span></summary>
+        <p class="auto-muted">تاريخ التسجيل: <time>{{ job.created_at|date:'Y-m-d H:i' }}</time></p>
+        <div class="auto-timeline" aria-label="مراحل الطلب">
+          {% for stage in job.stages %}<div class="auto-stage" data-state="{{ stage.status }}"><strong>{{ stage.label }}</strong><p class="auto-muted">{{ stage.status_label }}</p><details><summary>الأدلة المسجلة ({{ stage.evidence|length }})</summary>{% for record in stage.evidence %}<div class="auto-evidence">{% for key,value in record.items %}<p><strong>{{ key }}:</strong> <span class="auto-safe">{{ value }}</span></p>{% empty %}<p>سجل المرحلة دليلًا بلا تفاصيل قابلة للعرض.</p>{% endfor %}</div>{% empty %}<p class="auto-muted">لا يوجد دليل مسجل لهذه المرحلة حتى الآن.</p>{% endfor %}</details></div>{% endfor %}
+        </div>
+        {% if job.violations %}<p class="auto-pill warn">مخالفات موثقة: {{ job.violation_labels|join:'، ' }}</p>{% endif %}
+        <details class="auto-fold auto-safe" data-source-job="{{ job.id }}">
+          <summary>المراجعة المرتبطة بالطلب #{{ job.id }}</summary>
+          {% if job.review %}
+            <p>طلب المراجعة المرتبط: <strong>#{{ job.review.job_id }}</strong></p>
+            {% if job.review.receipt %}
+              <p>إيصال نتيجة المراجعة: <strong>#{{ job.review.receipt }}</strong></p>
+              <p>قرار المراجعة: <bdi>{{ job.review.decision_label|default:'لم يُسجل قرار في دليل المراجعة' }}</bdi></p>
+              <div class="auto-safe">{{ job.review.summary_display|linebreaksbr }}</div>
+              <p class="auto-muted">قرار المراجعة مسجل مستقلًا عن حالة التنفيذ والتحقق للطلب الأصلي.</p>
+            {% else %}<p class="auto-muted">لم تُسجل نتيجة مراجعة لهذا الطلب بعد؛ إسناد المراجعة لا يثبت اكتمالها.</p>{% endif %}
+          {% else %}{% if job.operational_review %}<p>تحقق تشغيلي مستقل مرتبط بالطلب.</p>{% else %}<p class="auto-muted">لا توجد مراجعة مرتبطة مسجلة لهذا الطلب.</p>{% endif %}{% endif %}
+          {% if job.operational_review %}
+          <section class="auto-safe" aria-label="التحقق التشغيلي المستقل">
+            <p>إيصال التحقق المستقل: <strong>#{{ job.operational_review.receipt }}</strong> — اجتاز التحقق <bdi>PASS</bdi></p>
+            <p>نقل القناة إلى {{ job.operational_review.target_label|default:'مشغّل الجلسات' }} مكتمل — سجل النقل #{{ job.operational_review.journal }}.</p>
+            <p>تجديد التنسيق: {% if job.operational_review.renewal_valid %}مفعّل وصالح{% else %}غير مفعّل أو غير موثوق حاليًا{% endif %} — إيصال التفعيل #{{ job.operational_review.activation_receipt }}.</p>
+            <p>الاختبار الموثق للطلب #{{ job.id }}: الرسالة #{{ job.operational_review.message }}، التسليم #{{ job.operational_review.dispatch }}.</p>
+            <p class="auto-muted">التحقق بتاريخ {{ job.operational_review.checked_at|date:'Y-m-d H:i' }}. أدلة النقل والتفعيل مستقلة عن نتيجة اختبار الاتصال.</p>
+          </section>
+          {% endif %}
+        </details>
+      </details>
+    {% empty %}{% if not automation_error %}<p class="auto-empty">لا توجد طلبات أتمتة مسجلة بعد.</p>{% endif %}{% endfor %}
+    </details>
+    {% if heartbeats %}<details class="auto-panel auto-fold"><summary>حالة موزّع المهام</summary><div class="auto-table-wrap"><table class="auto-table"><thead><tr><th>المكوّن</th><th>الحالة</th><th>آخر تحديث</th></tr></thead><tbody>{% for heartbeat in heartbeats %}<tr><td>{% if heartbeat.key == 'local' %}الموزّع المحلي{% elif heartbeat.key == 'session_bridge' %}جسر الجلسات{% elif heartbeat.key == 'readonly' %}العامل المعزول للقراءة{% else %}{{ heartbeat.key }}{% endif %}</td><td>{{ heartbeat.state_label }}</td><td><time>{{ heartbeat.updated_at|date:'Y-m-d H:i:s' }}</time></td></tr>{% endfor %}</tbody></table></div></details>{% endif %}
+  </section>
+
+  <section aria-labelledby="automation-issues-title">
+    <h2 id="automation-issues-title">العوائق والتعليق</h2>
+    <p class="auto-notice">طلبات «يحتاج مراجعة» تُسند تلقائيًا إلى جلسة المراجعة في دفعات محدودة، دون تكرار الأصل أو مراجعة المراجعة نفسها. <a href="{% url 'admin:operations_reviewassignment_changelist' %}">عرض الإسنادات وطلب المراجعة المرتبط</a>. الإسناد وحده لا يعني استلام الرسالة أو اكتمال الفحص.</p>
+    {% if issues %}<details class="auto-panel auto-fold"><summary>عرض العوائق المسجلة ({{ issues|length }})</summary><div class="auto-issues">{% for issue in issues %}<article class="auto-issue {% if issue.severity == 'critical' %}critical{% endif %}"><div class="auto-heading"><strong>{{ issue.title }}</strong><span class="auto-pill">{{ issue.get_state_display }} · {{ issue.get_severity_display }}</span></div><p class="auto-muted">{% if issue.job_id %}الطلب #{{ issue.job_id }} · {% else %}عائق عام · {% endif %}آخر رصد: <time>{{ issue.last_seen|date:'Y-m-d H:i' }}</time></p></article>{% endfor %}</div></details>{% elif not automation_error %}<p class="auto-empty">لا توجد عوائق مسجلة.</p>{% endif %}
+  </section>
+
+  <section aria-labelledby="automation-results-title">
+    <h2 id="automation-results-title">النتيجة والنموذج والتفكير والاستهلاك</h2>
+    <details class="auto-panel auto-fold"><summary>عرض نتائج المهام واستهلاكها ({{ jobs|length }})</summary>
+    {% for job in jobs %}<details class="auto-panel auto-job"><summary>الطلب #{{ job.id }} · النموذج والاستهلاك والنتيجة</summary><div class="auto-overview"><div class="auto-fact"><strong>النموذج المطلوب</strong>{{ job.requested.model|default:'غير مسجل' }}</div><div class="auto-fact"><strong>التفكير المطلوب</strong>{{ job.requested_thinking_label|default:'غير مسجل' }}</div><div class="auto-fact"><strong>النمط</strong>{% if job.requested.mode == 'read-only' %}قراءة فقط{% elif job.requested.mode == 'workspace-write' %}كتابة مساحة العمل{% else %}{{ job.requested.mode|default:'غير مسجل' }}{% endif %}</div><div class="auto-fact"><strong>النموذج المرصود</strong>{{ job.observed.model|default:'لا يتوفر دليل رصد' }}</div><div class="auto-fact"><strong>التفكير المرصود</strong>{{ job.observed_thinking_label|default:'لا يتوفر دليل رصد' }}</div><div class="auto-fact"><strong>مصدر الرصد</strong>{% if job.usage_source == 'session_dispatch_turn' %}دور موثق في سجل الإرسال{% elif job.usage_source == 'model_job_direct' %}عداد المهمة المسجل{% else %}لا يوجد مصدر استهلاك موثق{% endif %}</div></div>
+      {% if job.usage %}<details class="auto-fold"><summary>عدادات الرموز المسجلة للمهمة</summary><div class="auto-overview">{% for key,value in job.usage_display.items %}<div class="auto-fact"><strong>{{ key }}</strong>{{ value }}</div>{% endfor %}</div><p class="auto-muted">هذه عدادات المهمة فقط؛ لم تُجمع مع عينات لوحة استهلاك الرموز.</p></details>{% else %}<p class="auto-muted">لا توجد عدادات استهلاك مؤكدة لهذه المهمة.</p>{% endif %}
+      {% if job.result %}<details class="auto-fold"><summary>النتيجة المسجلة</summary><p class="auto-safe">{{ job.result|linebreaksbr }}</p></details>{% else %}<p class="auto-muted">لم تُسجل نتيجة بعد.</p>{% endif %}
+      {% if job.outcome_note %}<p><strong>ملاحظة الإغلاق:</strong> {{ job.outcome_note }}</p>{% endif %}
+      {% if not job.success_verified %}<p class="auto-muted">لا تعرض الصفحة نجاحًا مؤكدًا ما لم تتوفر أدلة الإغلاق والتحقق.</p>{% endif %}
+    </details>{% empty %}{% if not automation_error %}<p class="auto-empty">لا توجد نتائج مهام لعرضها.</p>{% endif %}{% endfor %}</details>
+  </section>
+
+  <section aria-labelledby="automation-backups-title">
+    <h2 id="automation-backups-title">النسخ الاحتياطي والاستعادة المنفصلة</h2>
+    <p class="auto-notice">أي استعادة مسجلة هنا تتم إلى قاعدة منفصلة؛ لا تستبدل قاعدة التشغيل. لا تعرض الصفحة محتوى النسخ أو مساراتها أو بصماتها.</p>
+    {% if backup_error %}<p class="auto-notice auto-error" role="status">{{ backup_error }}</p>{% endif %}
+    {% if backup_policy %}<article class="auto-panel"><h3>سياسة النسخ</h3><div class="auto-overview"><div class="auto-fact"><strong>الحالة</strong>{% if backup_policy.enabled %}مفعلة{% else %}متوقفة{% endif %}</div><div class="auto-fact"><strong>الفاصل</strong>كل {{ backup_policy.interval_hours }} ساعة</div><div class="auto-fact"><strong>الاحتفاظ</strong>{{ backup_policy.retained_successful }} نسخ ناجحة</div><div class="auto-fact"><strong>قبل الهجرة</strong>{% if backup_policy.before_migration %}مطلوبة حسب السياسة{% else %}غير مطلوبة{% endif %}</div><div class="auto-fact"><strong>آخر تحديث للسياسة</strong><time>{{ backup_policy.updated_at|date:'Y-m-d H:i' }}</time></div></div></article>{% endif %}
+    <div class="auto-grid"><details class="auto-panel auto-fold"><summary>سجل النسخ ({{ backup_runs|length }})</summary>{% for run in backup_runs %}<div class="auto-backup"><strong>{{ run.get_kind_display }}</strong> · {{ run.get_state_display }}<p class="auto-muted">بدأ: <time>{{ run.started_at|date:'Y-m-d H:i' }}</time>{% if run.finished_at %} · انتهى: <time>{{ run.finished_at|date:'Y-m-d H:i' }}</time>{% endif %}</p>{% if run.state == 'success' %}<p class="auto-muted">الحجم: {{ run.size_bytes }} بايت · فحص السلامة: {% if run.integrity_result == 'ok' %}اجتاز الفحص{% elif run.integrity_result %}لم يجتز الفحص{% else %}غير مسجل{% endif %}</p>{% elif run.state == 'failed' %}<p class="auto-muted">تعذر إتمام النسخة؛ راجع سجل التشغيل المصرح.</p>{% endif %}</div>{% empty %}{% if backup_available %}<p class="auto-muted">لا توجد عمليات نسخ مسجلة.</p>{% endif %}{% endfor %}</details>
+      <details class="auto-panel auto-fold"><summary>الاستعادة المنفصلة ({{ backup_restores|length }})</summary>{% for run in backup_restores %}<div class="auto-backup"><strong>استعادة من نسخة #{{ run.source_id|default:'غير محددة' }}</strong> · {{ run.get_state_display }}<p class="auto-muted">بدأت: <time>{{ run.started_at|date:'Y-m-d H:i' }}</time>{% if run.finished_at %} · انتهت: <time>{{ run.finished_at|date:'Y-m-d H:i' }}</time>{% endif %}</p><p class="auto-muted">الوجهة منفصلة عن قاعدة التشغيل.</p></div>{% empty %}{% if backup_available %}<p class="auto-muted">لا توجد عمليات استعادة مسجلة.</p>{% endif %}{% endfor %}</details></div>
+  </section>
+</div>
+{% endblock %}

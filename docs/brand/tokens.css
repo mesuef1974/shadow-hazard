@@ -1,0 +1,13 @@
+@font-face{font-family:'ibmplexsansarabic';src:url('fonts/ibmplexsansarabic-IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'ibmplexsansarabic';src:url('fonts/ibmplexsansarabic-IBMPlexSansArabic-SemiBold.ttf') format('truetype');font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:'ibmplexsans';src:url('fonts/ibmplexsans-IBMPlexSans-Italic[wdth,wght].ttf') format('truetype');font-weight:100 900;font-style:italic;font-display:swap}
+@font-face{font-family:'ibmplexsans';src:url('fonts/ibmplexsans-IBMPlexSans[wdth,wght].ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'notokufiarabic';src:url('fonts/notokufiarabic-NotoKufiArabic[wght].ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'manrope';src:url('fonts/manrope-Manrope[wght].ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'readexpro';src:url('fonts/readexpro-ReadexPro[HEXP,wght].ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
+[data-theme="sightline"]{--primary:#142D4E;--secondary:#007F82;--accent:#F4B544;--background:#F4F7FB;--text:#142D4E;--font-ar:'ibmplexsansarabic';--font-en:'ibmplexsans';}
+[data-theme="horizon"]{--primary:#672A46;--secondary:#D8B778;--accent:#946022;--background:#FAF7F0;--text:#352533;--font-ar:'notokufiarabic';--font-en:'manrope';}
+[data-theme="perception"]{--primary:#342D70;--secondary:#6259D8;--accent:#A6E4D5;--background:#F6F5FC;--text:#252044;--font-ar:'readexpro';--font-en:'readexpro';}
+[data-theme="sightline"]{--on-accent:#142D4E}
+[data-theme="horizon"]{--on-accent:#FFFFFF}
+[data-theme="perception"]{--on-accent:#252044}

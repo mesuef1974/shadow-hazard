@@ -1,0 +1,1 @@
+{% extends 'registry/base.html' %}{% block content %}{% include 'registry/_page_heading.html' with eyebrow='إدارة المهام' title=title description='أدخل التفاصيل المطلوبة ثم احفظ التغييرات.' %}<section class="work-panel"><form class="editor" method="post">{% csrf_token %}{{ form.as_p }}<button>حفظ</button></form></section>{% endblock %}

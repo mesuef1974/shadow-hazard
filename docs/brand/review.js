@@ -1,0 +1,1 @@
+document.getElementById('skillsearch').addEventListener('input',function(){const q=this.value.toLowerCase().trim();document.querySelector('#registry details').open=Boolean(q);document.querySelectorAll('#skills tbody tr').forEach(row=>{row.hidden=!row.textContent.toLowerCase().includes(q)})});

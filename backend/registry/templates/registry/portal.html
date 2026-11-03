@@ -1,0 +1,49 @@
+{% extends 'registry/base.html' %}
+{% block content %}
+{% include 'registry/_page_heading.html' with eyebrow='ذاكرة المشروع' title='مكتبة الوثائق' description='ابحث في عناوين الوثائق ومساراتها، وافتح الملف للقراءة أو التنزيل.' metric=page_obj.paginator.count metric_label='وثيقة' %}
+
+<form class="library-search" method="get" action="{% url 'project-library' %}#library">
+  <label for="q">ابحث بعنوان الوثيقة أو مجلدها</label>
+  <div class="search">
+    <input id="q" name="q" value="{{ query }}" placeholder="مثل: التجربة، الهوية، المتطلبات">
+    <button type="submit">بحث</button>
+    {% if query %}<a href="{% url 'project-library' %}#library">مسح البحث</a>{% endif %}
+  </div>
+</form>
+
+<p class="library-results-meta" aria-live="polite">
+  {% if page_obj.paginator.count %}
+    الوثائق {{ page_obj.start_index }}–{{ page_obj.end_index }} من {{ page_obj.paginator.count }}
+  {% else %}
+    لا توجد وثائق مطابقة
+  {% endif %}
+</p>
+
+<div class="documents" aria-label="نتائج مكتبة الوثائق">
+  {% for doc in documents %}
+    <article aria-label="{{ doc.title }}">
+      <span class="file-kind">{{ doc.kind }}</span>
+      <div class="library-doc-details">
+        <a href="{% url 'project-document' doc.name %}">{{ doc.title }}</a>
+        <p dir="ltr">{{ doc.name }}</p>
+        <small>{% if doc.record %}نسخة موثقة · {{ doc.record.created_at|date:"Y/m/d" }}{% else %}نسخة جديدة بانتظار الفهرسة{% endif %}</small>
+      </div>
+      <a class="download" href="{% url 'project-document' doc.name %}?download=1">تنزيل</a>
+    </article>
+  {% empty %}
+    <p class="empty-state">لا توجد وثائق مطابقة. جرّب كلمة أخرى.</p>
+  {% endfor %}
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+  <nav class="library-pagination" aria-label="التنقل بين صفحات الوثائق">
+    {% if page_obj.has_previous %}
+      <a rel="prev" href="?{% if query %}q={{ query|urlencode }}&amp;{% endif %}page={{ page_obj.previous_page_number }}#library">السابق</a>
+    {% else %}<span class="pagination-disabled" aria-disabled="true">السابق</span>{% endif %}
+    <span class="pagination-current">صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+      <a rel="next" href="?{% if query %}q={{ query|urlencode }}&amp;{% endif %}page={{ page_obj.next_page_number }}#library">التالي</a>
+    {% else %}<span class="pagination-disabled" aria-disabled="true">التالي</span>{% endif %}
+  </nav>
+{% endif %}
+{% endblock %}
