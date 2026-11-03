@@ -19,8 +19,10 @@ def assign_pending_reviews(limit=8):
         if any(link.result_document is None for link in assigned.select_related('source_job__charter')):continue
         sender=SessionCharter.objects.filter(project=target.project,key='coordination',policy__enabled=True).first()
         if not sender or not target.thread_id:continue
+        # A subquery avoids the nullable reverse join while retaining job/owner/charter locks.
         jobs=list(ModelJob.objects.select_for_update().filter(charter__project=target.project,state='needs_review',
-            owner__is_active=True,owner__role='supervisor',automatic_review__isnull=True)
+            owner__is_active=True,owner__role='supervisor')
+            .exclude(pk__in=ReviewAssignment.objects.values('source_job_id'))
             .exclude(charter=target).exclude(reviewed_assignments__isnull=False).order_by('created_at','pk')[:limit])
         if not jobs:continue
         ids=[job.pk for job in jobs]

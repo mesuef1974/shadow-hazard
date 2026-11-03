@@ -198,6 +198,10 @@ class AutoRenewalPolicyTests(AutoRenewalFixture, TestCase):
         self.assertIn('تنفيذ اختبار التسليم الأخير', transfer.summary)
         self.assertNotIn(self.charter.rules, transfer.summary)
         self.assertLessEqual(len(transfer.summary), 2000)
+        from workspace.auto_renewal import _transfer_summary
+        reordered_payload = dict(reversed(list(transfer.evidence['payload'].items())))
+        reordered_payload['charter'] = dict(reversed(list(reordered_payload['charter'].items())))
+        self.assertEqual(_transfer_summary(reordered_payload), transfer.summary)
         original_summary = transfer.summary
         transfer.delete()
         document(self.project, self.charter.key, 'task:newer-work', 'معلومة أحدث لا تغير إيصال النقل المحفوظ',

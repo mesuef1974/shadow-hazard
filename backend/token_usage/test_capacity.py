@@ -336,6 +336,9 @@ class CapacityTests(TestCase):
         from workspace.models import DispatcherHeartbeat
         prefix='workspace.management.commands.run_model_dispatcher.'
         with TemporaryDirectory() as folder, self.settings(BASE_DIR=Path(folder)), ExitStack() as stack:
+            # TestCase owns this connection's transaction; a worker's lifecycle
+            # cleanup must not close it while testing maintenance dispatch.
+            stack.enter_context(patch(prefix+'close_old_connections'))
             for name in ['observe_arrivals','reconcile','deliver_one','run_one']:
                 stack.enter_context(patch(prefix+name,return_value=None))
             stack.enter_context(patch('execution_context.owner_delivery.recover_unstarted_claims'))

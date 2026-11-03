@@ -168,7 +168,14 @@ def assert_auto_authority(renewal, approval=None):
     policy = policy_for(latch.charter, create=False)
     if policy and connection.in_atomic_block:
         policy = AutoRenewalPolicy.objects.select_for_update().select_related(
-            'owner', 'activation_receipt', 'charter__policy').get(pk=policy.pk)
+            'charter__policy').get(pk=policy.pk)
+        # PostgreSQL cannot lock the nullable side of an outer join. Keep
+        # authority rows locked explicitly when those references are present.
+        if policy.owner_id:
+            policy.owner = get_user_model().objects.select_for_update().get(pk=policy.owner_id)
+        if policy.activation_receipt_id:
+            policy.activation_receipt = ProjectDocumentation.objects.select_for_update().get(
+                pk=policy.activation_receipt_id)
     approval = approval or ProjectDocumentation.objects.filter(pk=renewal.approval_id).first()
     if (not execution_allowed(policy) or policy.owner_id != renewal.owner_id
             or latch.source_thread_id != latch.charter.thread_id
@@ -263,7 +270,7 @@ def _transfer_summary(payload):
     charter = payload['charter']
     summary_data = {k: v for k, v in payload.items() if k not in {'kind', 'charter'}}
     summary_data['charter'] = {k: charter[k] for k in ('id', 'key', 'name', 'source_thread_id')}
-    return json.dumps(summary_data, ensure_ascii=False, separators=(',', ':'))
+    return json.dumps(summary_data, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
 
 
 @transaction.atomic
@@ -478,7 +485,7 @@ def _fresh_current_observation(latch, now):
 def _claim_locked(latch_id, now):
     AutoRenewalLatch.objects.filter(pk=latch_id).update(updated_at=F('updated_at'))
     row = AutoRenewalLatch.objects.select_for_update().select_related('charter__project', 'handover__event__measurement',
-        'handover__observation', 'observation').get(pk=latch_id)
+        'observation').get(pk=latch_id)
     policy = policy_for(row.charter, create=False)
     if row.charter.thread_id != row.source_thread_id:
         row.state = 'invalidated'; row.last_error = 'source_binding_changed'

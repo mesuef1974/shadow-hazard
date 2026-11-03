@@ -208,8 +208,10 @@ def _monitor_plan(row, new_config):
     result=[]
     if row.preparation.evidence.get('snapshot_version',1)<2:return result
     for before in monitor_images(row.project_id):
-        policy=OperatorMonitorPolicy.objects.select_for_update().select_related('activation_receipt','charter').get(pk=before['policy_id'])
-        old=policy.activation_receipt
+        policy=OperatorMonitorPolicy.objects.select_for_update().select_related('charter').get(pk=before['policy_id'])
+        # Lock the optional approval separately; preserve the policy/charter locks.
+        old=(ProjectDocumentation.objects.select_for_update().get(pk=policy.activation_receipt_id)
+             if policy.activation_receipt_id else None)
         if policy.owner_id!=row.owner_id:
             raise PermissionDenied('Operator monitor belongs to another owner')
         if old:

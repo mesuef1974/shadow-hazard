@@ -3,6 +3,7 @@ import tempfile
 import uuid
 from datetime import timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -15,7 +16,7 @@ from execution_context.models import (
 from operations.models import AutomationIssue, BackupPolicy, BackupRun
 from operations.services import audit_automation, restore_backup_to_separate_database, run_due_backup, task_snapshot
 from workspace.models import DispatcherHeartbeat, ModelJob, ModelPolicy, Project, SessionCharter
-from .services import backup_database
+from .services import backup_database, _sqlite_source_path
 
 
 class OperationsTests(TransactionTestCase):
@@ -26,6 +27,17 @@ class OperationsTests(TransactionTestCase):
         policy = ModelPolicy.objects.create(category="backend", title="باك إند")
         self.charter = SessionCharter.objects.create(key="backend", name="باك إند", project=self.project,
             policy=policy, scope="test", rules="test")
+
+    def sqlite_backup_source(self, path):
+        # The backup transport is SQLite-only; its registry may use either backend.
+        source = sqlite3.connect(path)
+        try:
+            source.execute("CREATE TABLE workspace_project (name TEXT NOT NULL)")
+            source.execute("INSERT INTO workspace_project (name) VALUES (?)", ("backup-content-proof",))
+            source.commit()
+        finally:
+            source.close()
+        return path
 
     def make_job(self, *, state="completed"):
         job = ModelJob.objects.create(charter=self.charter, owner=self.owner, prompt="test",
@@ -246,14 +258,7 @@ class OperationsTests(TransactionTestCase):
             root = Path(temp)
             with override_settings(OPERATIONS_BACKUP_DIR=root / "backups", OPERATIONS_RESTORE_DIR=root / "restores"):
                 from django.db import connections
-                Project.objects.create(name="backup-content-proof")
-                source_path = root / "source.sqlite3"
-                source = connections["default"].connection
-                destination = sqlite3.connect(source_path)
-                try:
-                    source.backup(destination)
-                finally:
-                    destination.close()
+                source_path = self.sqlite_backup_source(root / "source.sqlite3")
                 with patch("operations.services._sqlite_source_path", return_value=source_path):
                     result = backup_database()
                 self.assertTrue(result["verified"])
@@ -277,14 +282,7 @@ class OperationsTests(TransactionTestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             with override_settings(OPERATIONS_BACKUP_DIR=root / "backups", OPERATIONS_RESTORE_DIR=root / "restores"):
-                from django.db import connections
-                source_path = root / "source.sqlite3"
-                source = connections["default"].connection
-                destination = sqlite3.connect(source_path)
-                try:
-                    source.backup(destination)
-                finally:
-                    destination.close()
+                source_path = self.sqlite_backup_source(root / "source.sqlite3")
                 with patch("operations.services._sqlite_source_path", return_value=source_path):
                     first = backup_database()
                 policy = BackupPolicy.objects.get(key="default")
@@ -308,16 +306,15 @@ class OperationsTests(TransactionTestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             with override_settings(OPERATIONS_BACKUP_DIR=root / "backups", OPERATIONS_RESTORE_DIR=root / "restores"):
-                from django.db import connections
-                source_path = root / "source.sqlite3"
-                destination = sqlite3.connect(source_path)
-                try:
-                    connections["default"].connection.backup(destination)
-                finally:
-                    destination.close()
+                source_path = self.sqlite_backup_source(root / "source.sqlite3")
                 with patch("operations.services._sqlite_source_path", return_value=source_path):
                     first = run_due_backup()
                     second = run_due_backup(now=timezone.now() + timedelta(minutes=1))
                 self.assertTrue(first["due"])
                 self.assertEqual(first["run"].kind, "scheduled")
                 self.assertFalse(second["due"])
+
+    def test_sqlite_backup_rejects_other_database_engines(self):
+        with patch('operations.services.connections', {'default': SimpleNamespace(vendor='postgresql')}):
+            with self.assertRaisesMessage(ValueError, 'sqlite_only'):
+                _sqlite_source_path()

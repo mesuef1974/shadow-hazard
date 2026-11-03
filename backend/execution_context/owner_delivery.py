@@ -11,7 +11,7 @@ from django.core.management import call_command
 from django.db import transaction
 from django.utils import timezone
 from workspace.models import SessionCharter
-from .models import SessionDispatch,SessionDispatchEvent,TaskContext
+from .models import SessionDispatch,SessionDispatchEvent,SessionRoutingPolicy,TaskContext
 from .owner_tools import OwnerTools,OwnerToolsError,load_config
 from .owner_channel import ensure_channel
 from .desktop_session_bridge import BridgeError,_command,_release_claim,_mark_uncertain
@@ -58,7 +58,10 @@ def _final_authority(candidate,claimed,config,context_snapshot):
     changed=SessionDispatch.objects.filter(pk=candidate.pk,state='claimed',claim_token=claimed['claim_token']).update(updated_at=timezone.now())
     if changed!=1:raise BridgeError('سُحب حجز الإرسال أو تغيرت هويته')
     fresh=SessionDispatch.objects.select_for_update().select_related(
-        'job__owner','job__charter','target_charter__policy','routing_policy').get(pk=candidate.pk)
+        'job__owner','job__charter','target_charter__policy').get(pk=candidate.pk)
+    # Keep the optional policy locked without a nullable FOR UPDATE join.
+    if fresh.routing_policy_id:
+        fresh.routing_policy=SessionRoutingPolicy.objects.select_for_update().get(pk=fresh.routing_policy_id)
     job=fresh.job;target=fresh.target_charter
     from workspace.model_limits import model_limit_error
     limit_error=model_limit_error(target,fresh.requested_model,fresh.requested_thinking)

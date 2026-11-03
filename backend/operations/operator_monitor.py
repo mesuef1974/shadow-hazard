@@ -3,7 +3,8 @@ import hashlib
 import uuid
 from datetime import timedelta
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import CharField, F, Q, Value
+from django.db.models.functions import Cast, Concat
 from django.utils import timezone
 from execution_context.models import AuthorityTransferJournal, SessionDispatch, SessionRoutingPolicy
 from execution_context.owner_tools import load_config
@@ -134,10 +135,11 @@ def conditions(policy, now):
     result={}
     if SCOPES[0] in policy.scopes:
         known=OperatorIncident.objects.filter(policy=policy,state='open',
-            code__startswith='authority_transfer_').values_list('reference__journal_id',flat=True)
+            code__startswith='authority_transfer_').values_list('condition_key',flat=True)
         for row in AuthorityTransferJournal.objects.filter(project_id=policy.project_id,
-                state__in=['frozen','config_written','ambiguous']).filter(
-                    Q(updated_at__lt=now-timedelta(seconds=120))|Q(pk__in=known)):
+                state__in=['frozen','config_written','ambiguous']).alias(
+                    incident_key=Concat(Value('transfer:'),Cast('pk',output_field=CharField()))).filter(
+                    Q(updated_at__lt=now-timedelta(seconds=120))|Q(incident_key__in=known)):
             code='authority_transfer_'+row.state
             result[f'transfer:{row.pk}']=(code,{'journal_id':row.pk,'state':row.state})
     if SCOPES[1] in policy.scopes:
@@ -178,7 +180,10 @@ def inspect_policy(policy_id):
     with transaction.atomic():
         # A write reservation serializes this operation on SQLite as well as row-lock databases.
         Project.objects.filter(pk=project_id).update(name=F('name'))
-        policy=OperatorMonitorPolicy.objects.select_for_update().select_related('owner','charter__policy','activation_receipt').get(pk=policy_id)
+        policy=OperatorMonitorPolicy.objects.select_for_update().select_related('owner','charter__policy').get(pk=policy_id)
+        # Keep authority rows locked without applying FOR UPDATE to a nullable join.
+        if policy.activation_receipt_id:
+            policy.activation_receipt=ProjectDocumentation.objects.select_for_update().get(pk=policy.activation_receipt_id)
         if policy.project_id!=project_id:raise ValueError('Operator project changed during inspection')
         if not policy.enabled:return 0
         config=load_config()

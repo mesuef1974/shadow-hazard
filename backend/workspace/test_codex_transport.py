@@ -1,6 +1,7 @@
 import io
 import json
 import subprocess
+from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import Mock, patch
 from .codex_transport import execute, Unavailable, Uncertain
@@ -50,13 +51,16 @@ class TransportTests(TestCase):
         popen.return_value=self.process([{'type':'turn.completed'}])
         with self.assertRaises(Uncertain):execute('codex','','gpt-6-luna','low','test','.','read-only',timeout=1)
 
-    @patch('workspace.codex_transport.os.name','nt')
+    # Replace only this module's OS reference; pathlib must keep the real host OS.
+    @patch('workspace.codex_transport.os',SimpleNamespace(name='nt'))
     @patch('workspace.codex_transport.subprocess.run',side_effect=subprocess.TimeoutExpired('taskkill',10))
     @patch('workspace.codex_transport.time.monotonic',side_effect=[0,100])
     @patch('workspace.codex_transport.subprocess.Popen')
     def test_taskkill_timeout_preserves_uncertain_and_kills_parent(self,popen,clock,killtree):
         process=self.process([]);process.poll.return_value=None;popen.return_value=process
         with self.assertRaises(Uncertain):execute('codex','','gpt-6-luna','low','test','.','read-only',timeout=1)
+        killtree.assert_called_once_with(['taskkill','/PID',str(process.pid),'/T','/F'],
+            stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10,check=False)
         process.kill.assert_called_once()
 
     @patch('workspace.codex_transport.observed_model',return_value='')

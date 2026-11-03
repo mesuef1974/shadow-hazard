@@ -4,7 +4,7 @@ import uuid
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
-from execution_context.models import SessionDispatch, SessionDispatchEvent, SessionDispatchTurn
+from execution_context.models import SessionDispatch, SessionDispatchEvent, SessionDispatchTurn, SessionRoutingPolicy
 
 
 class Command(BaseCommand):
@@ -31,7 +31,10 @@ class Command(BaseCommand):
             if not isinstance(detail,dict):raise ValueError()
         except (ValueError,TypeError):raise CommandError('صيغة JSON أو claim-token غير صالحة')
         with transaction.atomic():
-            dispatch=SessionDispatch.objects.select_for_update().select_related('job','target_charter','routing_policy').get(pk=opts['dispatch'])
+            dispatch=SessionDispatch.objects.select_for_update().select_related('job','target_charter').get(pk=opts['dispatch'])
+            # PostgreSQL cannot lock the nullable side of a joined relation.
+            if dispatch.routing_policy_id:
+                dispatch.routing_policy=SessionRoutingPolicy.objects.select_for_update().get(pk=dispatch.routing_policy_id)
             if dispatch.claim_token!=claim_token:raise CommandError('claim-token لا يطابق السجل')
             action=opts['action']
             if action=='sent' and dispatch.state=='claimed' and dispatch.job.mode=='read-only':

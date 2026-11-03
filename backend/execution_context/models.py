@@ -95,7 +95,7 @@ class SessionDispatch(models.Model):
 
 class SessionDispatchEvent(models.Model):
     dispatch=models.ForeignKey(SessionDispatch,on_delete=models.PROTECT,related_name='events')
-    state=models.CharField(max_length=20)
+    state=models.CharField(max_length=64)
     detail=models.JSONField(default=dict,blank=True)
     created_at=models.DateTimeField(auto_now_add=True)
     class Meta:
