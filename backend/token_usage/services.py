@@ -33,6 +33,9 @@ def _synchronize():
         connection = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=5)
         connection.row_factory = sqlite3.Row
         try:
+            # Read one consistent source snapshot without locking the project DB.
+            connection.execute('BEGIN')
+            collector_payload = None
             tables={row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             if 'usage_collector_runs' in tables:
                 collector=connection.execute('SELECT status,started_at,completed_at,heartbeat_at,source_files_updated,samples_inserted FROM usage_collector_runs ORDER BY run_id DESC LIMIT 1').fetchone()
@@ -40,64 +43,19 @@ def _synchronize():
                 weekly=connection.execute('SELECT sampled_at,recorded_at,weekly_used_percent,weekly_remaining_percent,weekly_window_minutes,weekly_resets_at FROM usage_samples WHERE weekly_used_percent IS NOT NULL AND weekly_window_minutes=10080 ORDER BY sampled_at DESC,sample_id DESC LIMIT 1').fetchone()
                 collector_data=dict(collector) if collector else {}
                 collector_data['last_success_at']=last_success['completed_at'] if last_success else None
-                CollectorState.objects.update_or_create(key='local',defaults={'payload':{'collector':collector_data,'weekly':dict(weekly) if weekly else {}}})
-            with transaction.atomic():
-                # Acquire the SQLite write reservation before reading destination rows.
-                # This serializes a manual sync with the local watcher without lock upgrades.
-                SyncRun.objects.filter(pk=run.pk).update(message='المزامنة قيد التنفيذ')
-                highwater = connection.execute('SELECT COALESCE(MAX(sample_id),0) FROM usage_samples').fetchone()[0]
-                anchor = _source_anchor(connection, highwater)
-                source_state = UsageSourceState.objects.select_for_update().filter(key='local').first()
-                source_changed = False
-                if source_state is None:
-                    source_state = UsageSourceState.objects.create(key='local',identity=identity,
-                        generation=LEGACY_SOURCE_GENERATION,highwater=highwater,anchor_digest=anchor)
-                    generation = source_state.generation
-                else:
-                    source_changed = (source_state.identity != identity or highwater < source_state.highwater or
-                        (source_state.highwater > 0 and anchor_at_id(connection,source_state.highwater) != source_state.anchor_digest))
-                    generation = uuid.uuid4() if source_changed else source_state.generation
-
-                prepared=[]
-                invalid_rows=[]
-                content_changed=False
-                sessions=list(TrackedSession.objects.filter(enabled=True).order_by('pk'))
-                for session in sessions:
-                    known={row.source_id:row for row in session.samples.filter(source_generation=generation).only(
-                        'source_id','sampled_at','model','total','input','cached','output','reasoning','context','context_limit','effort','tier')}
-                    seen=set(); valid=[]
-                    rows=connection.execute('SELECT * FROM usage_samples WHERE session_id=? ORDER BY sampled_at,sample_id',(session.external_id,))
-                    for row in rows:
-                        try:
-                            values=_source_sample(row)
-                        except (ValueError,KeyError,IndexError,TypeError,OverflowError):
-                            invalid_rows.append((session.pk,row['sample_id'] if 'sample_id' in row.keys() else None))
-                            continue
-                        source_id=values.pop('source_id');seen.add(source_id)
-                        old=known.get(source_id)
-                        if old and any(getattr(old,key)!=values[key] for key in ('sampled_at','model','total','input','cached','output','reasoning','context','context_limit')):
-                            content_changed=True
-                        valid.append((source_id,values))
-                    if known.keys()-seen:
-                        content_changed=True
-                    prepared.append((session,valid,known))
-
-                if content_changed and not source_changed:
-                    generation=uuid.uuid4()
-                    source_changed=True
-                for session,rows,known in prepared:
-                    for source_id,values in rows:
-                        defaults={**values,'source_generation':generation}
-                        sample,created=TokenSample.objects.get_or_create(session=session,
-                            source_generation=generation,source_id=source_id,defaults=defaults)
-                        if not created and (sample.effort,sample.tier)!=(values['effort'],values['tier']):
-                            session.samples.filter(pk=sample.pk).update(effort=values['effort'],tier=values['tier'])
-                        added += created
-                source_state.identity=identity;source_state.generation=generation
-                source_state.highwater=highwater;source_state.anchor_digest=anchor
-                source_state.save(update_fields=['identity','generation','highwater','anchor_digest','updated_at'])
+                collector_payload={'collector':collector_data,'weekly':dict(weekly) if weekly else {}}
+            source_state, new_samples, metadata_updates, invalid_rows, source_changed = _prepare_samples(connection, identity)
         finally:
             connection.close()
+        # synchronize() owns the interprocess sync lock throughout preparation
+        # and commit. Only changed rows need the shared database's write lock.
+        with transaction.atomic():
+            if collector_payload is not None:
+                CollectorState.objects.update_or_create(key='local',defaults={'payload':collector_payload})
+            TokenSample.objects.bulk_create(new_samples, batch_size=500)
+            TokenSample.objects.bulk_update(metadata_updates, ['effort','tier'], batch_size=500)
+            source_state.save()
+        added=len(new_samples)
         run.added=added
         run.success=not invalid_rows
         if invalid_rows:
@@ -120,6 +78,60 @@ def _synchronize():
     finally:
         run.added=added;run.finished_at=timezone.now();run.save()
     return run
+
+
+def _prepare_samples(connection, identity):
+    highwater = connection.execute('SELECT COALESCE(MAX(sample_id),0) FROM usage_samples').fetchone()[0]
+    anchor = _source_anchor(connection, highwater)
+    source_state = UsageSourceState.objects.filter(key='local').first()
+    source_changed = False
+    if source_state is None:
+        source_state = UsageSourceState(key='local',generation=LEGACY_SOURCE_GENERATION)
+    else:
+        source_changed = (source_state.identity != identity or highwater < source_state.highwater or
+            (source_state.highwater > 0 and anchor_at_id(connection,source_state.highwater) != source_state.anchor_digest))
+    generation = uuid.uuid4() if source_changed else source_state.generation
+    prepared=[]
+    invalid_rows=[]
+    content_changed=False
+    for session in TrackedSession.objects.filter(enabled=True).order_by('pk'):
+        known={row.source_id:row for row in session.samples.filter(source_generation=generation).only(
+            'session_id','source_id','sampled_at','model','total','input','cached','output','reasoning','context','context_limit','effort','tier')}
+        seen=set(); valid=[]
+        rows=connection.execute('SELECT * FROM usage_samples WHERE session_id=? ORDER BY sampled_at,sample_id',(session.external_id,))
+        for row in rows:
+            try:
+                values=_source_sample(row)
+            except (ValueError,KeyError,IndexError,TypeError,OverflowError):
+                invalid_rows.append((session.pk,row['sample_id'] if 'sample_id' in row.keys() else None))
+                continue
+            source_id=values.pop('source_id')
+            if source_id in seen:
+                invalid_rows.append((session.pk,source_id))
+                continue
+            seen.add(source_id)
+            old=known.get(source_id)
+            if old and any(getattr(old,key)!=values[key] for key in ('sampled_at','model','total','input','cached','output','reasoning','context','context_limit')):
+                content_changed=True
+            valid.append((source_id,values))
+        if known.keys()-seen:
+            content_changed=True
+        prepared.append((session,valid,known))
+    if content_changed and not source_changed:
+        generation=uuid.uuid4()
+        source_changed=True
+    new_samples=[]; metadata_updates=[]
+    for session,rows,known in prepared:
+        for source_id,values in rows:
+            old=known.get(source_id) if not source_changed else None
+            if old is None:
+                new_samples.append(TokenSample(session=session,source_generation=generation,source_id=source_id,**values))
+            elif (old.effort,old.tier)!=(values['effort'],values['tier']):
+                old.effort=values['effort'];old.tier=values['tier']
+                metadata_updates.append(old)
+    source_state.identity=identity;source_state.generation=generation
+    source_state.highwater=highwater;source_state.anchor_digest=anchor
+    return source_state,new_samples,metadata_updates,invalid_rows,source_changed
 
 
 def _source_anchor(connection, sample_id):

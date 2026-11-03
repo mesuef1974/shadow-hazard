@@ -1,6 +1,7 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
+from django.conf import settings
 from django.test import TestCase, TransactionTestCase, Client, override_settings
 from django.db import IntegrityError, transaction, close_old_connections
 from django.core.exceptions import PermissionDenied
@@ -88,7 +89,7 @@ class CreationTests(TestCase):
         client=Client(enforce_csrf_checks=True); client.force_login(self.owner)
         for path in ['/releases/','/releases/1/actions/','/releases/1/merge/','/releases/1/deployments/']:
             self.assertEqual(client.post(path,'{}',content_type='application/json').status_code,403)
-        token=_get_new_csrf_string(); client.cookies['csrftoken']=token
+        token=_get_new_csrf_string(); client.cookies[settings.CSRF_COOKIE_NAME]=token
         response=client.post('/releases/',json.dumps(self.payload()),content_type='application/json',
             HTTP_IDEMPOTENCY_KEY='csrf-valid',HTTP_X_CSRFTOKEN=token)
         self.assertEqual(response.status_code,201)

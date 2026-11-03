@@ -36,7 +36,9 @@ if url:
 else:
     if PRODUCTION:
         raise ImproperlyConfigured("PostgreSQL DATABASE_URL is required in production")
-    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": LOCAL_DIR / "registry.sqlite3", "OPTIONS": {"timeout": 20}}}
+    # Reserve writes at transaction entry so concurrent writers wait instead of
+    # failing while upgrading a read transaction. Keep atomic sections short.
+    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": LOCAL_DIR / "registry.sqlite3", "OPTIONS": {"timeout": 20, "transaction_mode": "IMMEDIATE"}}}
 LANGUAGE_CODE = "ar"
 TIME_ZONE = "Asia/Qatar"
 USE_I18N = True

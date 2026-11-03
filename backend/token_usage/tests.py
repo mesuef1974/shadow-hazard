@@ -107,6 +107,7 @@ class TokenUsageTests(TestCase):
                     connection.execute('CREATE TABLE usage_samples (sample_id INTEGER, session_id TEXT, sampled_at TEXT, model TEXT, cumulative_total_tokens INTEGER,cumulative_input_tokens INTEGER,cumulative_cached_input_tokens INTEGER,cumulative_output_tokens INTEGER,cumulative_reasoning_output_tokens INTEGER,context_total_tokens INTEGER,context_window_tokens INTEGER)')
                     connection.execute('INSERT INTO usage_samples VALUES (1,?,?,?,?,?,?,?,?,?,?)',
                         ('project-session','2026-10-31T06:00:01Z','model',total,total-20,20,20,5,50,100))
+                connection.close()
             write_source(100)
             with override_settings(TOKEN_USAGE_SOURCE=path):
                 self.assertEqual(synchronize().added,1)
