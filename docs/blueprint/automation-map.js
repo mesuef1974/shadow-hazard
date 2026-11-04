@@ -83,6 +83,8 @@ window.addEventListener('hashchange',()=>{const key=location.hash.slice(1);if(st
 .automation-model .live-feed{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12px;color:var(--platform-muted)}.automation-model .live-feed li{min-width:0;overflow-wrap:anywhere}
 .automation-model .node[data-live]:not([data-live=idle]){box-shadow:0 0 0 2px var(--shz)}
 .automation-model .node .live-dot{position:absolute;top:7px;right:8px;width:9px;height:9px}
+.automation-model .node .live-now{max-width:100%;margin-top:4px;font-size:12px;line-height:1.35;font-weight:700;color:var(--shz);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.automation-model .node.has-now small{display:none}
 .automation-model .live-platform{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:12px;margin:6px 0 20px}
 .automation-model .live-card{position:relative;min-width:0;overflow-wrap:anywhere;border:1px solid var(--platform-border);border-inline-start:4px solid var(--shz,#8a94a3);border-radius:8px;padding:12px 14px 12px 30px;background:var(--platform-surface);font-size:13px}
 .automation-model .live-card strong{display:block;font-size:14px}.automation-model .live-card span{color:var(--platform-muted)}
@@ -113,6 +115,12 @@ window.addEventListener('hashchange',()=>{const key=location.hash.slice(1);if(st
   n.dataset.live=tone;n.classList.toggle('live-pulse',seconds(at)<RECENT&&tone!=='idle');
   let dot=n.querySelector(':scope > .live-dot');if(!dot){dot=el('span','live-dot');n.append(dot);}
   n.title=text;liveText[key]=text;
+  // A red stage states its real cause inside the stage itself, not only in the tooltip.
+  let now=n.querySelector(':scope > .live-now');
+  // One short line in place of the subtitle keeps the stage's size; the full text stays in the tooltip and inspector.
+  if(tone==='bad'){if(!now){now=el('span','live-now');n.append(now);}now.textContent='الآن: '+text.split(' · ')[0];}
+  else if(now)now.remove();
+  n.classList.toggle('has-now',tone==='bad');
  }
  function showSelected(){const n=map.querySelector('.node[aria-pressed="true"]');liveDd.textContent=n&&liveText[n.dataset.node]||'—';}
  map.addEventListener('click',e=>{if(e.target.closest('.node'))setTimeout(showSelected);});
@@ -124,8 +132,13 @@ window.addEventListener('hashchange',()=>{const key=location.hash.slice(1);if(st
   const ev=(d.events&&d.events.latest)||{},git=d.git||{},docs=d.docs||{},gh=d.github||{},pf=d.platform||{};
   mark('m-order',docs.available?'ok':'idle',docs.available?'مهام مفتوحة: '+docs.open_tasks:'غير متاح',docs.handoff_at);
   event(ev.session,'m-session','بدء الجلسة',{pass:'ok',fail:'bad'});
-  if(git.available){const h=git.head||{};mark('m-run',git.uncommitted?'run':'ok','الفرع '+git.branch+' · آخر التزام '+ago(h.at)+' · '+(h.subject||'')+(git.uncommitted?' · تغييرات غير ملتزمة: '+git.uncommitted:''),h.at);
-   mark('m-merge','ok','آخر تغيير في main '+ago(git.main&&git.main.at)+(git.main?' · '+git.main.subject:''),git.main&&git.main.at);}
+  // main's health belongs to the merge stage: its latest finished CI run on GitHub.
+  const mainRun=gh.available&&(gh.runs||[]).find(r=>r.headBranch==='main'&&r.status==='completed');
+  const mainTone=!mainRun||mainRun.conclusion==='success'?'ok':mainRun.conclusion==='failure'?'bad':'warn';
+  const mainCi=mainRun?'فحص main '+(mainRun.conclusion==='success'?'نجح':mainRun.conclusion==='failure'?'فشل':'لم يكتمل')+' '+ago(mainRun.updatedAt):'';
+  if(git.available){const h=git.head||{},m=git.main||{};mark('m-run',git.uncommitted?'run':'ok','الفرع '+git.branch+' · آخر التزام '+ago(h.at)+' · '+(h.subject||'')+(git.uncommitted?' · تغييرات غير ملتزمة: '+git.uncommitted:''),h.at);
+   const change='آخر تغيير في main '+ago(m.at)+(m.subject?' · '+m.subject:'');
+   mark('m-merge',mainTone,mainTone==='ok'?change+(mainCi?' · '+mainCi:''):mainCi+' · '+change,mainTone==='ok'?m.at:mainRun.updatedAt);}
   else{mark('m-run','idle','Git غير متاح');mark('m-merge','idle','Git غير متاح');}
   if(git.available&&!git.hooks_active)mark('m-commit','warn','الحرّاس غير مفعّلة في هذه النسخة');else event(ev.commit,'m-commit','الالتزام',{pass:'ok',reject:'bad',override:'warn'});
   event(ev.override,'m-override','التجاوز',{override:'warn'});
@@ -133,8 +146,10 @@ window.addEventListener('hashchange',()=>{const key=location.hash.slice(1);if(st
   if(gh.available&&gh.runs&&gh.runs.length){const runs=gh.runs,mine=runs.find(r=>r.headBranch===git.branch)||runs[0];
    const tone=mine.status!=='completed'?'run':mine.conclusion==='success'?'ok':'bad';
    mark('m-ci',tone,'التكامل المستمر على '+mine.headBranch+': '+(mine.status!=='completed'?'يعمل الآن':mine.conclusion==='success'?'نجح':'فشل')+' '+ago(mine.updatedAt||mine.createdAt),mine.status!=='completed'?new Date().toISOString():mine.updatedAt);
-   const bad=runs.find(r=>r.conclusion==='failure');mark('m-failure',bad?'bad':'idle',bad?'آخر فشل: '+bad.headBranch+' '+ago(bad.updatedAt):'مخطط · لا فشل حديث',bad&&bad.updatedAt);}
-  else{mark('m-ci','idle',gh.reason||'GitHub غير متاح');mark('m-failure','idle','مخطط');}
+  }
+  else mark('m-ci','idle',gh.reason||'GitHub غير متاح');
+  // Lights up only on an eval failure with its digest (task 0004); a CI failure shows on m-ci or m-merge.
+  mark('m-failure','idle','مخطط: المهمة 0004 · يضيء عند فشل eval فقط مع خلاصة الفشل');
   mark('m-digest',docs.handoff_at?'ok':'idle','ملف التسليم حُدّث '+ago(docs.handoff_at),docs.handoff_at);
   mark('m-shz','idle','مخطط: لا نبض قبل المهمة 0003');mark('m-selfcheck','idle','مخطط: ديسمبر');
   feed.replaceChildren(...((d.events&&d.events.recent)||[]).slice(0,5).map(r=>el('li','',ago(r.at)+' · '+(KIND[r.kind]||r.kind)+' · '+(RESULT[r.result]||r.result)+(r.detail?' · '+clip(r.detail,60):''))));
