@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import os,runpy; d=os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd(); s=os.path.join(d,'scripts','session_start.py'); m=os.path.join(d,'docs','decisions','0003-automation-layers.md'); os.path.isfile(s) and os.path.isfile(m) and runpy.run_path(s,run_name='__main__')\""
+          }
+        ]
+      }
+    ]
+  }
+}
