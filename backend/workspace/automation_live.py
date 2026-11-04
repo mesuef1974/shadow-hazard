@@ -112,14 +112,26 @@ def github_state():
         if not gh:
             return {'available': False, 'reason': 'أداة GitHub (gh) غير مثبتة على هذا الحاسوب'}
         fields = 'workflowName,headBranch,headSha,status,conclusion,event,createdAt,updatedAt,url'
+
+        def ci_runs(*options):
+            runs = json.loads(_run([gh, 'run', 'list', *options, '--json', fields], 12) or '[]')
+            return [run for run in runs if run.get('workflowName') == 'CI']
+
         try:
-            runs = json.loads(_run([gh, 'run', 'list', '--limit', '12', '--json', fields], 12) or '[]')
+            runs = ci_runs('--limit', '20')
+            main = next((run for run in runs if run.get('headBranch') == 'main'), None)
+            if main is None:  # main's state must stay visible however busy the other branches are
+                main = next((run for run in ci_runs('--branch', 'main', '--limit', '5')
+                             if run.get('headBranch') == 'main'), None)
         except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as error:
             return {'available': False, 'reason': ('تعذر سؤال GitHub: ' + str(error))[:160]}
+        kept = runs[:6]
+        if main is not None and main not in kept:
+            kept.append(main)
         keep = ('workflowName', 'headBranch', 'status', 'conclusion', 'event', 'createdAt', 'updatedAt', 'url')
         return {'available': True,
                 'runs': [{key: run.get(key) for key in keep} | {'sha': str(run.get('headSha', ''))[:7]}
-                         for run in runs if run.get('workflowName') == 'CI'][:6]}
+                         for run in kept]}
     return _cached('github', GITHUB_TTL, build)
 
 
