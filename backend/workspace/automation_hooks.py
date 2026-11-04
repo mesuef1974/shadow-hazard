@@ -20,6 +20,12 @@ def automation_cycle():
         try:collect(project)
         except Exception as exc:
             result['errors'].append({'operation':'operator_usage_comparison','error_type':type(exc).__name__})
+    if apps.is_installed('claude_usage'):
+        try:
+            from claude_usage.services import import_usage
+            result['claude_usage'] = import_usage().ok
+        except Exception as exc:
+            result['errors'].append({'operation':'claude_usage','error_type':type(exc).__name__})
     return result
 
 

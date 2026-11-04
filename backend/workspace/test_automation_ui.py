@@ -40,7 +40,7 @@ class AutomationUiTests(TestCase):
         self.assertContains(response,'/static/brand/approved-v2/navigation-white.svg')
         self.assertContains(response,'aria-label="التنقل الرئيسي"')
         self.assertContains(response,'id="theme-toggle"')
-        self.assertContains(response,'href="/sessions/" aria-current="page"')
+        self.assertContains(response,'href="/sessions/automation-model/" aria-current="page"')
         self.assertNotContains(response,'<iframe')
         self.assertEqual(response.content.decode().count('<main'),1)
         self.assertEqual(response.content.decode().count('<h1'),1)

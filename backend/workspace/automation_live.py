@@ -159,7 +159,19 @@ def platform_state():
             if sync else None,
             'backup': {'at': (backup.finished_at or backup.started_at).isoformat(), 'state': backup.state}
             if backup else None,
+            'claude_usage': _claude_usage(),
             'open_issues': AutomationIssue.objects.filter(state='open').count()}
+
+
+def _claude_usage():
+    from django.apps import apps
+    if not apps.is_installed('claude_usage'):
+        return None
+    from claude_usage.models import ClaudeMessage, ImportRun
+    run = ImportRun.objects.first()
+    reply = ClaudeMessage.objects.order_by('-at').values_list('at', flat=True).first()
+    return {'imported_at': run.finished_at.isoformat() if run and run.finished_at else None,
+            'ok': run.ok if run else None, 'last_reply_at': reply.isoformat() if reply else None}
 
 
 def _safe(build):

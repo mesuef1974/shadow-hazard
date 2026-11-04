@@ -76,4 +76,5 @@ INSTALLED_APPS += ['operations.apps.OperationsConfig']
 INSTALLED_APPS += ['releases']
 INSTALLED_APPS += ['knowledge']
 INSTALLED_APPS += ['simulation']
+INSTALLED_APPS += ['claude_usage.apps.ClaudeUsageConfig']
 AUTO_RENEWAL_EXECUTION_ENABLED = True
