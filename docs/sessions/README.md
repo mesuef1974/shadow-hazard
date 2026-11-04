@@ -25,7 +25,7 @@
 - [01 — ميثاق النجاح والنطاق](01-scope-and-success.md)
 - [02 — مشهد الخطر والسلامة والبيانات](02-scenario-safety-data.md)
 - [03 — المعمارية وعقود البيانات](03-architecture-contracts.md)
-- [04 — المحاكي والسيناريوهات](04-simulator-scenarios.md)
+- [04 — محاكي الظل والسيناريوهات](04-simulator-scenarios.md) — شرطها [تمرين الورقة والمصباح](../exercises/paper-and-lamp.md)
 - [05 — الرؤية والتتبع](05-perception-tracking.md)
 - [06 — دمج المصادر وتقدير الخطر](06-fusion-risk.md)
 - [07 — التكامل والعرض](07-integration-demo.md)
