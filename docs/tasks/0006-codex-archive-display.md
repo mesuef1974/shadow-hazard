@@ -3,10 +3,10 @@
 - الهدف: صفحة الاستهلاك وبطاقة المزامنة في رسم الأتمتة تعلنان أن بيانات Codex أرشيف، بدل عرضها كأنها حية (قاعدة «غير متاح» في `AGENTS.md`).
 - `/usage/`: لافتة «أرشيف Codex» بتاريخ آخر عينة من القاعدة، وأن Codex أُوقف بقرار 2026-11-04، وأن استهلاك Claude في الخلاصة الأسبوعية؛ الرقم الأول طازج والإجمالي الخام بعده؛ الحصة الأسبوعية القديمة «غير متاح» بدل النسبة.
 - رسم الأتمتة: بطاقة «مزامنة التوكنز» تعرض عمر آخر عينة، و«غير متاح · أرشيف» إذا تجاوز 24 ساعة، ولو نجحت المزامنة.
-- الملفات وحدها: `backend/token_usage/views.py`، و`backend/token_usage/templates/token_usage/dashboard.html` و`health.html`، و`backend/workspace/automation_live.py`، و`docs/blueprint/automation-map.js`، واختباراتها إن تغيّر نص معروض.
+- الملفات وحدها: `backend/token_usage/views.py`، و`backend/token_usage/templates/token_usage/dashboard.html` و`health.html`، و`backend/workspace/automation_live.py`، و`docs/blueprint/automation-map.js`، و`backend/registry/templates/registry/_capacity.html` (بطاقة حصة Codex: «أرشيف Codex» بدل الحالة الحية)، و`backend/workspace/templates/workspace/model_jobs.html` (عبارة «أثناء توفر تطبيق Codex»)، واختباراتها إن تغيّر نص معروض.
 - القيود: لا نماذج ولا هجرات، ولا تغيير في الجمع أو المزامنة أو أي سلوك آخر. كل التزام بـ`SHZ_FROZEN_OVERRIDE` وسبب يذكر سطر الاستثناء الثالث في ADR 0002.
 - القبول: `makemigrations --check` ينجح؛ اختبارات `token_usage` و`workspace` تمر في CI على sqlite وpostgres؛ الأرقام الأرشيفية نفسها قبل التعديل وبعده؛ `prepush_check` ينجح.
 - خارج النطاق: بقية عيوب الاستهلاك في تقرير التعديل (بعد التسليم)؛ أي دمج لـClaude في القاعدة.
 - المرجع: سطر الاستثناء الثالث في ADR 0002، وتقرير «خطة تعديل المنصة واحتساب التوكنز» قسم «الترتيب والتجميد». لا تقرأ غيرهما.
 - الإنهاء: ثلاثة أسطر تحت «حالة الكود» في ملف التسليم.
-- الحالة: جاهزة بقرار المشرف 2026-11-04؛ لا تمس `src/`، وتُنفَّذ في جلسة Claude Code محلية.
+- الحالة: جاهزة بقرار المشرف 2026-11-04 (ومتابعته في السطر نفسه)؛ لا تمس `src/`، وتنفّذها جلسة المشروع.
