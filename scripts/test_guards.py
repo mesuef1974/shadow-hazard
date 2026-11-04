@@ -1,11 +1,14 @@
 """اختبارات الحرّاس (مهمة 0002): تعمل بـ unittest وحده دون Django."""
+import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+import automation_events
 import guard_frozen
 import prepush_check
 import session_start
@@ -31,7 +34,8 @@ class RepoCase(unittest.TestCase):
     def make_repo(self):
         root = self.make_dir()
         config = write(self.make_dir(), 'gitconfig', '')
-        self.env = {k: v for k, v in os.environ.items() if k != guard_frozen.OVERRIDE}
+        self.env = {k: v for k, v in os.environ.items()
+                    if k not in (guard_frozen.OVERRIDE, 'GITHUB_ACTIONS')}
         self.env.update(GIT_CONFIG_GLOBAL=str(config), GIT_CONFIG_NOSYSTEM='1',
                         GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.invalid',
                         GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.invalid')
@@ -78,6 +82,8 @@ class GuardHookTests(RepoCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn('ADR 0002 البند 3', result.stderr)
         self.assertIn('docs/brand/tokens.css', result.stderr)
+        event = json.loads(Path(self.root, automation_events.FILE).read_text(encoding='utf-8'))
+        self.assertEqual((event['kind'], event['result']), ('commit', 'reject'))
 
     def test_open_zones_pass_silently(self):
         write(self.root, 'backend/simulation/tests.py')
@@ -112,6 +118,32 @@ class GuardHookTests(RepoCase):
         message = write(self.root, 'MSG', 'docs: task\n')
         self.guard('--commit-msg', str(message), reason='سبب طويل بما يكفي هنا')
         self.assertNotIn(guard_frozen.TRAILER, message.read_text(encoding='utf-8'))
+
+
+class AutomationEventsTests(RepoCase):
+    def events(self, root):
+        text = Path(root, automation_events.FILE).read_text(encoding='utf-8')
+        return [json.loads(line) for line in text.splitlines()]
+
+    def test_record_appends_bounded_json_and_skips_ci(self):
+        root = self.make_dir()
+        with patch.dict(os.environ):
+            os.environ.pop('GITHUB_ACTIONS', None)
+            automation_events.record('push', 'pass', 'x' * 300, root)
+        with patch.dict(os.environ, {'GITHUB_ACTIONS': 'true'}):
+            automation_events.record('push', 'fail', '', root)
+        rows = self.events(root)
+        self.assertEqual([(r['kind'], r['result']) for r in rows], [('push', 'pass')])
+        self.assertEqual(len(rows[0]['detail']), 200)
+
+    def test_large_log_is_trimmed(self):
+        root = self.make_dir()
+        path = write(root, automation_events.FILE, '{"kind": "old"}\n' * 20000)
+        self.assertGreater(path.stat().st_size, automation_events.MAX_BYTES)
+        with patch.dict(os.environ):
+            os.environ.pop('GITHUB_ACTIONS', None)
+            automation_events.record('session', 'pass', '', root)
+        self.assertEqual(len(self.events(root)), automation_events.KEEP_LINES + 1)
 
 
 class PrepushHistoryTests(RepoCase):

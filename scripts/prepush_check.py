@@ -5,15 +5,18 @@
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
+from automation_events import record
 from guard_frozen import TRAILER, frozen
 
 ROOT = Path(__file__).resolve().parents[1]
 TAIL = 30
-# رأس الفرع عند قرار التجميد (ADR 0002، 2026-11-03). ما بعده ويمس منطقة مجمّدة يحتاج سببًا مسجلًا،
-# لأن revert وcherry-pick و--no-verify لا تمر بخطّاف pre-commit.
-FREEZE_BASE = '542b6c0de923372df72d37dad6759a7cbab5ccf9'
+# قاعدة التجميد على الفرع الرئيسي: دمج طلب #2 (شجرته مطابقة لرأس الفرع عند قرار ADR 0002 في
+# 2026-11-03). ما بعدها ويمس منطقة مجمّدة يحتاج سببًا مسجلًا، لأن revert وcherry-pick و--no-verify
+# لا تمر بخطّاف pre-commit. وجودها على main يبقيها في التاريخ مهما كانت طريقة دمج الفروع اللاحقة.
+FREEZE_BASE = '8bb38489f1b138cbbcc916243eb2cf329f8c778d'
 
 
 def tracked_private(root=ROOT):
@@ -67,7 +70,7 @@ def run(name, command):
 def main():
     for stream in (sys.stdout, sys.stderr):
         stream.reconfigure(encoding='utf-8', errors='replace')
-    ok = True
+    ok, started, failed = True, time.monotonic(), []
     private = tracked_private()
     if private:
         ok = False
@@ -76,7 +79,10 @@ def main():
     else:
         print('نجح: لا ملفات .local متعقَّبة')
     unapproved = unapproved_frozen_commits()
-    if unapproved is None:
+    if unapproved is None and os.environ.get('GITHUB_ACTIONS') == 'true':
+        ok = False  # في CI لا يُسمح بتخطٍّ صامت: التاريخ كامل (fetch-depth: 0) والقاعدة على main.
+        print('فشل: قاعدة التجميد ليست في تاريخ هذا الفرع؛ ادمج main فيه أولًا')
+    elif unapproved is None:
         print('تنبيه: قاعدة التجميد ليست في تاريخ هذا الفرع؛ فحص التاريخ لم يُجرَ')
     elif unapproved:
         ok = False
@@ -85,8 +91,14 @@ def main():
     else:
         print('نجح: لا التزام يمس منطقة مجمّدة دون سبب مسجل')
     for name, command in checks():
-        ok = run(name, command) and ok
+        passed = run(name, command)
+        ok = passed and ok
+        if not passed:
+            failed.append(name)
     print('فحص ما قبل الدفع: ' + ('ناجح' if ok else 'فاشل — أصلح قبل الدفع'))
+    record('push', 'pass' if ok else 'fail',
+           f'{round(time.monotonic() - started)} ث' + (' · ' + '، '.join(failed) if failed else ''),
+           ROOT)
     return 0 if ok else 1
 
 

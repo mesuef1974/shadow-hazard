@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from automation_events import record
+
 ROOT = Path(__file__).resolve().parents[1]
 LIMIT = 15
 SECTION = '## حالة الكود'
@@ -70,9 +72,12 @@ def render(root=ROOT):
 def main():
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     try:
-        print('\n'.join(render()))
+        lines = render()
+        print('\n'.join(lines))
+        record('session', 'pass', f'{len(lines)} سطرًا', ROOT)
     except Exception as error:  # الخطّاف لا يمنع بدء الجلسة.
         print(f'تعذر قراءة حالة الكود: {error}')
+        record('session', 'fail', str(error), ROOT)
     return 0
 
 

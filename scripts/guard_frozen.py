@@ -7,6 +7,8 @@ import os
 import subprocess
 import sys
 
+from automation_events import record
+
 DECISION = 'ADR 0002 البند 3: المنصة والهوية و docs/blueprint/ مجمّدة حتى تسليم المسابقة.'
 FROZEN = ('backend/', 'docs/brand/', 'docs/blueprint/')
 OPEN_DIR = 'backend/simulation/'
@@ -36,10 +38,13 @@ def reason():
 def check(paths):
     blocked = [p for p in paths if frozen(p)]
     if not blocked:
+        record('commit', 'pass', f'{len(paths)} ملف')
         return 0
     if len(reason()) >= MIN_REASON:
         print(f'تجاوز التجميد بسبب مصرَّح: {reason()} ({len(blocked)} ملف)', file=sys.stderr)
+        record('commit', 'override', reason())
         return 0
+    record('commit', 'reject', '، '.join(blocked[:3]))
     print('رُفض الالتزام: تغييرات في منطقة مجمّدة.', file=sys.stderr)
     print(DECISION, file=sys.stderr)
     for path in blocked[:20]:
