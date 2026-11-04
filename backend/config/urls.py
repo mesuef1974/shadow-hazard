@@ -21,6 +21,7 @@ urlpatterns = [
  path('sessions/jobs/<int:job_id>/escalation/',execution_context.request_escalation,name='request-escalation'),
  path('sessions/automation/', workspace.automation, name='automation'),
  path('sessions/automation-model/', workspace.automation_model, name='session-automation-model'),
+ path('sessions/automation-model/live.json', workspace.automation_live, name='session-automation-live'),
  path('sessions/automation-model/assets/<str:asset>', workspace.automation_model, name='session-automation-asset'),
  path('sessions/jobs/', workspace.model_jobs, name='model-jobs'),
  path('sessions/', workspace.sessions, name='project-sessions'),

@@ -5,7 +5,7 @@
 <script src="{% url 'session-automation-asset' 'automation-map.js' %}" defer></script>
 {% endblock %}
 {% block content %}
-{% include 'registry/_page_heading.html' with eyebrow='جلسات المشروع' title='نموذج الأوتوميشن' description='خريطة تفاعلية للمهام ومشغّل الجلسات وصلاحية الاتصال والتجديد وإيقاظ النموذج عند الحاجة. الرسم يشرح الآلية ولا يعرض حالة تشغيل حية.' %}
+{% include 'registry/_page_heading.html' with eyebrow='جلسات المشروع' title='نموذج الأوتوميشن' description='خريطة حية لأتمتة المشروع والتنسيق: مراحلها تنبض من سجل الحرّاس وGit وGitHub وحالة المنصة كل بضع ثوانٍ، بالكود وحده وبلا توكنز. أتمتة المنصة المجمّدة مختصرة أسفلها.' %}
 <div class="session-actions">
   <a class="session-secondary-link" href="{% url 'project-sessions' %}">جلسات المشروع</a>
   <a class="session-secondary-link" href="{% url 'automation' %}">متابعة الأتمتة</a>
