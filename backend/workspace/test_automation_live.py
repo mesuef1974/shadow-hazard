@@ -87,11 +87,12 @@ class AutomationLiveTests(TestCase):
         self.assertEqual(runs[-1]['headBranch'], 'main')
 
     def test_platform_heartbeat_freshness(self):
-        DispatcherHeartbeat.objects.create(key='local', state='running', pid=1)
-        stale = DispatcherHeartbeat.objects.create(key='readonly', state='running', pid=2)
-        DispatcherHeartbeat.objects.filter(pk=stale.pk).update(updated_at=timezone.now() - timedelta(minutes=5))
+        local = DispatcherHeartbeat.objects.create(key='local', state='running', pid=1)
+        DispatcherHeartbeat.objects.create(key='readonly', state='running', pid=2)  # retired Codex lane: not shown
         beats = {b['key']: b['online'] for b in automation_live.platform_state()['heartbeats']}
-        self.assertEqual(beats, {'local': True, 'readonly': False})
+        self.assertEqual(beats, {'local': True})
+        DispatcherHeartbeat.objects.filter(pk=local.pk).update(updated_at=timezone.now() - timedelta(minutes=5))
+        self.assertEqual([b['online'] for b in automation_live.platform_state()['heartbeats']], [False])
 
     def test_one_broken_source_does_not_hide_the_others(self):
         with patch.object(automation_live, 'git_state', side_effect=OSError('git missing')), \

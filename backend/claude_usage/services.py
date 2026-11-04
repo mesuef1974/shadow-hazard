@@ -8,7 +8,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Count, Max, Min, Sum
-from django.db.models.functions import TruncDate
+from django.db.models.functions import TruncDate, TruncHour
 from django.utils import timezone
 
 from .models import AiModel, ClaudeMessage, ClaudeSession, GitBranch, ImportFile, ImportRun, UsageSource
@@ -176,6 +176,32 @@ def by_day(queryset):
     return [_with_fresh(dict(row)) for row in rows]
 
 
+def chart_data(now, messages, session):
+    """Numbers for the page's charts: every day of the last 30 (empty days are zero), the current
+    session hour by hour, and the 30-day split by model."""
+    zone = timezone.get_current_timezone()
+    today = timezone.localtime(now, zone).date()
+    days = {row['day']: row for row in by_day(messages.filter(at__gt=now - timedelta(days=30), at__lte=now))}
+    daily = []
+    for offset in range(29, -1, -1):
+        day = today - timedelta(days=offset)
+        row = days.get(day, {})
+        daily.append({'label': day.isoformat(), 'new_input': (row.get('input_tokens') or 0) + (row.get('cache_creation_input_tokens') or 0),
+                      'output': row.get('output_tokens') or 0, 'cache_read': row.get('cache_read_input_tokens') or 0,
+                      'replies': row.get('replies') or 0})
+    hourly = []
+    if session is not None:
+        rows = (messages.filter(session=session).annotate(hour=TruncHour('at', tzinfo=zone)).values('hour')
+                .annotate(**_sums(), replies=Count('id')).order_by('hour'))
+        for row in rows:
+            hourly.append({'label': timezone.localtime(row['hour'], zone).strftime('%m-%d %H:00'),
+                           'new_input': row['input_tokens'] + row['cache_creation_input_tokens'],
+                           'output': row['output_tokens'], 'cache_read': row['cache_read_input_tokens'], 'replies': row['replies']})
+    models = [{'label': row['model__name'], 'fresh': row['fresh'], 'replies': row['replies']}
+              for row in by_model(messages.filter(at__gt=now - timedelta(days=30), at__lte=now))]
+    return {'daily': daily, 'hourly': hourly, 'models': models}
+
+
 def sessions_overview(limit=20):
     return (ClaudeSession.objects.annotate(first=Min('messages__at'), last=Max('messages__at'), replies=Count('messages'))
             .exclude(last=None).order_by('-last')[:limit])
@@ -196,4 +222,5 @@ def summary(now=None, session_id=None):
         scoped = messages.filter(session=session)
         current = {'session': session, 'totals': totals(scoped), 'models': by_model(scoped)}
     return {'now': now, 'session': current, 'windows': windows, 'sessions': overview,
+            'charts': chart_data(now, messages, session),
             'daily': by_day(messages.filter(at__gt=now - timedelta(days=30), at__lte=now))}

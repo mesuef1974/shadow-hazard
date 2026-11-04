@@ -155,15 +155,10 @@ window.addEventListener('hashchange',()=>{const key=location.hash.slice(1);if(st
   mark('m-shz','idle','مخطط: لا نبض قبل المهمة 0003');mark('m-selfcheck','idle','مخطط: ديسمبر');
   feed.replaceChildren(...((d.events&&d.events.recent)||[]).slice(0,5).map(r=>el('li','',ago(r.at)+' · '+(KIND[r.kind]||r.kind)+' · '+(RESULT[r.result]||r.result)+(r.detail?' · '+clip(r.detail,60):''))));
   if(pf.available){const cards=[];const local=(pf.heartbeats||[]).find(b=>b.key==='local');
-   for(const b of pf.heartbeats||[])cards.push([BEAT[b.key]||b.key,b.online?'ok':'bad',(b.online?'ينبض ':'متوقف · آخر نبض ')+ago(b.at)+(b.error?' · '+clip(b.error,70):''),b.online]);
-   const j=pf.jobs||{},o=pf.outbox||{};
-   cards.push(['المهام والصندوق',(j.running||o.queued)?'run':(j.uncertain||o.uncertain)?'warn':'ok','تعمل '+(j.running||0)+' · في الانتظار '+(j.queued||0)+' · للمراجعة '+(j.needs_review||0)+' · ملتبسة '+((j.uncertain||0)+(o.uncertain||0)),!!(j.running||o.queued)]);
+   cards.push(['عامل المنصة',local&&local.online?'ok':'bad',local?(local.online?'ينبض ':'متوقف · آخر نبض ')+ago(local.at):'غير متاح',!!(local&&local.online)]);
+   if(pf.backup)cards.push(['النسخ الاحتياطي اليومي',pf.backup.state==='success'?'ok':pf.backup.state==='running'?'run':'bad',ago(pf.backup.at),pf.backup.state==='running']);
    const cu=pf.claude_usage;cards.push(['استهلاك Claude',!cu||cu.ok===null?'idle':cu.ok?'ok':'bad',!cu||cu.ok===null?'غير متاح: لم يُستورد بعد':(cu.ok?'آخر رد ':'تعذّر الاستيراد · آخر رد ')+ago(cu.last_reply_at)+' · استيراد '+ago(cu.imported_at),!!(cu&&cu.imported_at&&seconds(cu.imported_at)<RECENT)]);
-   if(pf.backup)cards.push(['النسخ الاحتياطي',pf.backup.state==='success'?'ok':pf.backup.state==='running'?'run':'bad',ago(pf.backup.at),pf.backup.state==='running']);
-   cards.push(['قضايا مفتوحة',pf.open_issues?'warn':'ok',String(pf.open_issues)+' قضية',false]);
-   panel.replaceChildren(...cards.map(([t,tone,text,pulse])=>{const c=el('div','live-card'+(pulse?' live-pulse':''));c.dataset.live=tone;c.append(el('span','live-dot'),el('strong','',t),el('span','',text));return c;}));
-   const on=!!(local&&local.online);mark('automonitor',on?'ok':'bad',on?'العامل ينبض':'العامل متوقف',local&&local.at);mark('carrier',on?'ok':'bad',on?'المشغّل متصل':'المشغّل غير متصل',local&&local.at);
-   mark('outbox',o.queued?'run':'ok','في الصندوق '+(o.queued||0),o.queued?new Date().toISOString():null);mark('send',j.running?'run':'ok','تعمل الآن '+(j.running||0),j.running?new Date().toISOString():null);}
+   panel.replaceChildren(...cards.map(([t,tone,text,pulse])=>{const c=el('div','live-card'+(pulse?' live-pulse':''));c.dataset.live=tone;c.append(el('span','live-dot'),el('strong','',t),el('span','',text));return c;}));}
   else panel.replaceChildren(el('p','','حالة المنصة غير متاحة: '+(pf.reason||'')));
   showSelected();
  }

@@ -8,3 +8,4 @@ class Runner(DiscoverRunner):
     def setup_test_environment(self, **kwargs):
         super().setup_test_environment(**kwargs)
         settings.HIDE_AGENT_SECTION = False
+        settings.CODEX_RETIRED = False

@@ -132,3 +132,19 @@ class SummaryAndPageTests(TestCase):
         response = self.client.post('/claude-usage/quota/', {'weekly_percent': '140'})
         self.assertIn('quota_error=1', response['Location'])
         self.assertEqual(SeatQuotaSnapshot.objects.count(), 1)
+
+
+@override_settings(HIDE_AGENT_SECTION=True)
+class AgentSectionHiddenTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user(username='mesuef', role='supervisor'))
+
+    def test_retired_pages_redirect(self):
+        for path, target in [('/sessions/', '/sessions/automation-model/'), ('/sessions/releases/', '/sessions/automation-model/'),
+                             ('/sessions/jobs/', '/sessions/automation-model/'), ('/usage/', '/claude-usage/')]:
+            response = self.client.get(path)
+            self.assertEqual((response.status_code, response['Location']), (302, target), path)
+
+    def test_automation_map_stays(self):
+        self.assertEqual(self.client.get('/sessions/automation-model/').status_code, 200)
+        self.assertEqual(self.client.get('/sessions/automation-model/live.json').status_code, 200)

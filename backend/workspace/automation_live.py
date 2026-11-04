@@ -136,31 +136,21 @@ def github_state():
 
 
 def platform_state():
-    from execution_context.models import SessionDispatch
-    from operations.models import AutomationIssue, BackupRun
-    from token_usage.models import SyncRun
+    from operations.models import BackupRun
 
-    from .models import DispatcherHeartbeat, ModelJob
+    from .models import DispatcherHeartbeat
 
     now = timezone.now()
     beats = [{'key': row.key, 'state': row.state, 'at': row.updated_at.isoformat(),
               'online': row.state == 'running'
               and row.updated_at > now - HEARTBEAT_FRESH.get(row.key, timedelta(minutes=2)),
               'error': (row.last_error or '')[:140]}
-             for row in DispatcherHeartbeat.objects.order_by('key')]
-    sync = SyncRun.objects.order_by('-started_at').first()
+             for row in DispatcherHeartbeat.objects.filter(key='local')]
     backup = BackupRun.objects.order_by('-started_at').first()
     return {'available': True, 'heartbeats': beats,
-            'jobs': {state: ModelJob.objects.filter(state=state).count()
-                     for state in ('queued', 'running', 'uncertain', 'needs_review', 'blocked')},
-            'outbox': {state: SessionDispatch.objects.filter(state=state).count()
-                       for state in ('queued', 'uncertain')},
-            'sync': {'at': (sync.finished_at or sync.started_at).isoformat(), 'success': sync.success}
-            if sync else None,
             'backup': {'at': (backup.finished_at or backup.started_at).isoformat(), 'state': backup.state}
             if backup else None,
-            'claude_usage': _claude_usage(),
-            'open_issues': AutomationIssue.objects.filter(state='open').count()}
+            'claude_usage': _claude_usage()}
 
 
 def _claude_usage():

@@ -21,7 +21,7 @@ if not SECRET_KEY:
 DEBUG = False
 ALLOWED_HOSTS = [v.strip() for v in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",") if v.strip()]
 INSTALLED_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions", "django.contrib.messages", "registry", "django.contrib.staticfiles", "accounts"]
-MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware", "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware", "django.contrib.messages.middleware.MessageMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware"]
+MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware", "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware", "config.agent_section.HideAgentSectionMiddleware", "django.contrib.messages.middleware.MessageMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware"]
 ROOT_URLCONF = "config.urls"
 TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [BASE_DIR / "registry" / "templates"], "APP_DIRS": True, "OPTIONS": {"context_processors": ["django.template.context_processors.request", "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
@@ -77,4 +77,7 @@ INSTALLED_APPS += ['releases']
 INSTALLED_APPS += ['knowledge']
 INSTALLED_APPS += ['simulation']
 INSTALLED_APPS += ['claude_usage.apps.ClaudeUsageConfig']
+CODEX_RETIRED = True  # the worker runs only backup + Claude usage import (workspace/platform_worker.py)
+HIDE_AGENT_SECTION = True  # ADR 0002 exception 5: the retired agent section redirects
 AUTO_RENEWAL_EXECUTION_ENABLED = True
+TEST_RUNNER = "config.test_runner.Runner"

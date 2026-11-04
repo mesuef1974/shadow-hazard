@@ -5,13 +5,10 @@
 <script src="{% url 'session-automation-asset' 'automation-map.js' %}" defer></script>
 {% endblock %}
 {% block content %}
-{% include 'registry/_page_heading.html' with eyebrow='جلسات المشروع' title='نموذج الأوتوميشن' description='خريطة حية لأتمتة المشروع والتنسيق: مراحلها تنبض من سجل الحرّاس وGit وGitHub وحالة المنصة كل بضع ثوانٍ، بالكود وحده وبلا توكنز. أتمتة المنصة المجمّدة مختصرة أسفلها.' %}
+{% include 'registry/_page_heading.html' with eyebrow='أتمتة المشروع' title='نموذج الأوتوميشن' description='خريطة حية لأتمتة المشروع والتنسيق: مراحلها تنبض من سجل الحرّاس وGit وGitHub وحالة المنصة كل بضع ثوانٍ، بالكود وحده وبلا توكنز، ومعها حالة المنصة الآن.' %}
 <div class="session-actions">
-  <a class="session-secondary-link" href="{% url 'project-sessions' %}">جلسات المشروع</a>
-  <a class="session-secondary-link" href="{% url 'automation' %}">متابعة الأتمتة</a>
-  <a class="session-secondary-link" href="{% url 'token-dashboard' %}">متابعة الاستهلاك</a>
+  <a class="session-secondary-link" href="{% url 'claude-usage' %}">استهلاك Claude</a>
   <button class="action" id="print" type="button">طباعة النموذج</button>
 </div>
-{% include 'registry/_capacity.html' %}
 <div class="automation-model">{{ map_content|safe }}</div>
 {% endblock %}
