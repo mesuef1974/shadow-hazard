@@ -227,7 +227,9 @@ def run(s):
                                     'direct_displacement': distance-h[-2][1],
                                     'time': obs.captured, 'confidence': obs.confidence, 'frame': obs.frame,
                                     'route': routes[obs.actor]}
-        prediction = assess(tracks, now, s.horizon, s.margin)
+        # وضع إشارة المشاة مجمّد كما هو (ADR 0002)؛ شرط الحجب للنواة فقط.
+        prediction = assess(tracks, now, s.horizon, s.margin,
+                            occlusion_gate=not (custom and s.signals == 'auto'))
         reliable = prediction['state'] not in ('UNKNOWN', 'DEGRADED')
         car_passed = (reliable and point(tracks['car']['route'], tracks['car']['progress'])[1]-2 > CROSSWALK_HALF_WIDTH+s.margin
                       and tracks['car']['speed'] >= 0)

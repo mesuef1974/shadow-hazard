@@ -280,10 +280,29 @@ class MotionTests(SimpleTestCase):
         self.assertEqual(assess({},0)['state'],'UNKNOWN')
 
     def test_baseline_warns_before_visibility(self):
-        m=run(Scenario())['metrics']
+        r=run(Scenario());m=r['metrics']
         self.assertIsNotNone(m['first_collision'])
         self.assertGreater(m['lead_before_visible'],0)
-        self.assertEqual(m['fn'],0)
+        # ADR 0002: لا إخفاق في التحذير والطفل في الظل؛ بعد ظهوره يراه السائق.
+        self.assertFalse(any(f.get('evaluation')=='fn' and f['hidden'] for f in r['frames']))
+
+    def test_occlusion_gate_warns_only_inside_the_shadow(self):
+        def tracks(child_progress,child_speed,car_progress):
+            base=dict(time=0.,confidence=1.,frame='scene-metres-v1')
+            return {'car':dict(base,route=ROUTES['car'],progress=car_progress,speed=5.),
+                    'pedestrian':dict(base,route=ROUTES['pedestrian'],progress=child_progress,speed=child_speed)}
+        # S2: طفل ظاهر في مسار السيارة والسيارة تقترب: لا تحذير لأن السائق يراه.
+        visible=tracks(9.5,0.,26.)
+        self.assertFalse(hidden((1.75,-9.),point(ROUTES['pedestrian'],9.5)))
+        result=assess(visible,0.)
+        self.assertEqual(result['state'],'CLEAR_WITHIN_SCOPE')
+        self.assertIn('السائق يراه',result['reason'])
+        # وضع إشارة المشاة المجمّد يبقى على سلوكه السابق.
+        self.assertEqual(assess(visible,0.,occlusion_gate=False)['state'],'HAZARD_SUSPECTED')
+        # طفل في ظل الحافلة يتجه إلى مسار السيارة: تحذير.
+        shadowed=tracks(1.,2.,16.)
+        self.assertTrue(hidden((1.75,-19.),point(ROUTES['pedestrian'],1.)))
+        self.assertEqual(assess(shadowed,0.)['state'],'HAZARD_SUSPECTED')
 
     def test_crossing_at_different_times_does_not_warn(self):
         m=run(replace(Scenario(),pedestrian_delay=7))['metrics']
