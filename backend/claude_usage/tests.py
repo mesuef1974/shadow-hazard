@@ -83,6 +83,9 @@ class ImportTests(TestCase):
         runs = ImportRun.objects.count()
         self.assertEqual(self.run_import().files_read, 0)
         self.assertEqual(ImportRun.objects.count(), runs)
+        self.write('x.jsonl', line('m9', self.now, cwd='/other/project'))  # another project's line
+        self.assertEqual(self.run_import().skipped_lines, 1)
+        self.assertEqual(ImportRun.objects.count(), runs)
         self.write('x.jsonl', line('m3', self.now), mode='w')  # file replaced and shorter
         self.assertEqual(self.run_import().messages_new, 1)
 

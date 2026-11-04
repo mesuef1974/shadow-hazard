@@ -110,8 +110,8 @@ def _store(replies, record, run, caches):
 
 
 def import_usage(sources=None):
-    """Read new lines only. A run is recorded only when a file changed or the import failed,
-    so the worker's 30-second cycle leaves no rows when nothing happened."""
+    """Read new lines only. A run is recorded only when it stored replies or failed, so the
+    worker's 30-second cycle leaves no rows while other projects' transcripts keep growing."""
     run, caches = ImportRun(started_at=timezone.now()), {}
     try:
         for kind, directory, only_repo in (sources or default_sources()):
@@ -147,7 +147,7 @@ def import_usage(sources=None):
     except Exception as exc:  # Shown on the page; the dispatcher keeps running.
         run.error = type(exc).__name__
     run.finished_at = timezone.now()
-    if run.files_read or not run.ok:
+    if run.messages_new or run.messages_updated or not run.ok:
         run.save()
     return run
 
