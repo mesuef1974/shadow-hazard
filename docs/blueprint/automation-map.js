@@ -133,12 +133,13 @@ window.addEventListener('hashchange',()=>{const key=location.hash.slice(1);if(st
   mark('m-order',docs.available?'ok':'idle',docs.available?'مهام مفتوحة: '+docs.open_tasks:'غير متاح',docs.handoff_at);
   event(ev.session,'m-session','بدء الجلسة',{pass:'ok',fail:'bad'});
   // main's health belongs to the merge stage: its latest finished CI run on GitHub.
-  const mainRun=gh.available&&(gh.runs||[]).find(r=>r.headBranch==='main'&&r.status==='completed');
-  const mainTone=!mainRun||mainRun.conclusion==='success'?'ok':mainRun.conclusion==='failure'?'bad':'warn';
-  const mainCi=mainRun?'فحص main '+(mainRun.conclusion==='success'?'نجح':mainRun.conclusion==='failure'?'فشل':'لم يكتمل')+' '+ago(mainRun.updatedAt):'';
+  const mainRun=gh.available&&(gh.runs||[]).find(r=>r.headBranch==='main');
+  const mainBusy=mainRun&&mainRun.status!=='completed';
+  const mainTone=!mainRun?'ok':mainBusy?'run':mainRun.conclusion==='success'?'ok':mainRun.conclusion==='failure'?'bad':'warn';
+  const mainCi=mainRun?'فحص main '+(mainBusy?'يعمل الآن':mainRun.conclusion==='success'?'نجح':mainRun.conclusion==='failure'?'فشل':'لم يكتمل')+' '+ago(mainRun.updatedAt||mainRun.createdAt):'';
   if(git.available){const h=git.head||{},m=git.main||{};mark('m-run',git.uncommitted?'run':'ok','الفرع '+git.branch+' · آخر التزام '+ago(h.at)+' · '+(h.subject||'')+(git.uncommitted?' · تغييرات غير ملتزمة: '+git.uncommitted:''),h.at);
    const change='آخر تغيير في main '+ago(m.at)+(m.subject?' · '+m.subject:'');
-   mark('m-merge',mainTone,mainTone==='ok'?change+(mainCi?' · '+mainCi:''):mainCi+' · '+change,mainTone==='ok'?m.at:mainRun.updatedAt);}
+   mark('m-merge',mainTone,mainTone==='ok'?change+(mainCi?' · '+mainCi:''):mainCi+' · '+change,mainTone==='ok'?m.at:mainBusy?new Date().toISOString():mainRun.updatedAt);}
   else{mark('m-run','idle','Git غير متاح');mark('m-merge','idle','Git غير متاح');}
   if(git.available&&!git.hooks_active)mark('m-commit','warn','الحرّاس غير مفعّلة في هذه النسخة');else event(ev.commit,'m-commit','الالتزام',{pass:'ok',reject:'bad',override:'warn'});
   event(ev.override,'m-override','التجاوز',{override:'warn'});

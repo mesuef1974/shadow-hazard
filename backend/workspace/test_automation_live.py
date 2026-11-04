@@ -63,9 +63,28 @@ class AutomationLiveTests(TestCase):
                 patch.object(automation_live, '_run', return_value=json.dumps(runs)) as run:
             first = automation_live.github_state()
             second = automation_live.github_state()
-        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_count, 2)  # no CI run on main in the window: one extra, cached, question
         self.assertIs(first, second)
         self.assertEqual([r['sha'] for r in first['runs']], ['abcdef1'])
+
+    def test_main_stays_visible_however_busy_the_branches_are(self):
+        def ci(branch, sha, conclusion='success'):
+            return {'workflowName': 'CI', 'headBranch': branch, 'headSha': sha, 'status': 'completed',
+                    'conclusion': conclusion, 'event': 'push', 'createdAt': 'a', 'updatedAt': 'b', 'url': 'u'}
+        busy = [ci(f'feat/{n}', f'{n}' * 7) for n in range(8)] + [ci('main', 'm' * 7, 'failure')]
+        with patch.object(automation_live.shutil, 'which', return_value='gh'), \
+                patch.object(automation_live, '_run', return_value=json.dumps(busy)) as run:
+            runs = automation_live.github_state()['runs']
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(len(runs), 7)
+        self.assertEqual((runs[-1]['headBranch'], runs[-1]['conclusion']), ('main', 'failure'))
+        automation_live.reset_cache()
+        outputs = iter([json.dumps(busy[:8]), json.dumps([busy[-1]])])
+        with patch.object(automation_live.shutil, 'which', return_value='gh'), \
+                patch.object(automation_live, '_run', side_effect=lambda *a, **k: next(outputs)) as run:
+            runs = automation_live.github_state()['runs']
+        self.assertIn('--branch', run.call_args_list[1].args[0])
+        self.assertEqual(runs[-1]['headBranch'], 'main')
 
     def test_platform_heartbeat_freshness(self):
         DispatcherHeartbeat.objects.create(key='local', state='running', pid=1)
