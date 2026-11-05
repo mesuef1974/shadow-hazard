@@ -41,6 +41,12 @@ class RepoCase(unittest.TestCase):
         self.env.update(GIT_CONFIG_GLOBAL=str(config), GIT_CONFIG_NOSYSTEM='1',
                         GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.invalid',
                         GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.invalid')
+        # الدوال المستدعاة داخل العملية (prepush_check) تقرأ os.environ لا self.env، فتُنظَّف هي أيضًا.
+        isolated = patch.dict(os.environ)
+        isolated.start()
+        self.addCleanup(isolated.stop)
+        for key in [k for k in os.environ if k.startswith('GIT_')]:
+            del os.environ[key]
         self.git(root, 'init', '-q')
         return root
 
