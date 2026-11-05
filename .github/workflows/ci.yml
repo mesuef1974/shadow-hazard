@@ -67,7 +67,20 @@ jobs:
       - run: python backend/manage.py check --fail-level WARNING
       - run: python backend/manage.py makemigrations --check --dry-run
       - run: python backend/manage.py migrate --noinput
-      - run: python backend/manage.py test accounts execution_context registry token_usage workspace operations releases knowledge simulation --noinput
+      - name: Tests
+        run: |
+          set -o pipefail
+          python backend/manage.py test accounts execution_context registry token_usage workspace operations releases knowledge simulation --noinput 2>&1 | tee test.log
+      - name: Failure digest
+        if: failure()
+        run: |
+          python scripts/failure_digest.py test.log "Backend / ${{ matrix.database }}" failure-digest.md | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload failure digest
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: failure-digest-${{ matrix.database }}
+          path: failure-digest.md
       - run: python backend/manage.py collectstatic --noinput
 
   prepush:
