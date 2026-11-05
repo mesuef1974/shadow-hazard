@@ -75,7 +75,8 @@ class TokenUsageTests(TestCase):
         from datetime import timedelta
         from django.utils import timezone
         from .analytics import analyze
-        now=timezone.now()
+        # منتصف الساعة: العينات تمتد ثوانيَ، والذروة تُجمَّع بالساعة، فلا تنقسم عند حدّ الساعة.
+        now=timezone.now().replace(minute=30,second=0,microsecond=0)
         for index,(model,total) in enumerate([('A',100),('A',150),('B',180),('B',220),('B',10),('B',30)]):
             TokenSample.objects.create(session=self.session,source_id=index,sampled_at=now+timedelta(seconds=index),model=model,total=total,input=total,output=0,cached=0,reasoning=0,context=20,context_limit=100)
         data=analyze(self.project)
