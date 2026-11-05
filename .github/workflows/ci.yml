@@ -156,4 +156,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           BRANCH: ${{ github.ref_name }}
-        run: python3 scripts/pr_flow.py "$REPO" "$BRANCH" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          set -o pipefail
+          python3 scripts/pr_flow.py "$REPO" "$BRANCH" | tee -a "$GITHUB_STEP_SUMMARY"
