@@ -25,8 +25,9 @@ def plan(current, target, dirty):
 
 
 def git(root, *args):
-    # core.bare=true في الإعداد المشترك يعطّل أوامر الشجرة في المجلد الرئيسي.
-    out = subprocess.run(['git', '-c', 'core.bare=false', *args], cwd=root, capture_output=True,
+    # core.bare=true في الإعداد المشترك يعطّل أوامر الشجرة في المجلد الرئيسي، و-c لا يغلبه؛
+    # --work-tree وحده يغلبه.
+    out = subprocess.run(['git', f'--work-tree={root}', *args], cwd=root, capture_output=True,
                          text=True, encoding='utf-8', errors='replace')
     if out.returncode != 0:
         raise RuntimeError(f'git {args[0]}: {out.stderr.strip()[:200]}')
@@ -59,8 +60,9 @@ def run_step(root, command):
 
 def stop_platform():
     """يوقف ما يستمع على منفذ المنصة؛ لا شيء يعني أنها متوقفة أصلًا."""
-    script = (f'Get-NetTCPConnection -LocalPort {PORT} -State Listen -ErrorAction SilentlyContinue | '
-              'ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }')
+    script = (f'Get-NetTCPConnection -LocalPort {PORT} -ErrorAction SilentlyContinue | '
+              'Select-Object -Unique -ExpandProperty OwningProcess | '
+              'ForEach-Object { Stop-Process -Id $_ -Force }')
     subprocess.run(['powershell', '-NoProfile', '-Command', script], capture_output=True)
 
 
@@ -109,7 +111,8 @@ def main(argv):
     root = Path(argv[argv.index('--target') + 1]).resolve() if '--target' in argv else ROOT
     git(root, 'fetch', '-q', 'origin', 'main')
     current, target = git(root, 'rev-parse', 'HEAD'), git(root, 'rev-parse', 'origin/main')
-    action = plan(current, target, bool(git(root, 'status', '--porcelain')))
+    # غير المتعقَّب لا يمنع النشر: ملفات المالك المحلية تبقى ولا يمسها checkout.
+    action = plan(current, target, bool(git(root, 'status', '--porcelain', '--untracked-files=no')))
     if action == 'idle':
         return 0
     if action == 'refuse':
