@@ -48,6 +48,7 @@ def unapproved_frozen_commits(root=ROOT, base=FREEZE_BASE):
 def checks():
     python = sys.executable
     return [
+        ('الاختبارات المرتبطة بالساعة', [python, 'scripts/guard_time.py']),
         ('اختبارات الحرّاس', [python, '-m', 'unittest', 'discover', '-s', 'scripts',
                               '-p', 'test_*.py', '-q']),
         ('اختبارات المحاكاة', [python, 'backend/manage.py', 'test', 'simulation', '--noinput']),
