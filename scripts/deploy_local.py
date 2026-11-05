@@ -60,8 +60,9 @@ def run_step(root, command):
 
 def stop_platform():
     """يوقف ما يستمع على منفذ المنصة؛ لا شيء يعني أنها متوقفة أصلًا."""
-    script = (f'Get-NetTCPConnection -LocalPort {PORT} -State Listen -ErrorAction SilentlyContinue | '
-              'ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }')
+    script = (f'Get-NetTCPConnection -LocalPort {PORT} -ErrorAction SilentlyContinue | '
+              'Select-Object -Unique -ExpandProperty OwningProcess | '
+              'ForEach-Object { Stop-Process -Id $_ -Force }')
     subprocess.run(['powershell', '-NoProfile', '-Command', script], capture_output=True)
 
 
