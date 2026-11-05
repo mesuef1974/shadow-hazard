@@ -8,9 +8,9 @@ class PrFlowTests(unittest.TestCase):
         self.assertEqual(pr_flow.base_from_message('x'), 'main')
         self.assertEqual(pr_flow.base_from_message('x\n\nPR-Base: docs/a\n'), 'docs/a')
 
-    def test_main_is_never_merged_here(self):
+    def test_push_to_main_skips_and_green_pr_to_main_merges(self):
         self.assertEqual(pr_flow.decide('main', None), 'skip')
-        self.assertEqual(pr_flow.decide('f', {'baseRefName': 'main'}), 'human')
+        self.assertEqual(pr_flow.decide('f', {'baseRefName': 'main'}), 'merge')
 
     def test_open_then_merge_non_main(self):
         self.assertEqual(pr_flow.decide('f', None), 'open')

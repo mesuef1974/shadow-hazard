@@ -1,8 +1,8 @@
-"""مسار الطلب بعد نجاح CI (ADR 0003): يفتح الطلب وحده، ويدمج ما قاعدته غير main.
+"""مسار الطلب بعد نجاح CI (ADR 0005): يفتح الطلب وحده ويدمجه، حتى إلى main.
 
-القاعدة من سطر «PR-Base: <فرع>» في آخر إيداع، والافتراضي main. الدمج إلى main لا يحدث هنا أبدًا:
-يبقى بمراجعة بشرية بقرار حماية الفرع. يعمل بعد نجاح كل فحوص CI فقط، لأن قاعدة غير محمية
-لا تشترط فحوصًا فكان --auto سيدمج فورًا. الاستعمال: python scripts/pr_flow.py <owner/repo> <branch>
+القاعدة من سطر «PR-Base: <فرع>» في آخر إيداع، والافتراضي main. المسودة لا تُدمج، فهي طريق إبقاء
+عين بشرية على تغيير بعينه. يعمل بعد نجاح كل الفحوص فقط، لأن قاعدة غير محمية لا تشترطها.
+الاستعمال: python scripts/pr_flow.py <owner/repo> <branch>
 """
 import json
 import re
@@ -19,14 +19,12 @@ def base_from_message(message):
 
 
 def decide(branch, pr):
-    """يرجع 'skip' أو 'open' أو 'merge' أو 'human'."""
+    """يرجع 'skip' أو 'open' أو 'merge'."""
     if branch == PROTECTED:
         return 'skip'
     if pr is None:
         return 'open'
-    if pr.get('isDraft'):
-        return 'skip'
-    return 'human' if pr.get('baseRefName') == PROTECTED else 'merge'
+    return 'skip' if pr.get('isDraft') else 'merge'
 
 
 def gh(*args):
@@ -66,8 +64,6 @@ def main(argv):
         print(f"دُمج الطلب {pr['number']}." if out.returncode == 0
               else f"تعذّر الدمج: {out.stderr.strip()[:200]}")
         return out.returncode
-    if action == 'human':
-        print(f"الطلب {pr['number']} أخضر وقاعدته main: ينتظر مراجعة بشرية.")
     return 0
 
 
