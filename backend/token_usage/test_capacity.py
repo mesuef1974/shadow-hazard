@@ -360,7 +360,7 @@ class CapacityTests(TestCase):
 class CapacityViewContextTests(TestCase):
     setUp=CapacityTests.setUp
     sample=CapacityTests.sample
-    urls=['/sessions/','/sessions/automation/','/usage/','/sessions/automation-model/']
+    urls=['/sessions/','/sessions/automation/','/usage/']  # the automation map no longer shows the Codex card
 
     def test_snapshot_contract_without_evaluation_or_fallback(self):
         from contextlib import ExitStack
@@ -379,7 +379,7 @@ class CapacityViewContextTests(TestCase):
                 self.assertFalse(response.context['capacity_snapshot']['thresholds_enabled'])
                 self.assertEqual(response.context['capacity_snapshot']['source_kind'],SOURCE_KIND)
                 self.assertContains(response,'تقدير السياق عند نهاية الخطوة')
-            self.assertEqual(workspace_snapshot.call_count,3);usage_snapshot.assert_called_once_with(self.project)
+            self.assertEqual(workspace_snapshot.call_count,2);usage_snapshot.assert_called_once_with(self.project)
             evaluate_mock.assert_not_called();maintenance_mock.assert_not_called();sync_mock.assert_not_called()
         self.assertEqual(CapacityEvent.objects.count(),0)
 

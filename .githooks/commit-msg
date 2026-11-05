@@ -1,0 +1,8 @@
+#!/bin/sh
+# يسجل سبب تجاوز التجميد في رسالة الالتزام — مهمة 0002
+# كل مرشح يُجرَّب أولًا: اسم python3 في ويندوز قد يكون اختصار المتجر الذي يفشل.
+for py in .venv/Scripts/python.exe .venv/bin/python python python3; do
+  if "$py" -c "import sys" >/dev/null 2>&1; then exec "$py" scripts/guard_frozen.py --commit-msg "$1"; fi
+done
+echo "commit-msg: لم يُعثر على Python" >&2
+exit 1

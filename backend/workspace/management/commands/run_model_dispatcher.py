@@ -21,6 +21,10 @@ class Command(BaseCommand):
     help='Prepare jobs and deliver approved workspace-write work to existing Codex sessions.'
     def add_arguments(self,parser):parser.add_argument('--watch',action='store_true')
     def handle(self,*args,**options):
+        if getattr(settings,'CODEX_RETIRED',False):
+            # Codex is retired: the same scheduled task now runs only the platform worker.
+            from workspace.platform_worker import run
+            return run(self.stdout,watch=options['watch'])
         with single_worker(settings.BASE_DIR/'.local'/'model-dispatcher.lock') as acquired:
             if not acquired:
                 self.stdout.write('المراقب يعمل بالفعل؛ لن تبدأ نسخة ثانية.')

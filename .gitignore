@@ -43,3 +43,6 @@ desktop.ini
 /backend/.local/
 *.sqlite3
 *.sqlite3-journal
+
+# أرشيف الهوية المضغوط: خارج التتبع بعد تحويل المستودع إلى عام
+docs/brand/*.zip

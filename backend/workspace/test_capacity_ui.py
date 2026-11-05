@@ -53,14 +53,9 @@ class CapacityUiTests(SimpleTestCase):
         root = Path(__file__).resolve().parents[2]
         for name in ['backend/workspace/templates/workspace/sessions.html',
                      'backend/workspace/templates/workspace/automation.html',
-                     'backend/workspace/templates/workspace/automation_model.html',
                      'backend/token_usage/templates/token_usage/dashboard.html']:
             self.assertIn("registry/_capacity.html", (root / name).read_text(encoding='utf-8'))
         map_template = (root / 'backend/workspace/templates/workspace/automation_model.html').read_text(encoding='utf-8')
-        self.assertLess(map_template.index("registry/_capacity.html"), map_template.index('map_content|safe'))
+        self.assertNotIn("registry/_capacity.html", map_template)  # Codex card removed from the map page
         diagram = (root / 'docs/blueprint/automation-map-ar.html').read_text(encoding='utf-8')
-        for text in ['قراءة موثوقة وحديثة', 'تقادم البيانات أو تضاربها يمنع التنفيذ',
-                     'الطلب ينتظر الخمول والتفويض وسلامة المسار',
-                     'راجع متابعة الاستهلاك للحالة الفعلية الحالية']:
-            self.assertIn(text, diagram)
-        self.assertNotIn('غير مفعّلتين حاليًا', diagram)
+        self.assertNotIn('تنبيه 70٪ وتجهيز 85٪', diagram)

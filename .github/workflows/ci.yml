@@ -67,8 +67,45 @@ jobs:
       - run: python backend/manage.py check --fail-level WARNING
       - run: python backend/manage.py makemigrations --check --dry-run
       - run: python backend/manage.py migrate --noinput
-      - run: python backend/manage.py test accounts execution_context registry token_usage workspace operations releases knowledge simulation --noinput
+      - name: Tests
+        run: |
+          set -o pipefail
+          python backend/manage.py test accounts execution_context registry token_usage workspace operations releases knowledge simulation --noinput 2>&1 | tee test.log
+      - name: Rerun failed tests once
+        if: failure()
+        run: |
+          ids=$(python scripts/failure_digest.py --ids test.log)
+          if [ -n "$ids" ]; then
+            python backend/manage.py test $ids --noinput > rerun.log 2>&1 || true
+          fi
+      - name: Failure digest
+        if: failure()
+        run: |
+          python scripts/failure_digest.py test.log "Backend / ${{ matrix.database }}" failure-digest.md rerun.log | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload failure digest
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: failure-digest-${{ matrix.database }}
+          path: failure-digest.md
       - run: python backend/manage.py collectstatic --noinput
+
+  prepush:
+    name: Pre-push check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # full history: the freeze-history check needs FREEZE_BASE
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: python -m pip install -r backend/requirements.txt
+      - run: python scripts/prepush_check.py
 
   report:
     name: Report browser
@@ -99,3 +136,26 @@ jobs:
       - run: python -m pip install pip-audit==2.10.1
       - run: python -m pip_audit -r backend/requirements.txt --strict
       - run: python -m pip_audit -r tools/ci/requirements.txt --strict
+
+  pr-flow:
+    name: PR flow
+    # بعد نجاح كل الفحوص فقط، وعلى الدفع إلى فرع عمل: يفتح الطلب ويدمج ما قاعدته غير main.
+    if: github.event_name == 'push' && github.ref_name != 'main'
+    needs: [repository, backend, prepush, report, dependencies]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Open or merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -o pipefail
+          python3 scripts/pr_flow.py "$REPO" "$BRANCH" | tee -a "$GITHUB_STEP_SUMMARY"

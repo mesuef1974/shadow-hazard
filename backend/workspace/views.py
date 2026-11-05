@@ -45,6 +45,17 @@ def project(): return Project.objects.order_by('pk').first()
 
 
 @login_required(login_url='/login/')
+def automation_live(request):
+    """Live status that makes the automation map pulse; code only, zero model tokens."""
+    from django.http import JsonResponse
+    from .automation_live import snapshot
+    if not supervisor(request.user):return HttpResponseForbidden()
+    response=JsonResponse(snapshot(),json_dumps_params={'ensure_ascii':False})
+    response['Cache-Control']='private, no-store'
+    return response
+
+
+@login_required(login_url='/login/')
 def automation_model(request, asset=''):
     """Serve the canonical map and its two assets behind supervisor access."""
     from django.conf import settings

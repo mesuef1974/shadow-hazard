@@ -2,13 +2,15 @@
 from dataclasses import dataclass
 from math import hypot
 
-VERSION = 'route-occupancy-v4-analytic-motion'
+VERSION = 'route-occupancy-v4-analytic-motion-occlusion-gate-v1'
 ROUTES = {'car': ((1.75, -36.), (1.75, 20.)),
           'pedestrian': ((8., -4.), (8., 0.), (-3., 0.))}
 SIZES = {'car': (1.8, 4.0), 'pedestrian': (.6, .6)}
 BUS = (4., -12.5, 7., -2.5)
 CROSSWALK_HALF_WIDTH = 1.5
 STOP_LINE_Y = -2.5
+# عين السائق أمام مركز السيارة بمتر، بالاصطلاح نفسه في المحاكاة والتقييم.
+DRIVER_EYE_OFFSET = 1.
 GEOMETRY = {'road_edges': (0., 7.), 'lane_divider': 3.5,
             'crosswalk_half_width': CROSSWALK_HALF_WIDTH, 'stop_line_y': STOP_LINE_Y,
             'sizes': SIZES}
@@ -71,7 +73,7 @@ class Observation:
     algorithm: str = 'synthetic-v1'
 
 
-def assess(tracks, now, horizon=6., margin=.2):
+def assess(tracks, now, horizon=6., margin=.2, occlusion_gate=True):
     if len(tracks) != 2:
         return {'state': 'UNKNOWN', 'reason': 'الرصد غير مكتمل', 'ttc': None}
     for track in tracks.values():
@@ -85,5 +87,10 @@ def assess(tracks, now, horizon=6., margin=.2):
         positions = {actor: point(t['route'], t['progress']+t['speed']*(now-t['time']+future))
                      for actor, t in tracks.items()}
         if overlap(positions['car'], positions['pedestrian'], margin):
+            # ADR 0002: التحذير فقط مما يقع في ظل الحافلة الآن؛ الطفل الظاهر يراه السائق.
+            car, pedestrian = (point(t['route'], t['progress']+t['speed']*(now-t['time']))
+                               for t in (tracks['car'], tracks['pedestrian']))
+            if occlusion_gate and not hidden((car[0], car[1]+DRIVER_EYE_OFFSET), pedestrian):
+                return {'state': 'CLEAR_WITHIN_SCOPE', 'reason': 'السائق يراه: الطفل خارج ظل الحافلة', 'ttc': None}
             return {'state': 'HAZARD_SUSPECTED', 'reason': 'تداخل متوقع للمساحتين في الوقت نفسه', 'ttc': round(future, 2)}
     return {'state': 'CLEAR_WITHIN_SCOPE', 'reason': 'لا تداخل متوقع ضمن أفق الحساب', 'ttc': None}

@@ -4,6 +4,7 @@ from django.urls import path, include
 from registry import portal
 from workspace import views as workspace
 from token_usage import views as token_usage
+from claude_usage import views as claude_usage
 from execution_context import views as execution_context
 from releases.pages import dashboard as release_dashboard
 from knowledge.views import (search_view as knowledge_search, search_page as knowledge_page,
@@ -21,10 +22,13 @@ urlpatterns = [
  path('sessions/jobs/<int:job_id>/escalation/',execution_context.request_escalation,name='request-escalation'),
  path('sessions/automation/', workspace.automation, name='automation'),
  path('sessions/automation-model/', workspace.automation_model, name='session-automation-model'),
+ path('sessions/automation-model/live.json', workspace.automation_live, name='session-automation-live'),
  path('sessions/automation-model/assets/<str:asset>', workspace.automation_model, name='session-automation-asset'),
  path('sessions/jobs/', workspace.model_jobs, name='model-jobs'),
  path('sessions/', workspace.sessions, name='project-sessions'),
  path('usage/', token_usage.dashboard, name='token-dashboard'),
+ path('claude-usage/', claude_usage.dashboard, name='claude-usage'),
+ path('claude-usage/quota/', claude_usage.record_quota, name='claude-usage-quota'),
  path('usage/sync/', token_usage.sync, name='token-sync'),
  path('', workspace.dashboard, name='project-home'),
  path('library/', portal.home, name='project-library'),

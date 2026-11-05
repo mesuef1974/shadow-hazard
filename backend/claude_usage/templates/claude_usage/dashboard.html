@@ -1,0 +1,35 @@
+{% extends 'registry/base.html' %}{% load static claude_usage_tags %}{% block content %}<link rel="stylesheet" href="{% static 'claude_usage/charts.css' %}?v=1">
+<div class="usage-dashboard">
+{% include 'registry/_page_heading.html' with eyebrow='موارد المشروع · Claude' title='استهلاك Claude' description='الجلسة، وآخر 7 أيام، وآخر 30 يومًا، والنماذج؛ من سجلات Claude نفسها بلا أي نص من المحادثات.' %}
+<p class="note">«الطازج» = الإدخال + كتابة الذاكرة المؤقتة + الخرج، وهو الأقرب إلى الكلفة. «قراءة الذاكرة المؤقتة» أرخص بكثير وتُعرض وحدها. الأوقات بتوقيت قطر.</p>
+{% if last_import %}<p class="note" role="status">آخر استيراد {{ last_import.started_at|date:"Y-m-d H:i" }}: {% if last_import.ok %}نجح، {{ last_import.messages_new|exact }} ردًا جديدًا{% else %}تعذّر ({{ last_import.error|default:"سبب غير معروف" }}){% endif %}.</p>{% else %}<p class="note" role="status">لم يُجرَ استيراد بعد، فالأرقام غير متاحة.</p>{% endif %}
+
+<section class="cu-charts" aria-label="رسوم الاستهلاك"><figure class="cu-chart" id="cu-hourly"><h3>الجلسة ساعة بساعة</h3><p class="cu-sub">التوكنز الطازجة لكل ساعة بتوقيت قطر. مرّر المؤشر أو اضغط Tab على عمود لتفاصيله.</p><ul class="cu-legend"><li><span style="background:var(--cu-in)"></span>إدخال جديد (الإدخال + كتابة الذاكرة المؤقتة)</li><li><span style="background:var(--cu-out)"></span>خرج</li></ul><div class="cu-plot"></div></figure><figure class="cu-chart" id="cu-daily"><h3>آخر 30 يومًا يومًا بيوم</h3><p class="cu-sub">الطازج لكل يوم؛ الجدول أسفل الصفحة يعرض الأرقام نفسها.</p><ul class="cu-legend"><li><span style="background:var(--cu-in)"></span>إدخال جديد (الإدخال + كتابة الذاكرة المؤقتة)</li><li><span style="background:var(--cu-out)"></span>خرج</li></ul><div class="cu-plot"></div></figure><figure class="cu-chart" id="cu-models"><h3>حسب النموذج · آخر 30 يومًا</h3><p class="cu-sub">التوكنز الطازجة لكل نموذج.</p><div class="cu-plot"></div></figure></section>
+{{ charts|json_script:"claude-usage-charts" }}
+<section aria-labelledby="session-title"><h2 id="session-title">الجلسة</h2>
+{% if session %}<p class="note"><span dir="ltr">{{ session.session.session_id|truncatechars:13 }}</span> · {{ session.session.get_surface_display }} · من {{ session.totals.first|date:"Y-m-d H:i" }} إلى {{ session.totals.last|date:"Y-m-d H:i" }}</p>
+{% include 'claude_usage/_metrics.html' with t=session.totals %}
+{% include 'claude_usage/_models.html' with rows=session.models caption='نماذج هذه الجلسة' %}
+{% else %}<p>غير متاح: لا جلسة مستوردة بعد.</p>{% endif %}
+</section>
+
+{% for window in windows %}<section aria-labelledby="w{{ window.days }}"><h2 id="w{{ window.days }}">آخر {{ window.days }} {% if window.days == 7 %}أيام{% else %}يومًا{% endif %}</h2>
+{% include 'claude_usage/_metrics.html' with t=window.totals %}
+{% include 'claude_usage/_models.html' with rows=window.models caption='حسب النموذج' %}
+</section>{% endfor %}
+
+<details class="work-panel" aria-labelledby="daily-title"><summary id="daily-title">جدول الأيام · آخر 30 يومًا</summary>
+{% if daily %}<div class="usage-history"><table><thead><tr><th scope="col">اليوم</th><th scope="col">الطازج</th><th scope="col">الخرج</th><th scope="col">قراءة الذاكرة المؤقتة</th><th scope="col">الردود</th></tr></thead><tbody>{% for row in daily %}<tr><td>{{ row.day|date:"Y-m-d" }}</td><td>{{ row.fresh|exact }}</td><td>{{ row.output_tokens|exact }}</td><td>{{ row.cache_read_input_tokens|exact }}</td><td>{{ row.replies|exact }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p>غير متاح.</p>{% endif %}
+</details>
+
+<section aria-labelledby="quota-title"><h2 id="quota-title">حصة المقعد</h2>
+<p class="note">لا تظهر حصة المقعد في السجلات؛ تُنقل يدويًا من صفحة الاستهلاك في Claude، وهي للمقعد كله لا لهذا المشروع وحده.</p>
+{% if quota %}<p>آخر قراءة {{ quota.taken_at|date:"Y-m-d H:i" }}: الأسبوعية {{ quota.weekly_percent }}٪{% if quota.session_percent is not None %}، والساعات الخمس {{ quota.session_percent }}٪{% endif %}{% if quota.note %} · {{ quota.note }}{% endif %}</p>{% else %}<p>غير متاح: لا قراءة بعد.</p>{% endif %}
+{% if quota_error %}<p class="note" role="alert">النسبة رقم بين 0 و100.</p>{% endif %}
+<form method="post" action="{% url 'claude-usage-quota' %}">{% csrf_token %}<label>الأسبوعية ٪ <input name="weekly_percent" inputmode="decimal" required></label> <label>الساعات الخمس ٪ <input name="session_percent" inputmode="decimal"></label> <label>ملاحظة <input name="note" maxlength="200"></label> <button type="submit">حفظ القراءة</button></form>
+</section>
+
+{% if sessions %}<details class="work-panel"><summary>الجلسات المستوردة</summary><ul>{% for item in sessions %}<li><a href="?session={{ item.session_id }}" dir="ltr">{{ item.session_id|truncatechars:13 }}</a> · {{ item.get_surface_display }} · {{ item.replies|exact }} ردًا · آخر رد {{ item.last|date:"Y-m-d H:i" }}</li>{% endfor %}</ul></details>{% endif %}
+</div>
+<script src="{% static 'claude_usage/charts.js' %}?v=1" defer></script>
+{% endblock %}

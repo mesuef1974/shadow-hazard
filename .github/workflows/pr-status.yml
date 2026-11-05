@@ -1,0 +1,30 @@
+name: PR status
+
+# حالة الطلبات المفتوحة تُكتب وحدها كل يوم عمل وعند تغيّر الطلبات، فلا يُكتشف التعارض أو انتظار المراجع يدويًا.
+on:
+  schedule:
+    - cron: '0 5 * * 0-4'   # 08:00 بتوقيت الدوحة، الأحد–الخميس
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  status:
+    name: PR status
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # نسحب الفرع الافتراضي دائمًا (لا كود الطلب) لأن pull_request_target يملك أذونات القراءة.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          python scripts/pr_status.py "${{ github.repository }}" | tee -a "$GITHUB_STEP_SUMMARY"

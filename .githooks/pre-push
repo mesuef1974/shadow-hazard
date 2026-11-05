@@ -1,0 +1,16 @@
+#!/bin/sh
+# فحص ما قبل الدفع — مهمة 0002. يجد بايثون المشروع وحده، فلا حاجة لتعديل PATH ولا لـ--no-verify.
+# الترتيب: SHZ_PYTHON صريحًا، ثم .venv هذه الشجرة، ثم .venv المستودع الرئيسي (الشجر الجانبية
+# بلا .venv)، ثم النظام. المرحلة الأولى تطلب مفسّرًا فيه OpenCV (اختبارات المحاكاة تحتاجه)،
+# والثانية تقبل أي مفسّر يعمل. اسم python3 في ويندوز قد يكون اختصار المتجر الذي يفشل.
+common=$(git rev-parse --git-common-dir 2>/dev/null)
+main=$(cd "$common/.." 2>/dev/null && pwd)
+for need in "import cv2" "import sys"; do
+  for py in "$SHZ_PYTHON" .venv/Scripts/python.exe .venv/bin/python \
+            "$main/.venv/Scripts/python.exe" "$main/.venv/bin/python" python python3; do
+    [ -n "$py" ] || continue
+    if "$py" -c "$need" >/dev/null 2>&1; then exec "$py" scripts/prepush_check.py; fi
+  done
+done
+echo "pre-push: لم يُعثر على Python" >&2
+exit 1
