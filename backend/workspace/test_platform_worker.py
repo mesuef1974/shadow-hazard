@@ -9,6 +9,13 @@ from .models import DispatcherHeartbeat, DispatcherRun
 
 @override_settings(CODEX_RETIRED=True)
 class PlatformWorkerTests(TestCase):
+    def setUp(self):
+        # TestCase يحيط كل اختبار بمعاملة؛ close_old_connections داخلها يغلق اتصال PostgreSQL
+        # (autocommit مطفأ) فيفشل الاختبار بـ«the connection is closed». على sqlite لا أثر له.
+        patcher = patch('workspace.platform_worker.close_old_connections')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_runs_only_backup_and_claude_import(self):
         DispatcherHeartbeat.objects.create(key='session_bridge', state='running', pid=9)
         with patch('operations.services.run_due_backup', return_value={'due': False}) as backup, \
