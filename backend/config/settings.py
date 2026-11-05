@@ -77,3 +77,4 @@ INSTALLED_APPS += ['releases']
 INSTALLED_APPS += ['knowledge']
 INSTALLED_APPS += ['simulation']
 AUTO_RENEWAL_EXECUTION_ENABLED = True
+INSTALLED_APPS += ['competition.apps.CompetitionConfig']
