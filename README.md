@@ -50,6 +50,7 @@ python --version
 - [خارطة الطريق](docs/roadmap.md)
 - [سجل القرارات](docs/decisions/0001-initial-architecture.md)
 - [جلسات العمل ومواثيقها](docs/sessions/README.md)
+- [خطة المركز الأول — فئة المحترفين](docs/competition/first-place-plan-senior-ar.html)
 
 ## الترخيص
 
