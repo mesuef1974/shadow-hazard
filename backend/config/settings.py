@@ -81,3 +81,4 @@ CODEX_RETIRED = True  # the worker runs only backup + Claude usage import (works
 HIDE_AGENT_SECTION = True  # ADR 0002 exception 5: the retired agent section redirects
 AUTO_RENEWAL_EXECUTION_ENABLED = True
 TEST_RUNNER = "config.test_runner.Runner"
+INSTALLED_APPS += ['competition.apps.CompetitionConfig']
