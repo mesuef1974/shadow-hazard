@@ -34,8 +34,10 @@ class RepoCase(unittest.TestCase):
     def make_repo(self):
         root = self.make_dir()
         config = write(self.make_dir(), 'gitconfig', '')
+        # متغيرات GIT_* يضبطها خطّاف pre-push (GIT_DIR وGIT_INDEX_FILE...)؛ نسخها كانت توجّه أوامر
+        # المستودع المؤقت إلى المستودع الحقيقي فتخرّب فهرسه وإعداده (2026-11-05).
         self.env = {k: v for k, v in os.environ.items()
-                    if k not in (guard_frozen.OVERRIDE, 'GITHUB_ACTIONS')}
+                    if k not in (guard_frozen.OVERRIDE, 'GITHUB_ACTIONS') and not k.startswith('GIT_')}
         self.env.update(GIT_CONFIG_GLOBAL=str(config), GIT_CONFIG_NOSYSTEM='1',
                         GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.invalid',
                         GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.invalid')
