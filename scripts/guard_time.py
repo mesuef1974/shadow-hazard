@@ -11,6 +11,7 @@ import sys
 CLOCK = re.compile(r'\b(timezone\.now|datetime\.(?:utc)?now|time\.time)\s*\(')
 SAFE = re.compile(r'replace\(|freeze|patch|mock|# زمن-ثابت')
 TEST_FILE = re.compile(r'(^|/)(tests?\.py|test_[^/]*\.py|[^/]*_tests?\.py|tests/[^/]+\.py)$')
+SELF = 'scripts/test_guard_time.py'  # مثبّتات هذا الحارس نفسه نصوص لا استدعاءات
 
 
 def scan_diff(diff_text):
@@ -19,7 +20,7 @@ def scan_diff(diff_text):
     for line in diff_text.splitlines():
         if line.startswith('+++ '):
             path = line[4:].removeprefix('b/')
-            current = path if TEST_FILE.search(path) else None
+            current = path if TEST_FILE.search(path) and path != SELF else None
         elif current and line.startswith('+') and not line.startswith('+++'):
             body = line[1:]
             if CLOCK.search(body) and not SAFE.search(body):
