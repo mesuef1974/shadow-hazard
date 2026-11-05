@@ -71,10 +71,17 @@ jobs:
         run: |
           set -o pipefail
           python backend/manage.py test accounts execution_context registry token_usage workspace operations releases knowledge simulation --noinput 2>&1 | tee test.log
+      - name: Rerun failed tests once
+        if: failure()
+        run: |
+          ids=$(python scripts/failure_digest.py --ids test.log)
+          if [ -n "$ids" ]; then
+            python backend/manage.py test $ids --noinput > rerun.log 2>&1 || true
+          fi
       - name: Failure digest
         if: failure()
         run: |
-          python scripts/failure_digest.py test.log "Backend / ${{ matrix.database }}" failure-digest.md | tee -a "$GITHUB_STEP_SUMMARY"
+          python scripts/failure_digest.py test.log "Backend / ${{ matrix.database }}" failure-digest.md rerun.log | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload failure digest
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

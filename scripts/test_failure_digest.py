@@ -42,3 +42,20 @@ class FailureDigestTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RerunVerdictTests(unittest.TestCase):
+    LOG = 'FAIL: test_a (app.tests.T.test_a)\nAssertionError: 1 != 2\n\nRan 1 test in 0.1s\n\nFAILED (failures=1)\n'
+
+    def test_failed_ids_are_dotted_and_unique(self):
+        self.assertEqual(failure_digest.failed_ids(self.LOG + self.LOG), ['app.tests.T.test_a'])
+        self.assertEqual(len(failure_digest.failed_ids(self.LOG + self.LOG)), 1)
+
+    def test_verdict_from_rerun_log(self):
+        self.assertEqual(failure_digest.verdict('Ran 1 test in 0.1s\n\nOK\n'), 'flaky')
+        self.assertEqual(failure_digest.verdict(self.LOG), 'real')
+        self.assertIsNone(failure_digest.verdict(''))
+
+    def test_digest_carries_verdict_first(self):
+        text = failure_digest.build(self.LOG, 'x', [], 'flaky')
+        self.assertIn('متقطع', text.splitlines()[2])
