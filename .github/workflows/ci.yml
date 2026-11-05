@@ -136,3 +136,24 @@ jobs:
       - run: python -m pip install pip-audit==2.10.1
       - run: python -m pip_audit -r backend/requirements.txt --strict
       - run: python -m pip_audit -r tools/ci/requirements.txt --strict
+
+  pr-flow:
+    name: PR flow
+    # بعد نجاح كل الفحوص فقط، وعلى الدفع إلى فرع عمل: يفتح الطلب ويدمج ما قاعدته غير main.
+    if: github.event_name == 'push' && github.ref_name != 'main'
+    needs: [repository, backend, prepush, report, dependencies]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Open or merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+        run: python3 scripts/pr_flow.py "$REPO" "$BRANCH" | tee -a "$GITHUB_STEP_SUMMARY"
