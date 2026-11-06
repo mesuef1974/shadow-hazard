@@ -180,6 +180,33 @@ class DeployLocalTests(unittest.TestCase):
         notify, _ = self.watch(platform='المنصة', target=OLD)
         self.assertEqual(notify.call_args.args[1], 'المنصة')
 
+    def idle_cycle(self, current, target, problem=''):
+        def git(root, *args):
+            if args[0] == 'rev-parse':
+                return target if args[1] == 'origin/main' else current
+            return ''
+
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.object(deploy_local, 'refresh'), \
+                patch.object(deploy_local, 'git', git), \
+                patch.object(deploy_local, 'watch', return_value=problem), \
+                patch.object(deploy_local, 'merge_small_update') as merge:
+            root = Path(folder)
+            marker = root / deploy_local.FAILED
+            marker.parent.mkdir()
+            marker.write_text(target if current != target else '', encoding='utf-8')
+            self.assertEqual(deploy_local.run(root), 0)
+        return merge
+
+    def test_healthy_idle_cycle_merges_a_small_update(self):
+        self.idle_cycle(NEW, NEW).assert_called_once()
+
+    def test_no_update_on_top_of_a_problem(self):
+        self.idle_cycle(NEW, NEW, 'المنصة').assert_not_called()
+
+    def test_no_update_on_top_of_a_failed_deploy(self):
+        self.idle_cycle(OLD, NEW).assert_not_called()
+
     def test_idle_check_stays_short(self):
         with patch.object(deploy_local, 'healthy', return_value=False) as healthy:
             self.assertIn('8011', deploy_local.platform_problem())

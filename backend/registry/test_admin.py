@@ -1,14 +1,26 @@
 import hashlib
+import sys
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 from django.contrib import admin
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.test import TestCase
 from django.urls import reverse
 from accounts.models import User
 from registry import models
 
+ENVIRONMENT='registry.management.commands.inventory_python_packages.project_environment'
+
 class AdminPresentationTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # الجرد مقصور على .venv النشر؛ والاختبار يعمل من شجرة عمل أو بيئة مؤقتة أيضًا.
+        patcher=patch(ENVIRONMENT, return_value=Path(sys.prefix))
+        patcher.start()
+        cls.addClassCleanup(patcher.stop)
+        super().setUpClass()
+
     @classmethod
     def setUpTestData(cls):
         call_command('import_project_registry', stdout=StringIO())
@@ -75,6 +87,11 @@ class AdminPresentationTests(TestCase):
         self.assertEqual(response.status_code,200)
         self.assertEqual(response['Content-Type'],'image/svg+xml')
         self.assertIn("default-src 'none'",response['Content-Security-Policy'])
+
+    def test_inventory_refuses_any_other_environment(self):
+        with patch(ENVIRONMENT, return_value=Path(sys.prefix)/'other'):
+            with self.assertRaises(CommandError):
+                call_command('inventory_python_packages', stdout=StringIO())
 
     def test_package_inventory_refresh_does_not_duplicate_rows(self):
         before=set(models.PythonPackage.objects.values_list('name','pk'))
