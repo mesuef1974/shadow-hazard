@@ -37,6 +37,7 @@
 .flow-table th,.flow-table td{padding:8px 10px;border-block-end:1px solid var(--platform-border);vertical-align:top;overflow-wrap:break-word}
 /* الوقت والمرحلة والنتيجة كلمات قصيرة لا تُكسر، والبطاقة والتفصيل يأخذان الباقي بحسب محتواهما. */
 .flow-table td:nth-child(-n+3){white-space:nowrap}
+.flow-table td:nth-child(4) bdi{display:inline-block;min-inline-size:20ch;text-align:end}
 .flow-table [data-r=pass]{color:var(--platform-success)}
 .flow-table [data-r=fail]{color:var(--platform-danger);font-weight:700}
 @container flow-events (max-width:620px){
@@ -46,6 +47,7 @@
 .flow-table td,.flow-table td:nth-child(-n+3){display:grid;grid-template-columns:5em minmax(0,1fr);gap:8px;padding:2px 0;border:0;white-space:normal}
 .flow-table td::before{content:attr(data-label);color:var(--platform-muted);font-weight:400}
 .flow-table td>*{justify-self:start}
+.flow-table td:nth-child(4) bdi{min-inline-size:0}
 .flow-table td.flow-empty{display:block}
 }
 @media(max-width:1000px){.flow-grid{grid-template-columns:minmax(0,1fr)}.flow-cards{max-block-size:320px}}
