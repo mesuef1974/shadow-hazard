@@ -112,7 +112,8 @@ def restore_packages(root, saved, run=run_step):
 
 
 def stop_platform():
-    """يوقف ما يستمع على منفذ المنصة؛ لا شيء يعني أنها متوقفة أصلًا."""
+    """يوقف ما يستمع على منفذ المنصة؛ الملف يخبر الحارس ألا يعيده، فالنشر سيطلبه بعد تمامه."""
+    (ROOT / NEXT_START).write_text('deploy', encoding='utf-8')
     script = (f'Get-NetTCPConnection -LocalPort {PORT} -ErrorAction SilentlyContinue | '
               'Select-Object -Unique -ExpandProperty OwningProcess | '
               'ForEach-Object { Stop-Process -Id $_ -Force }')
