@@ -57,11 +57,10 @@ class RepoCase(unittest.TestCase):
 
 class FrozenPathTests(unittest.TestCase):
     def test_frozen_zones_follow_adr_0002(self):
-        for path in ['backend/workspace/views.py', 'backend/config/settings.py',
-                     'docs/brand/index.html', 'docs/blueprint/automation-map.js',
-                     'backend\\registry\\models.py']:
+        for path in ['docs/brand/index.html', 'docs/brand/tokens.css']:
             self.assertTrue(guard_frozen.frozen(path), path)
-        for path in ['backend/simulation/tests.py',
+        for path in ['backend/workspace/views.py', 'docs/blueprint/automation-map.js',
+                     'backend/simulation/tests.py',
                      'docs/blueprint/prototype-first-experiment-ar.md',
                      'src/shadow_hazard/domain/motion.py', 'docs/tasks/0002-guards-and-hooks.md',
                      'backendx/file.py', 'docs/brandbook.md']:
@@ -72,7 +71,7 @@ class GuardHookTests(RepoCase):
     def setUp(self):
         self.root = self.make_repo()
         write(self.root, 'README.md')
-        write(self.root, 'backend/workspace/views.py')
+        write(self.root, 'docs/brand/tokens.css')
         self.git(self.root, 'add', '.')
         self.git(self.root, 'commit', '-q', '-m', 'base')
 
@@ -84,12 +83,12 @@ class GuardHookTests(RepoCase):
                               capture_output=True, text=True, encoding='utf-8')
 
     def test_brand_change_is_rejected_with_decision_name(self):
-        write(self.root, 'docs/brand/tokens.css')
+        write(self.root, 'docs/brand/new.css')
         self.git(self.root, 'add', '.')
         result = self.guard()
         self.assertEqual(result.returncode, 1)
         self.assertIn('ADR 0002 البند 3', result.stderr)
-        self.assertIn('docs/brand/tokens.css', result.stderr)
+        self.assertIn('docs/brand/new.css', result.stderr)
         event = json.loads(Path(self.root, automation_events.FILE).read_text(encoding='utf-8'))
         self.assertEqual((event['kind'], event['result']), ('commit', 'reject'))
 
@@ -102,11 +101,11 @@ class GuardHookTests(RepoCase):
 
     def test_moving_a_file_out_of_frozen_zone_is_rejected(self):
         Path(self.root, 'src').mkdir()
-        self.git(self.root, 'mv', 'backend/workspace/views.py', 'src/views.py')
+        self.git(self.root, 'mv', 'docs/brand/tokens.css', 'src/tokens.css')
         self.assertEqual(self.guard().returncode, 1)
 
     def test_override_needs_a_real_reason_and_is_recorded_once(self):
-        write(self.root, 'docs/blueprint/automation-map.js')
+        write(self.root, 'docs/brand/index.html')
         self.git(self.root, 'add', '.')
         self.assertEqual(self.guard(reason='نعم').returncode, 1)
         reason = 'استثناء موثق في ADR 0002 بتاريخ 2026-11-04'

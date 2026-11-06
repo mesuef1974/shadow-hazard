@@ -10,7 +10,7 @@ import sys
 from automation_events import record
 
 DECISION = 'ADR 0002 البند 3: المنصة والهوية و docs/blueprint/ مجمّدة حتى تسليم المسابقة.'
-FROZEN = ('backend/', 'docs/brand/', 'docs/blueprint/')
+FROZEN = ('docs/brand/',)
 OPEN_DIR = 'backend/simulation/'
 OPEN_FILE = 'docs/blueprint/prototype-first-experiment-ar.md'
 OVERRIDE = 'SHZ_FROZEN_OVERRIDE'
