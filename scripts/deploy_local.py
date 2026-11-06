@@ -15,6 +15,7 @@ from pathlib import Path
 from automation_events import record
 from deploy_alert import notify
 from pr_refresh import refresh
+from pr_updates import merge_small_update
 
 PORT = 8011
 HEALTH_TRIES = 20
@@ -174,9 +175,10 @@ def watch(root, current, target):
     if not problem and current == target:
         problem = worker_problem(root, current)
     if not problem and current != target:
-        return  # إيداع فشل نشره يبقى عطلًا قائمًا حتى يأتي أحدث منه.
+        return ''  # إيداع فشل نشره يبقى عطلًا قائمًا حتى يأتي أحدث منه.
     if notify(root, problem):
         record('deploy', 'fail' if problem else 'info', problem or 'زال العطل', root)
+    return problem
 
 
 def deploy(root, target, checkout, run, restart_fn, previous):
@@ -201,7 +203,9 @@ def run(root):
     action = plan(current, target, bool(git(root, 'status', '--porcelain', '--untracked-files=no')),
                   failed)
     if action == 'idle':
-        watch(root, current, target)
+        # لا ترقية فوق عطل قائم أو نشر فاشل، فلا يختلط سببان.
+        if not watch(root, current, target) and current == target:
+            merge_small_update(root)
         return 0
     if action == 'refuse':
         print('النسخة متّسخة؛ لم أنشر.')
