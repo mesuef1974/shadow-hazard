@@ -28,6 +28,15 @@ class PrUpdatesTests(unittest.TestCase):
     def test_unreadable_title_is_not_small(self):
         self.assertFalse(pr_updates.small(pr(1, 'bump several packages')))
 
+    def test_small_group_is_small_by_its_definition(self):
+        branch = 'dependabot/pip/backend/pip-small-0123abcd'
+        title = 'bump the pip-small group in /backend with 2 updates'
+        self.assertTrue(pr_updates.small(pr(1, title, branch)))
+
+    def test_a_title_naming_the_group_is_not_enough(self):
+        title = 'bump the pip-small group in /backend with 2 updates'
+        self.assertFalse(pr_updates.small(pr(1, title)))
+
     def test_actions_major_is_tested_by_ci_itself(self):
         branch = 'dependabot/github_actions/actions/checkout-7.0.1'
         title = 'bump actions/checkout from 6.1.0 to 7.0.1'
