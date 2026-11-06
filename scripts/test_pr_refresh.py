@@ -28,6 +28,7 @@ class PrRefreshTests(unittest.TestCase):
             pr_refresh.refresh('.', run)
         self.assertEqual(calls[1], ('pr', 'update-branch', '18'))
         self.assertEqual(record.call_args.args[:2], ('pr-update', 'pass'))
+        self.assertEqual(record.call_args.args[2], 'تحديث الطلب 18')
 
     def test_failure_never_stops_deploy(self):
         def broken(*args):
