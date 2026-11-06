@@ -123,15 +123,12 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('tools/ci/requirements.txt') }}
-      # تعلّق مرآة apt قطع المهمة كلها عند مهلتها مرة؛ المحاولة المحدودة تنهي التعلّق وتعيد.
+      # بلا --with-deps: مكتبات Chromium في صورة المشغّل، وكان apt يعلّق على خطوط لا يحتاجها الفحص (ADR 0005).
       - name: Install Chromium
         run: |
-          # المهلة تقتل playwright ويبقى apt-get ماسكًا القفل، فتفشل المحاولات التالية فورًا.
-          echo 'DPkg::Lock::Timeout "60";' | sudo tee /etc/apt/apt.conf.d/90-lock-wait
           for attempt in 1 2 3; do
-            timeout 180 python -m playwright install --with-deps chromium && exit 0
+            timeout 180 python -m playwright install chromium && exit 0
             echo "attempt $attempt failed"
-            sudo pkill -x apt-get || true
             sleep 5
           done
           exit 1
