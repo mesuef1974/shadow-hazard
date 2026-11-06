@@ -1,0 +1,128 @@
+<meta charset="utf-8">
+<style>
+.bz{--tx:var(--text-primary,#1f1e1d);--t2:var(--text-secondary,#5f5e5a);--ln:var(--border-strong,#b4b2a9);--cd:var(--surface-1,#f1efe8);font-family:var(--font-sans,system-ui,sans-serif);color:var(--tx);direction:rtl;font-size:13px}
+.bz svg{display:block;width:100%;touch-action:none;direction:ltr;border:.5px solid var(--ln);border-radius:8px;margin-bottom:8px}
+.bz svg text{fill:var(--tx);font-size:12px}
+.bz .row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.bz .st{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:8px 0}
+.bz .st div{background:var(--cd);border-radius:8px;padding:8px 10px}
+.bz .st small{display:block;color:var(--t2);font-size:12px}
+.bz .st b{font-weight:500;font-size:15px}
+.bz .gr{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:10px}
+.bz fieldset{border:.5px solid var(--ln);border-radius:8px;padding:6px 10px;margin:0;min-width:0}
+.bz legend{font-weight:500;padding:0 4px}
+.bz label{display:flex;align-items:center;gap:6px;color:var(--t2);margin:5px 0}
+.bz label span{flex:1 1 auto}
+.bz label output{min-width:44px;text-align:left;color:var(--tx);direction:ltr}
+.bz label.r{flex-wrap:wrap}
+.bz label.r input{flex:1 0 100%;margin:0}
+</style>
+<div class="bz" id="bz">
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">نموذج تفاعلي للحافلة والكاميرتين والظل والتحذير</h2>
+<div class="row"><button id="play">تشغيل</button><button id="reset">إعادة</button><span id="presets" style="display:contents"></span></div>
+<svg id="far" viewBox="0 0 680 80" role="img" aria-label="الطريق كاملا بمقياس حقيقي"></svg>
+<svg id="near" viewBox="0 0 680 320" role="img" aria-label="مقدمة الحافلة مكبرة مع الظل"></svg>
+<div class="st" id="stats"></div>
+<div class="gr" id="ctl"></div>
+</div>
+<script>
+(function(){
+const DEF={busL:11,busW:2.5,curb:.3,lane:5.5,v:60,d0:60,cx:1,cv:1.4,rt:1.5,dec:6,crt:.7,hz:5,
+aOn:true,aPos:0,aArm:.2,aHead:180,aFov:40,aPx:20,bOn:true,bPos:.5,bHead:0,bFov:120,bH:2.8,bTilt:45,
+sys:true,panel:true,arm:true,light:true,dObey:true,cObey:true};
+const PRE={'الأساس':{},'طفل يركض':{cv:2.5},'بلا نظام':{sys:false},'عطل كاميرا':{aOn:false},'سيارة 90':{v:90},'بلا تحذير السائق':{panel:false,arm:false},'بلا ضوء الطفل':{light:false},'عدسة واسعة':{aFov:120,aPx:30}};
+const SPEC=[
+['كاميرا السيارات',[['aOn','تعمل'],['aPos','موضعها: خلف ← أمام',0,1,.05,''],['aArm','بروزها عن الجانب',0,1,.05,'م'],['aHead','اتجاهها',120,240,5,'°'],['aFov','زاوية العدسة',20,140,5,'°'],['aPx','أقل عرض للرصد',8,60,1,'بكسل']]],
+['كاميرا الطفل',[['bOn','تعمل'],['bPos','موضعها: يمين ← يسار',0,1,.05,''],['bHead','اتجاهها',-60,60,5,'°'],['bFov','زاوية العدسة',40,160,5,'°'],['bH','ارتفاعها',1.5,3.5,.1,'م'],['bTilt','ميلها للأسفل',0,80,5,'°']]],
+['الحافلة والطريق',[['busL','طول الحافلة',6,13,.5,'م'],['busW','عرضها',2,2.6,.1,'م'],['lane','مركز مسار السيارة',4.5,9,.1,'م']]],
+['السيارة والسائق',[['v','السرعة',20,120,5,'كم/س'],['d0','بعدها عن المقدمة',10,125,1,'م'],['rt','زمن استجابة السائق',.5,3,.1,'ث'],['dec','الكبح',3,9,.5,'م/ث²'],['dObey','يستجيب للتحذير']]],
+['الطفل',[['cx','بعده أمام المصد',.3,8,.1,'م'],['cv','سرعته',.8,4,.1,'م/ث'],['crt','زمن استجابته',.2,2,.1,'ث'],['cObey','يستجيب للضوء']]],
+['القرار والتحذير',[['sys','النظام يعمل'],['hz','أفق التحذير',2,8,.5,'ث'],['panel','اللوحة الخلفية'],['arm','الذراع الممتد'],['light','ضوء وصوت الطفل']]]];
+const CARL=4.4,CARW=1.8,R=.25,PXW=960;
+const rad=d=>d*Math.PI/180;
+function rect(p){return{x0:-p.busL,x1:0,y0:p.curb,y1:p.curb+p.busW}}
+function hit(a,b,r){let t0=0,t1=1;const dx=b.x-a.x,dy=b.y-a.y;
+for(const [q,w] of [[-dx,a.x-r.x0],[dx,r.x1-a.x],[-dy,a.y-r.y0],[dy,r.y1-a.y]]){
+if(q===0){if(w<0)return false}else{const t=w/q;if(q<0){if(t>t1)return false;if(t>t0)t0=t}else{if(t<t0)return false;if(t<t1)t1=t}}}
+return t0<t1}
+function camA(p){return{x:-p.busL+p.aPos*p.busL,y:p.curb+p.busW+p.aArm}}
+function camB(p){return{x:.05,y:p.curb+p.bPos*p.busW}}
+function off(c,t,head){let d=Math.atan2(t.y-c.y,t.x-c.x)*180/Math.PI-head;d=((d+540)%360)-180;return Math.abs(d)}
+function pix(p,r){return PXW/Math.tan(rad(p.aFov/2))*CARW/Math.max(r,.1)}
+function seeCar(p,s){const c=camA(p),t={x:s.carX,y:p.lane},r=Math.hypot(t.x-c.x,t.y-c.y);
+const px=pix(p,r);return{px,ok:p.aOn&&off(c,t,p.aHead)<=p.aFov/2&&!hit(c,t,rect(p))&&px>=p.aPx}}
+function seeChild(p,s){const c=camB(p),t={x:s.chX,y:s.chY},d=Math.hypot(t.x-c.x,t.y-c.y);
+const vf=2*Math.atan(Math.tan(rad(p.bFov/2))*9/16)*180/Math.PI,head=Math.atan2(p.bH-1.1,d)*180/Math.PI;
+return p.bOn&&off(c,t,p.bHead)<=p.bFov/2&&!hit(c,t,rect(p))&&head<=p.bTilt+vf/2&&head>=p.bTilt-vf/2}
+function eye(p,s){return{x:s.carX-1.8,y:p.lane+.4}}
+function fresh(p){return{t:0,carX:-p.d0,vel:p.v/3.6,chX:p.cx,chY:p.curb,tBrake:Infinity,tWarn:null,tHold:null,done:false,res:'',gap:Infinity,warnT:0,state:'',hidden:true,px:0}}
+function assess(p,s){const e=eye(p,s),h=hit(e,{x:s.chX,y:s.chY},rect(p));s.hidden=h;const car=seeCar(p,s);s.px=car.px;
+if(!p.sys)return'off';if(!p.aOn||!p.bOn)return'na';const ch=seeChild(p,s);
+const near=s.vel>0&&e.x<s.chX&&(s.chX-s.carX)/s.vel<=p.hz;
+if(!ch)return'nochild';if(!car.ok&&s.tWarn===null)return near?'nocar':'clear';return h&&near?'warn':'clear'}
+function step(p,s,dt){if(s.done)return;s.t+=dt;s.state=assess(p,s);const on=s.state==='warn';
+if(on){s.warnT+=dt;if(s.tWarn===null)s.tWarn=s.t;if((p.panel||p.arm)&&p.dObey)s.tBrake=Math.min(s.tBrake,s.t+p.rt);if(s.tHold===null&&p.light&&p.cObey)s.tHold=s.t+p.crt}else s.tHold=null;
+const passed=s.carX-CARL>s.chX+R;
+if(!s.hidden&&!passed)s.tBrake=Math.min(s.tBrake,s.t+p.rt);
+if(s.t>=s.tBrake)s.vel=Math.max(0,s.vel-p.dec*dt);
+s.carX+=s.vel*dt;
+const committed=s.chY+R>p.lane-CARW/2-.2,held=s.tHold!==null&&s.t>=s.tHold&&!committed;
+if(!held)s.chY+=p.cv*dt;
+const inBand=s.chY+R>p.lane-CARW/2&&s.chY-R<p.lane+CARW/2;
+if(inBand){const g=s.chX-R-s.carX;if(g>=0)s.gap=Math.min(s.gap,g);
+if(s.carX>=s.chX-R&&s.carX-CARL<=s.chX+R){s.done=true;s.res='اصطدام بسرعة '+Math.round(s.vel*3.6)+' كم/س';return}}
+if(s.vel===0&&s.carX>s.chX-R&&!inBand){s.done=true;s.res='وقف الطفل، وتوقفت السيارة عند موضعه أو بعده';return}
+if(s.chY>p.lane+CARW/2+1||s.t>30){s.done=true;
+s.res=s.vel===0?'توقفت السيارة قبل الطفل بـ'+Math.max(0,s.chX-R-s.carX).toFixed(1)+' م':passed?'مرّت السيارة قبل وصول الطفل':'عبر الطفل قبل السيارة بـ'+(isFinite(s.gap)?s.gap.toFixed(0):'؟')+' م'}}
+function run(over){const p=Object.assign({},DEF,over),s=fresh(p);for(let i=0;i<4000&&!s.done;i++)step(p,s,.01);return{res:s.res,tWarn:s.tWarn,state:s.state,hit:s.res.startsWith('اصطدام')}}
+window.__bz={run,DEF,PRE};
+if(!document.getElementById('bz'))return;
+let P=Object.assign({},DEF),S=fresh(P),playing=false,last=0,timer=0;S.state=assess(P,S);
+const $=id=>document.getElementById(id),inputs={};
+function fmt(k,v,u){return(Number.isInteger(+v)?v:(+v).toFixed(k==='aPos'||k==='bPos'||k==='aArm'?2:1))+(u?' '+u:'')}
+function syncInputs(){for(const k in inputs){const [el,o,u]=inputs[k];if(el.type==='checkbox')el.checked=P[k];else{el.value=P[k];o.textContent=fmt(k,P[k],u)}}}
+function reset(){S=fresh(P);S.state=assess(P,S);playing=false;$('play').textContent='تشغيل';draw()}
+for(const [title,items] of SPEC){const f=document.createElement('fieldset'),l=document.createElement('legend');l.textContent=title;f.append(l);
+for(const [k,name,min,max,st,u] of items){const lb=document.createElement('label'),sp=document.createElement('span'),i=document.createElement('input');sp.textContent=name;
+if(min===undefined){i.type='checkbox';lb.append(i,sp);i.onchange=()=>{P[k]=i.checked;reset()};inputs[k]=[i]}
+else{const o=document.createElement('output');lb.className='r';i.type='range';i.min=min;i.max=max;i.step=st;lb.append(sp,o,i);i.oninput=()=>{P[k]=+i.value;o.textContent=fmt(k,P[k],u);reset()};inputs[k]=[i,o,u]}
+f.append(lb)}$('ctl').append(f)}
+for(const n in PRE){const b=document.createElement('button');b.textContent=n;b.onclick=()=>{P=Object.assign({},DEF,PRE[n]);syncInputs();reset()};$('presets').append(b)}
+$('play').onclick=()=>{if(S.done)reset();playing=!playing;$('play').textContent=playing?'إيقاف':'تشغيل';last=performance.now();clearInterval(timer);if(playing)timer=setInterval(loop,33)};
+$('reset').onclick=reset;
+function loop(){const n=performance.now();if(!playing){clearInterval(timer);return}const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;for(let i=0;i<5;i++)step(P,S,dt/5);if(S.done){playing=false;$('play').textContent='تشغيل'}draw()}
+function view(x0,x1,y0,h){const k=680/(x1-x0);return{k,X:x=>(x-x0)*k,Y:y=>h-(y-y0)*k}}
+function wedge(v,c,head,fov,len,col){const a=rad(head-fov/2),b=rad(head+fov/2),n=[];for(let i=0;i<=12;i++){const t=a+(b-a)*i/12;n.push(v.X(c.x+len*Math.cos(t))+','+v.Y(c.y+len*Math.sin(t)))}
+return`<polygon points="${v.X(c.x)},${v.Y(c.y)} ${n.join(' ')}" fill="${col}" opacity=".14"/>`}
+function shadow(v,e,r){const cs=[[r.x0,r.y0],[r.x0,r.y1],[r.x1,r.y0],[r.x1,r.y1]].map(([x,y])=>({x,y,a:Math.atan2(y-e.y,x-e.x)}));cs.sort((m,n)=>m.a-n.a);
+const lo=cs[0],hi=cs[3],far=c=>({x:e.x+(c.x-e.x)*40,y:e.y+(c.y-e.y)*40}),pts=[lo,far(lo),far(hi),hi].map(c=>v.X(c.x)+','+v.Y(c.y)).join(' ');
+return`<polygon points="${pts}" fill="#E24B4A" opacity=".22"/><line x1="${v.X(e.x)}" y1="${v.Y(e.y)}" x2="${v.X(far(hi).x)}" y2="${v.Y(far(hi).y)}" stroke="#A32D2D" stroke-dasharray="5 4"/><line x1="${v.X(e.x)}" y1="${v.Y(e.y)}" x2="${v.X(far(lo).x)}" y2="${v.Y(far(lo).y)}" stroke="#A32D2D" stroke-dasharray="5 4"/>`}
+function scene(v,full){const r=rect(P),e=eye(P,S),a=camA(P),b=camB(P),on=S.state==='warn',lit=c=>on&&c?'#E24B4A':'#888780',W=v.k;
+let o=`<line x1="0" x2="680" y1="${v.Y(0)}" y2="${v.Y(0)}" stroke="#5F5E5A" stroke-width="2"/><line x1="0" x2="680" y1="${v.Y(3.65)}" y2="${v.Y(3.65)}" stroke="#888780" stroke-dasharray="10 8"/><line x1="0" x2="680" y1="${v.Y(7.3)}" y2="${v.Y(7.3)}" stroke="#888780" stroke-dasharray="10 8"/>`;
+o+=shadow(v,e,r);
+if(P.aOn)o+=wedge(v,a,P.aHead,P.aFov,PXW/Math.tan(rad(P.aFov/2))*CARW/P.aPx,'#378ADD');
+if(P.bOn)o+=wedge(v,b,P.bHead,P.bFov,12,'#378ADD');
+o+=`<rect x="${v.X(r.x0)}" y="${v.Y(r.y1)}" width="${P.busL*W}" height="${P.busW*W}" rx="3" fill="#FAC775" stroke="#854F0B"/>`;
+if(P.panel)o+=`<rect x="${v.X(r.x0)-Math.max(3,.25*W)}" y="${v.Y(r.y1-.3)}" width="${Math.max(3,.25*W)}" height="${(P.busW-.6)*W}" fill="${lit(1)}"/>`;
+if(P.arm)o+=`<rect x="${v.X(-2.5)}" y="${v.Y(r.y1+1.7)}" width="${Math.max(2,.22*W)}" height="${1.7*W}" fill="${lit(1)}"/>`;
+if(P.light)o+=`<circle cx="${v.X(-.15)}" cy="${v.Y(r.y1-.15)}" r="${Math.max(2,.2*W)}" fill="${lit(1)}"/>`;
+o+=`<rect x="${v.X(S.carX-CARL)}" y="${v.Y(P.lane+CARW/2)}" width="${CARL*W}" height="${CARW*W}" rx="3" fill="#5F5E5A"/><circle cx="${v.X(e.x)}" cy="${v.Y(e.y)}" r="${Math.max(2,.15*W)}" fill="#F1EFE8"/>`;
+o+=`<circle cx="${v.X(a.x)}" cy="${v.Y(a.y)}" r="${Math.max(3,.28*W)}" fill="${P.aOn?'#185FA5':'#888780'}"/><circle cx="${v.X(b.x)}" cy="${v.Y(b.y)}" r="${Math.max(3,.28*W)}" fill="${P.bOn?'#185FA5':'#888780'}"/>`;
+o+=`<circle cx="${v.X(S.chX)}" cy="${v.Y(S.chY)}" r="${Math.max(3,R*W)}" fill="#A32D2D"/>`;
+if(full)o+=`<text x="${v.X(-P.busL/2)}" y="${v.Y(P.curb+P.busW/2)+4}" text-anchor="middle">الحافلة</text><text x="10" y="${v.Y(0)+16}" style="fill:var(--t2)">الرصيف</text>`;
+return o}
+const VF=view(-130,20,-2,80),VN=view(-14,14,-2,320);
+const NAMES={warn:'تحذير: طفل في الظل',clear:'لا تحذير',na:'غير متاح',off:'النظام مطفأ',nochild:'الطفل خارج الرؤية',nocar:'السيارة غير مرصودة'};
+function draw(){$('far').innerHTML=scene(VF,false);$('near').innerHTML=scene(VN,true);
+const v=P.v/3.6,stop=v*P.rt+v*v/(2*P.dec),path=(P.lane-CARW/2-P.curb)/P.cv;
+const c=[['الحالة',NAMES[S.state]||'-'],['الزمن',S.t.toFixed(1)+' ث'],['مسافة توقف السيارة',stop.toFixed(0)+' م'],['وصول الطفل للمسار',path.toFixed(1)+' ث'],['عرض السيارة في الصورة',Math.round(S.px)+' بكسل'],['أول تحذير',S.tWarn===null?'لم يصدر':S.tWarn.toFixed(1)+' ث'],['النتيجة',S.res||'لم تنته']];
+$('stats').innerHTML=c.map(([a,b])=>`<div><small>${a}</small><b>${b}</b></div>`).join('')}
+let drag=null;
+function pt(ev,sv,v){const q=sv.getBoundingClientRect(),X=(ev.clientX-q.left)/q.width*680,Y=(ev.clientY-q.top)/q.height*sv.viewBox.baseVal.height;return{x:X/v.k+(v===VN?-14:-130),y:(v.Y(0)-Y)/v.k}}
+function bind(sv,v,tol){sv.onpointerdown=ev=>{const m=pt(ev,sv,v),a=camA(P),b=camB(P),o=[['child',S.chX,S.chY],['a',a.x,a.y],['b',b.x,b.y],['car',S.carX-2,P.lane]].map(([n,x,y])=>[Math.hypot(x-m.x,y-m.y),n]).sort((p,q)=>p[0]-q[0])[0];
+if(o[0]<tol){drag=[o[1],sv,v];sv.setPointerCapture(ev.pointerId)}};
+sv.onpointermove=ev=>{if(!drag||drag[1]!==sv)return;const m=pt(ev,sv,v),cl=(n,a,b)=>Math.min(b,Math.max(a,n));
+if(drag[0]==='child')P.cx=+cl(m.x,.3,8).toFixed(1);if(drag[0]==='a')P.aPos=+cl((m.x+P.busL)/P.busL,0,1).toFixed(2);if(drag[0]==='b')P.bPos=+cl((m.y-P.curb)/P.busW,0,1).toFixed(2);if(drag[0]==='car')P.d0=Math.round(cl(-(m.x+2),10,125));syncInputs();reset()};
+sv.onpointerup=()=>{drag=null}}
+bind($('near'),VN,1.5);bind($('far'),VF,6);syncInputs();draw()})();
+</script>
