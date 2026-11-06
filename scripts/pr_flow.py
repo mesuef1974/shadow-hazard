@@ -56,14 +56,10 @@ def find_pr(repo, branch):
     return found[0] if found else None
 
 
-def update_branch(repo, number, branch):
-    """دفع GITHUB_TOKEN لا يشغّل CI؛ workflow_dispatch وحده يشغّله، ثم يعود هذا المسار فيدمج."""
-    out = gh('pr', 'update-branch', str(number), '--repo', repo)
-    if out.returncode == 0:
-        out = gh('workflow', 'run', 'ci.yml', '--repo', repo, '--ref', branch)
-    print(f"حُدّث الطلب {number} من قاعدته وأُعيدت فحوصه." if out.returncode == 0
-          else f"تعذّر تحديث الطلب: {out.stderr.strip()[:200]}")
-    return out.returncode
+def leave_for_refresh(number):
+    """التحديث لا يصلح من هنا (انظر pr_refresh)؛ مهمة النشر المحلية تحدّثه فتعود الفحوص وتدمجه."""
+    print(f'الطلب {number} متأخر عن main؛ تحدّثه مهمة النشر المحلية خلال خمس دقائق.')
+    return 0
 
 
 def main(argv):
@@ -96,7 +92,7 @@ def main(argv):
         # حالة طلب فُتح لتوّه لم تُحسب بعد، فلا يكشف تأخره إلا رفض الدمج.
         action = 'update'
     if action == 'update':
-        return update_branch(repo, pr['number'], branch)
+        return leave_for_refresh(pr['number'])
     return 0
 
 

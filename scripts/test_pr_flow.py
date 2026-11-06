@@ -31,7 +31,7 @@ class PrFlowTests(unittest.TestCase):
         self.assertIs(pr_flow.merge_when_allowed(lambda: other, waits.append), other)
         self.assertEqual(len(waits), 2)
 
-    def test_merge_refused_as_outdated_updates_the_branch(self):
+    def test_merge_refused_as_outdated_is_left_for_local_refresh(self):
         # الحالة UNKNOWN بعد الفتح مباشرة، فالرفض وحده يكشف التأخر (الطلب 18).
         calls = []
 
@@ -44,7 +44,7 @@ class PrFlowTests(unittest.TestCase):
         pr = {'number': 18, 'mergeStateStatus': 'UNKNOWN'}
         with mock.patch.object(pr_flow, 'gh', gh), mock.patch.object(pr_flow, 'find_pr', lambda *a: pr):
             self.assertEqual(pr_flow.main(['o/r', 'f']), 0)
-        self.assertEqual(calls, [('pr', 'merge'), ('pr', 'update-branch'), ('workflow', 'run')])
+        self.assertEqual(calls, [('pr', 'merge')])
 
     def test_draft_is_left_alone(self):
         self.assertEqual(pr_flow.decide('f', {'baseRefName': 'docs/a', 'isDraft': True}), 'skip')
