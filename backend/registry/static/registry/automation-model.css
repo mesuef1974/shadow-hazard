@@ -67,6 +67,7 @@
 :root .automation-model .diagram button.node{background:var(--platform-surface);color:var(--platform-text)}
 :root .automation-model .diagram button.branch{background:var(--platform-surface-muted)}
 :root .automation-model .diagram button.finish{background:var(--platform-header-background);color:var(--platform-header-foreground)}
+:root .automation-model .diagram button.finish .number,:root .automation-model .diagram button.finish small{color:var(--platform-header-foreground)}
 :root .automation-model .tabs button[data-mode]{background:var(--platform-surface);color:var(--platform-text)}
 :root .automation-model .tabs button[data-mode][aria-pressed=true]{background:var(--platform-header-background);color:var(--platform-header-foreground)}
 @media(max-width:1100px){.automation-model .workbench{grid-template-columns:1fr}.automation-model .inspector{position:static}.automation-model .legend{display:none}.automation-model .context-flow,.automation-model .service-grid,.automation-model .renewal-flow{grid-template-columns:1fr 1fr}}
