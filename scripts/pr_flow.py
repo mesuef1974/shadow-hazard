@@ -39,7 +39,7 @@ def gh(*args):
 
 
 def merge_when_allowed(merge, wait=time.sleep):
-    """طلب مفتوح يشغّل فحوصه مرتين (push وpull_request)؛ الحماية ترفض حتى ينتهي الثاني أو يبدأ."""
+    """الحماية قد ترفض لحظة فتح الطلب حتى تُحتسب فحوصه؛ الرفض لغير هذا السبب يُعاد لصاحبه."""
     for attempt in range(MERGE_TRIES):
         out = merge()
         if out.returncode == 0 or not WAITING.search(out.stderr) or attempt == MERGE_TRIES - 1:
