@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 from workspace.models import Project, ProjectDocumentation
 from .services import digest, search, snapshot
 from .local_model import answer
+from .readable import has_glued_text, headline, readable
 from .models import KnowledgeSource
 
 
@@ -53,11 +54,14 @@ def documentation_detail(request, documentation_id):
     if not valid or source.source_digest != digest(title + '\n' + summary):
         raise Http404
     sections = readable_research_protocol(record.evidence)
+    summary_text = readable(record.summary)
     version = record.evidence.get('status')
     student_plan = version in ('student_research_v3', 'student_research_v4') or 'final_product' in record.evidence
     return render(request, 'knowledge/documentation_detail.html', {
         'record': record,
-        'display_title': title if student_plan else record.summary,
+        'display_title': title if student_plan else headline(summary_text),
+        'summary_text': None if student_plan else summary_text,
+        'spacing_added': has_glued_text(record.summary),
         'return_query': ('نموذج مصغر' if version == 'student_research_v4' or 'final_product' in record.evidence else 'مشاة محجوبين') if student_plan else record.task_key,
         'sections': sections,
         'evidence_json': None if sections else json.dumps(record.evidence, ensure_ascii=False, indent=2),

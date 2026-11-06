@@ -1,4 +1,5 @@
 {% extends 'registry/base.html' %}
+{% load readable_text %}
 {% load static tz %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'knowledge/search.css' %}">{% endblock %}
 {% block content %}
@@ -30,7 +31,7 @@
       {% if model_answer %}
         {% if model_answer.message %}<p role="status">{{ model_answer.message }}</p>{% endif %}
         {% for citation in model_answer.citations %}
-        <blockquote><p dir="auto">{{ citation.display_quote|default:citation.quote }}</p><a href="#knowledge-title-{{ citation.source_id }}">راجع المصدر وتاريخه</a></blockquote>
+        <blockquote><p dir="auto">{{ citation.display_quote|default:citation.quote|readable }}</p><a href="#knowledge-title-{{ citation.source_id }}">راجع المصدر وتاريخه</a></blockquote>
         {% endfor %}
       {% endif %}
     </section>
@@ -41,12 +42,12 @@
         <p class="knowledge-result-note">أقرب {{ results|length }} من المصادر المتاحة لعبارة «{{ query }}».</p>
         {% for hit in results %}
           <article class="knowledge-result" aria-labelledby="knowledge-title-{{ hit.source_id }}">
-            <h3 id="knowledge-title-{{ hit.source_id }}"><bdi>{{ hit.title }}</bdi></h3>
+            <h3 id="knowledge-title-{{ hit.source_id }}"><bdi>{{ hit.title|readable }}</bdi></h3>
             <dl class="knowledge-meta">
               <div><dt>المصدر</dt><dd>{{ hit.kind_label }} رقم {{ hit.origin_id }}</dd></div>
               <div><dt>تاريخ المصدر</dt><dd><time datetime="{{ hit.source_date }}">{{ hit.date|localtime|date:'Y/m/d — H:i' }}</time></dd></div>
             </dl>
-            <p class="knowledge-excerpt" dir="auto">{{ hit.text }}</p>
+            <p class="knowledge-excerpt" dir="auto">{{ hit.text|readable }}</p>
             {% if hit.kind == 'documentation' and user.role == 'supervisor' %}
             <a class="knowledge-full-source" href="{% url 'knowledge-documentation-detail' hit.origin_id %}">عرض سجل التوثيق كاملًا</a>
             {% endif %}

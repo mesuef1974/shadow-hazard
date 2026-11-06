@@ -9,6 +9,7 @@ import json
 import os
 import signal
 import subprocess
+import sys
 import threading
 import traceback
 from contextlib import contextmanager
@@ -35,8 +36,8 @@ def note(path, **fields):
             os.replace(path, path.with_suffix('.previous.jsonl'))
         with path.open('a', encoding='utf-8') as stream:
             stream.write(json.dumps({'at': stamp(), **fields}, ensure_ascii=False) + '\n')
-    except OSError:
-        pass
+    except OSError as error:
+        print(f'{stamp()} تعذّر السجل: {error}', file=sys.stderr, flush=True)
 
 
 def report_no_trace(marker, exits):

@@ -32,5 +32,10 @@
 .knowledge-protocol-section p,.knowledge-protocol-section li{font-size:17px;overflow-wrap:anywhere}
 .knowledge-protocol-section ul{padding-inline-start:24px;margin-block:8px 0}
 .knowledge-protocol-section li+li{margin-top:7px}
+.knowledge-document h1{overflow-wrap:anywhere}
+.knowledge-summary{max-width:78ch;line-height:1.9}
+.knowledge-note{max-width:78ch;color:var(--platform-muted-strong);font-size:14px}
+.knowledge-raw{max-width:78ch;margin-block-start:12px}
+.knowledge-raw summary{cursor:pointer;color:var(--platform-muted-strong)}
 .knowledge-evidence{box-sizing:border-box;max-width:78ch;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;text-align:start;padding:20px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:8px;color:var(--platform-text);font:inherit;line-height:1.8}
 @media(max-width:600px){.knowledge-form,.knowledge-empty{padding:18px}.knowledge-controls{flex-direction:column}.knowledge-meta{flex-direction:column;gap:8px}.knowledge-controls button{width:100%}}
