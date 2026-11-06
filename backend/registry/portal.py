@@ -93,6 +93,10 @@ def document(request, name):
                        'receipt_summary': report.summary,
                        'receipt_id': receipt.pk})
     path = resolve_document(name)
+    if path.suffix.lower() == ".html" and request.GET.get("download") != "1":
+        response = FileResponse(path.open("rb"), content_type="text/html; charset=utf-8")
+        response["Content-Security-Policy"] = "sandbox allow-scripts"  # بلا أصل فلا يصل إلى الجلسة.
+        return response
     if request.GET.get("download") == "1" or path.suffix.lower() not in {".md", ".mmd"}:
         return FileResponse(path.open("rb"), as_attachment=True, filename=path.name)
     return render(request, "registry/document.html", {"name": name, "content": path.read_text(encoding="utf-8-sig")})
