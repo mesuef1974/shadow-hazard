@@ -15,6 +15,7 @@ from automation_events import record
 
 PORT = 8011
 HEALTH_TRIES = 20
+WORKER_TASK = 'ShadowDanger-ModelDispatcher'
 ROOT = Path(__file__).resolve().parents[1]
 FAILED = Path('.local') / 'deploy-failed'
 
@@ -88,9 +89,17 @@ def healthy():
     return False
 
 
+def restart_worker():
+    """العامل يحمّل الشيفرة مرة، فيعاد مع كل نشر. مهمته تحرسه؛ لا يوقف فشلها النشر."""
+    script = (f"Stop-ScheduledTask -TaskName {WORKER_TASK} -ErrorAction SilentlyContinue; "
+              f"Start-ScheduledTask -TaskName {WORKER_TASK} -ErrorAction SilentlyContinue")
+    subprocess.run(['powershell', '-NoProfile', '-Command', script], capture_output=True)
+
+
 def restart(root):
     stop_platform()
     start_platform(root)
+    restart_worker()
     return healthy()
 
 
