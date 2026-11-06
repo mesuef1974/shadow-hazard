@@ -31,6 +31,13 @@ class PrFlowTests(unittest.TestCase):
         self.assertIs(pr_flow.merge_when_allowed(lambda: other, waits.append), other)
         self.assertEqual(len(waits), 2)
 
+    def test_merge_waits_for_checks_that_have_not_started(self):
+        done = SimpleNamespace(returncode=0, stderr='')
+        for message in ('required status checks are expected', 'Required status check "CI" is expected'):
+            replies, waits = [SimpleNamespace(returncode=1, stderr=message), done], []
+            self.assertIs(pr_flow.merge_when_allowed(lambda: replies.pop(0), waits.append), done)
+            self.assertEqual(len(waits), 1)
+
     def test_merge_refused_as_outdated_is_left_for_local_refresh(self):
         # الحالة UNKNOWN بعد الفتح مباشرة، فالرفض وحده يكشف التأخر (الطلب 18).
         calls = []

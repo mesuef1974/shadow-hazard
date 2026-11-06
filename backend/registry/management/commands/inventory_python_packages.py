@@ -6,6 +6,14 @@ from django.db import transaction
 from django.utils import timezone
 from registry.models import PythonPackage, PythonPackageEvent, Actor, RegistryTask
 
+
+def project_environment():
+    """البيئة الوحيدة التي يصح جردها؛ دالة مستقلة كي تعمل الاختبارات من أي بيئة."""
+    from pathlib import Path
+    from django.conf import settings
+    return Path(settings.BASE_DIR.parent / '.venv')
+
+
 class Command(BaseCommand):
     help = 'Inventory distributions in the active project virtual environment.'
     def add_arguments(self, parser):
@@ -17,9 +25,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if sys.prefix == sys.base_prefix:
             raise CommandError('Run with the project virtual environment Python.')
-        from django.conf import settings
         from pathlib import Path
-        if Path(sys.prefix).resolve() != (settings.BASE_DIR.parent / '.venv').resolve():
+        if Path(sys.prefix).resolve() != project_environment().resolve():
             raise CommandError('This command inventories only the project .venv.')
         attribution = {}
         supplied = [options.get(k) for k in ('actor','task','reason')]

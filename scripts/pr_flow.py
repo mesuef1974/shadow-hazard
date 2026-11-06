@@ -13,7 +13,7 @@ import time
 PROTECTED = 'main'
 MERGE_TRIES = 12
 MERGE_WAIT = 30
-POLICY = 'base branch policy prohibits'
+WAITING = re.compile(r'base branch policy prohibits|status checks?\b.*\b(?:is|are) expected', re.I)
 OUTDATED = 'not up to date'
 TRAILER = re.compile(r'^PR-Base:\s*(\S+)\s*$', re.M)
 
@@ -39,10 +39,10 @@ def gh(*args):
 
 
 def merge_when_allowed(merge, wait=time.sleep):
-    """طلب مفتوح يشغّل فحوصه مرتين (push وpull_request)؛ الحماية ترفض حتى ينتهي الثاني."""
+    """طلب مفتوح يشغّل فحوصه مرتين (push وpull_request)؛ الحماية ترفض حتى ينتهي الثاني أو يبدأ."""
     for attempt in range(MERGE_TRIES):
         out = merge()
-        if out.returncode == 0 or POLICY not in out.stderr or attempt == MERGE_TRIES - 1:
+        if out.returncode == 0 or not WAITING.search(out.stderr) or attempt == MERGE_TRIES - 1:
             return out
         wait(MERGE_WAIT)
 
