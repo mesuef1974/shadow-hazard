@@ -2,6 +2,7 @@
 
 فروع Dependabot لا تشغّل pr_flow لأن CI لا يعمل عليها عند الدفع، وتوكنها لا يملك الدمج.
 الترقية الصغيرة: pip بلا تغيّر الرقم الأكبر، وأي ترقية لـActions لأن CI نفسه يشغّلها فيختبرها.
+مجموعة pip-small في dependabot.yml تجمع الصغرى في طلب واحد، فلا تتعارض أسطر ملف واحد متجاورة.
 طلب واحد في كل دورة، فيُنشر وحده ويُعرف سبب أي فشل، والترقية الكبرى تنتظر المالك.
 """
 import json
@@ -12,11 +13,12 @@ from automation_events import record
 from pr_refresh import REPO, gh
 
 BOT = 'app/dependabot'
+GROUP = 'pip-small'
 BUMP = re.compile(r'\bfrom v?(\d+)\S* to v?(\d+)')
 
 
 def small(pr):
-    if '/github_actions/' in pr['headRefName']:
+    if '/github_actions/' in pr['headRefName'] or GROUP in pr['headRefName']:
         return True
     match = BUMP.search(pr['title'])
     return bool(match) and match.group(1) == match.group(2)
