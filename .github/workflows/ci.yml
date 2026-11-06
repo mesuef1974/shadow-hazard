@@ -1,17 +1,17 @@
 name: CI
 
+# لا pull_request: الطلب الذي يفتحه بوت Actions يعلّق تشغيله بانتظار موافقة ثم يسقط أحمر عند الدمج.
+# فحوص الدفع على الإيداع نفسه تكفي الحماية، وفروع Dependabot تُفحص بالدفع مثل غيرها (ADR 0005).
 on:
   push:
-    branches: [main, 'feat/**', 'fix/**', 'docs/**', 'chore/**']
-  pull_request:
-    branches: [main]
+    branches: [main, 'feat/**', 'fix/**', 'docs/**', 'chore/**', 'dependabot/**']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -140,7 +140,8 @@ jobs:
   pr-flow:
     name: PR flow
     # بعد نجاح كل الفحوص فقط، وعلى الدفع إلى فرع عمل: يفتح الطلب ويدمج ما قاعدته غير main.
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref_name != 'main'
+    # توكن Dependabot لا يملك الدمج؛ طلباته تدمجها مهمة النشر (scripts/pr_updates.py).
+    if: github.ref_name != 'main' && !startsWith(github.ref_name, 'dependabot/')
     needs: [repository, backend, prepush, report, dependencies]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
