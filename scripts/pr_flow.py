@@ -8,8 +8,12 @@ import json
 import re
 import subprocess
 import sys
+import time
 
 PROTECTED = 'main'
+MERGE_TRIES = 12
+MERGE_WAIT = 30
+POLICY = 'base branch policy prohibits'
 TRAILER = re.compile(r'^PR-Base:\s*(\S+)\s*$', re.M)
 
 
@@ -31,6 +35,15 @@ def decide(branch, pr):
 
 def gh(*args):
     return subprocess.run(['gh', *args], capture_output=True, text=True, encoding='utf-8')
+
+
+def merge_when_allowed(merge, wait=time.sleep):
+    """طلب مفتوح يشغّل فحوصه مرتين (push وpull_request)؛ الحماية ترفض حتى ينتهي الثاني."""
+    for attempt in range(MERGE_TRIES):
+        out = merge()
+        if out.returncode == 0 or POLICY not in out.stderr or attempt == MERGE_TRIES - 1:
+            return out
+        wait(MERGE_WAIT)
 
 
 def find_pr(repo, branch):
@@ -70,7 +83,7 @@ def main(argv):
         return out.returncode
     if action == 'merge':
         # المستودع يقبل squash وحده.
-        out = gh('pr', 'merge', str(pr['number']), '--repo', repo, '--squash')
+        out = merge_when_allowed(lambda: gh('pr', 'merge', str(pr['number']), '--repo', repo, '--squash'))
         print(f"دُمج الطلب {pr['number']}." if out.returncode == 0
               else f"تعذّر الدمج: {out.stderr.strip()[:200]}")
         return out.returncode
