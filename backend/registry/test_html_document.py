@@ -20,5 +20,5 @@ class HtmlDocumentTests(TestCase):
         self.assertIn('attachment', response['Content-Disposition'])
 
     def test_team_member_without_access_gets_nothing(self):
-        self.client.force_login(get_user_model().objects.create(username='student', role='student'))
+        self.client.force_login(get_user_model().objects.create(username='saud', role='student'))
         self.assertEqual(self.client.get(PAGE).status_code, 404)
