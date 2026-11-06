@@ -91,7 +91,10 @@ def healthy():
 
 def restart_worker():
     """العامل يحمّل الشيفرة مرة، فيعاد مع كل نشر. مهمته تحرسه؛ لا يوقف فشلها النشر."""
+    # التشغيل قبل انتهاء الإيقاف يُهمَل بصمت فيبقى العامل متوقفًا، فننتظر انتهاءه.
     script = (f"Stop-ScheduledTask -TaskName {WORKER_TASK} -ErrorAction SilentlyContinue; "
+              f"$n=0; while ((Get-ScheduledTask -TaskName {WORKER_TASK}).State -eq 'Running' "
+              "-and $n -lt 20) { Start-Sleep 1; $n++ }; "
               f"Start-ScheduledTask -TaskName {WORKER_TASK} -ErrorAction SilentlyContinue")
     subprocess.run(['powershell', '-NoProfile', '-Command', script], capture_output=True)
 

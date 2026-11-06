@@ -5,15 +5,15 @@
 .flow-path{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr)}
 .flow-path li{position:relative;padding-inline:6px}
 .flow-path li:not(:last-child)::after{content:"";position:absolute;inset-block-start:36px;inset-inline-start:calc(50% + 22px);inline-size:calc(100% - 44px);block-size:3px;background:var(--platform-link);z-index:2;animation:flow-pulse 2.4s ease-in-out infinite}
-.flow-path button{inline-size:100%;display:grid;justify-items:center;gap:4px;padding:14px 6px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:12px;color:var(--platform-text);cursor:pointer}
-.flow-path button:hover,.flow-path button[aria-pressed=true]{border-color:var(--platform-link);box-shadow:0 0 0 2px var(--platform-link)}
+#flow .flow-path button{inline-size:100%;display:grid;justify-items:center;gap:4px;padding:14px 6px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:12px;color:var(--platform-text);cursor:pointer}
+#flow .flow-path button:hover,#flow .flow-path button[aria-pressed=true]{border-color:var(--platform-link);box-shadow:0 0 0 2px var(--platform-link)}
 .flow button:focus-visible{outline:3px solid var(--platform-focus);outline-offset:2px}
 .flow-node{inline-size:44px;block-size:44px;border-radius:50%;display:grid;place-items:center;background:var(--platform-link);color:var(--platform-on-accent);font-weight:700}
 .flow-path small{color:var(--platform-muted)}
 .flow-path b{font-size:24px}
 @keyframes flow-pulse{50%{opacity:.4}}
 .flow-chart{display:flex;align-items:flex-end;gap:3px;block-size:120px;padding:8px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:12px}
-.flow-chart button{flex:1;display:flex;flex-direction:column-reverse;block-size:100%;padding:0;background:none;border:0;cursor:pointer}
+#flow .flow-chart button{flex:1;display:flex;flex-direction:column-reverse;block-size:100%;padding:0;background:none;border:0;cursor:pointer}
 .flow-chart i{display:block}
 .flow-chart [data-r=pass],.flow-legend [data-r=pass]::before{background:var(--ok)}
 .flow-chart [data-r=fail],.flow-legend [data-r=fail]::before{background:var(--bad)}
@@ -25,8 +25,8 @@
 .flow-filters input,.flow-filters select,.flow-filters button{min-block-size:40px;padding-inline:8px}
 .flow-grid{display:grid;grid-template-columns:minmax(220px,1fr) 3fr;gap:20px}
 .flow-cards{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-block-size:560px;overflow:auto}
-.flow-cards button{inline-size:100%;text-align:start;padding:10px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:10px;color:var(--platform-text);cursor:pointer;overflow-wrap:anywhere}
-.flow-cards button[aria-pressed=true]{border-color:var(--platform-link);box-shadow:inset 0 0 0 2px var(--platform-link)}
+#flow .flow-cards button{inline-size:100%;text-align:start;padding:10px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:10px;color:var(--platform-text);cursor:pointer;overflow-wrap:anywhere}
+#flow .flow-cards button[aria-pressed=true]{border-color:var(--platform-link);box-shadow:inset 0 0 0 2px var(--platform-link)}
 .flow-cards small{display:block;color:var(--platform-muted)}
 .flow-table{overflow:auto;max-block-size:560px;border:1px solid var(--platform-border);border-radius:12px}
 .flow-table table{inline-size:100%;border-collapse:collapse}
