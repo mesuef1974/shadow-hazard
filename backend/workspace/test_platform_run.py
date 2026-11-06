@@ -1,11 +1,12 @@
 import json
 import os
 import signal
+import sys
 import tempfile
 from pathlib import Path
 from unittest import TestCase, mock
 
-from .platform_run import STARTED_BY, report_no_trace, tracked_run
+from .platform_run import LOCK_HELD, STARTED_BY, guard, report_no_trace, tracked_run
 
 
 class TrackedRunTests(TestCase):
@@ -67,3 +68,41 @@ class TrackedRunTests(TestCase):
         self.marker.write_text('not json', encoding='utf-8')
         report_no_trace(self.marker, self.exits)
         self.assertFalse(self.exits.exists())
+
+
+class GuardTests(TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.exits = Path(folder.name) / 'platform-exits.jsonl'
+
+    def exit_with(self, code):
+        guard([sys.executable, '-c', f'raise SystemExit({code})'], self.exits)
+
+    def test_exit_code_and_starter_are_recorded(self):
+        with mock.patch.dict(os.environ, {STARTED_BY: 'deploy'}):
+            self.exit_with(3)
+        line = json.loads(self.exits.read_text(encoding='utf-8'))
+        self.assertEqual((line['kind'], line['code'], line['started_by']),
+                         ('server-exit', '0x00000003', 'deploy'))
+
+    def test_held_lock_is_not_an_exit(self):
+        self.exit_with(LOCK_HELD)
+        self.assertFalse(self.exits.exists())
+
+    def test_killed_server_code_is_shown_unsigned(self):
+        process = mock.Mock(pid=9)
+        process.wait.return_value = -1
+        with mock.patch('workspace.platform_run.subprocess.Popen', return_value=process):
+            guard(['server'], self.exits)
+        self.assertEqual(json.loads(self.exits.read_text(encoding='utf-8'))['code'], '0xffffffff')
+
+    def test_signals_are_ignored_only_while_waiting(self):
+        before = signal.getsignal(signal.SIGTERM)
+        seen = []
+        process = mock.Mock(pid=9)
+        process.wait.side_effect = lambda: seen.append(signal.getsignal(signal.SIGTERM)) or 0
+        with mock.patch('workspace.platform_run.subprocess.Popen', return_value=process):
+            guard(['server'], self.exits)
+        self.assertEqual(seen, [signal.SIG_IGN])
+        self.assertEqual(signal.getsignal(signal.SIGTERM), before)
