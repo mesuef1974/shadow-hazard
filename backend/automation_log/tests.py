@@ -2,7 +2,7 @@ import json
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from .models import Card, Event
 from .services import ingest_local, ingest_prs, ingest_runs, sync_due
@@ -91,3 +91,9 @@ class PageTests(TestCase):
     def test_page_renders(self):
         self.client.force_login(self.boss)
         self.assertContains(self.client.get(URL), 'مسار البطاقة')
+
+    @override_settings(HIDE_AGENT_SECTION=True)
+    def test_page_survives_the_retired_section_redirect(self):
+        # مشغّل الاختبار يعطّل هذا التحويل، فمرّت الصفحة في الاختبار وحُجبت على المنصة.
+        self.client.force_login(self.boss)
+        self.assertEqual(self.client.get(URL).status_code, 200)
