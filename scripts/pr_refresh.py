@@ -31,7 +31,8 @@ def refresh(root, run=gh):
             raise RuntimeError(out.stderr.strip()[:150])
         for number in behind(json.loads(out.stdout)):
             done = run('pr', 'update-branch', str(number), '--repo', REPO)
+            reason = done.stderr.strip()[:120]
             record('pr-update', 'pass' if done.returncode == 0 else 'fail',
-                   f'تحديث الطلب {number}: {done.stderr.strip()[:120]}', root)
+                   f'تحديث الطلب {number}: {reason}' if reason else f'تحديث الطلب {number}', root)
     except (OSError, RuntimeError, ValueError) as error:
         record('pr-update', 'fail', f'قراءة الطلبات: {error}', root)
