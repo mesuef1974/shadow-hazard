@@ -15,6 +15,9 @@ SURFACES = ('page-background', 'surface', 'surface-muted')
 PAIRS = (('header-foreground', 'header-background', 4.5), ('on-link', 'link', 4.5))
 AA_TEXT, AA_UI = 4.5, 3.0
 VAR = re.compile(r'--([\w-]+)\s*:\s*([^;]+);')
+PORTAL = ROOT / 'docs' / 'brand' / 'portal.css'
+# لون العلامة الثانوي 4.48:1 على الأبيض، فهو للحدود والتعبئة؛ النص يأخذ --platform-link.
+WEAK_TEXT = re.compile(r'(?<![-\w])color:var\(--brand-secondary\)')
 BLOCK = re.compile(r'(:root(?:\[data-theme="dark"\]|:not\(\[data-theme="light"\]\))?)\s*\{(.*?)\}', re.S)
 
 
