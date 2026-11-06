@@ -9,6 +9,8 @@ from unittest import TestCase, mock
 from .platform_run import (
     LOCK_HELD,
     NEXT_START,
+    RESTART_LIMIT,
+    STABLE_SECONDS,
     STARTED_BY,
     claim_start,
     guard,
@@ -100,34 +102,72 @@ class GuardTests(TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.exits = Path(folder.name) / 'platform-exits.jsonl'
+        patcher = mock.patch('workspace.platform_run.witnesses',
+                             return_value={'battery_status': 2, 'recent': ['12:00:00 x.exe<-1 x']})
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
-    def exit_with(self, code):
-        guard([sys.executable, '-c', f'raise SystemExit({code})'], self.exits)
+    def lines(self):
+        return [json.loads(line) for line in self.exits.read_text(encoding='utf-8').splitlines()]
 
-    def test_exit_code_and_starter_are_recorded(self):
+    def serve(self, *codes):
+        calls = iter(codes)
+
+        def next_exit(_command):
+            code = next(calls)
+            if callable(code):
+                return 9, code()
+            return 9, code
+        return mock.patch('workspace.platform_run.serve_once', side_effect=next_exit)
+
+    def test_real_child_exit_code_is_recorded(self):
         with mock.patch.dict(os.environ, {STARTED_BY: 'deploy'}):
-            self.exit_with(3)
-        line = json.loads(self.exits.read_text(encoding='utf-8'))
-        self.assertEqual((line['kind'], line['code'], line['started_by']),
+            guard([sys.executable, '-c', 'raise SystemExit(3)'], self.exits)
+        first = self.lines()[0]
+        self.assertEqual((first['kind'], first['code'], first['started_by']),
                          ('server-exit', '0x00000003', 'deploy'))
 
     def test_held_lock_is_not_an_exit(self):
-        self.exit_with(LOCK_HELD)
+        with self.serve(LOCK_HELD):
+            guard(['server'], self.exits)
         self.assertFalse(self.exits.exists())
 
-    def test_killed_server_code_is_shown_unsigned(self):
-        process = mock.Mock(pid=9)
-        process.wait.return_value = -1
-        with mock.patch('workspace.platform_run.subprocess.Popen', return_value=process):
+    def test_killed_server_is_restarted_with_its_witnesses(self):
+        with mock.patch.dict(os.environ), self.serve(-1, LOCK_HELD):
             guard(['server'], self.exits)
-        self.assertEqual(json.loads(self.exits.read_text(encoding='utf-8'))['code'], '0xffffffff')
+        line = self.lines()[0]
+        self.assertEqual((line['code'], line['next_by'], line['battery_status']),
+                         ('0xffffffff', 'guard', 2))
+        self.assertEqual(len(self.lines()), 1)
+
+    def test_deploy_stop_is_not_restarted(self):
+        (self.exits.parent / NEXT_START).write_text('deploy', encoding='utf-8')
+        with self.serve(-1, AssertionError):
+            guard(['server'], self.exits)
+        self.assertEqual(self.lines()[0]['next_by'], 'deploy')
+        self.assertNotIn('recent', self.lines()[0])
+
+    def test_repeated_quick_falls_stop_the_loop(self):
+        with mock.patch.dict(os.environ), self.serve(*[1] * RESTART_LIMIT):
+            guard(['server'], self.exits)
+        self.assertEqual(len(self.lines()), RESTART_LIMIT)
+        self.assertEqual(self.lines()[-1]['next_by'], 'task')
+
+    def test_stable_run_resets_the_count(self):
+        clock = iter([0, 100, 100, 100 + STABLE_SECONDS * 2, 300, 301])
+        with mock.patch.dict(os.environ), self.serve(1, 1, LOCK_HELD), \
+                mock.patch('workspace.platform_run.time.monotonic', lambda: next(clock)):
+            guard(['server'], self.exits)
+        self.assertEqual([line['next_by'] for line in self.lines()], ['guard', 'guard'])
 
     def test_signals_are_ignored_only_while_waiting(self):
         before = signal.getsignal(signal.SIGTERM)
         seen = []
-        process = mock.Mock(pid=9)
-        process.wait.side_effect = lambda: seen.append(signal.getsignal(signal.SIGTERM)) or 0
-        with mock.patch('workspace.platform_run.subprocess.Popen', return_value=process):
+
+        def wait():
+            seen.append(signal.getsignal(signal.SIGTERM))
+            return LOCK_HELD
+        with self.serve(wait):
             guard(['server'], self.exits)
         self.assertEqual(seen, [signal.SIG_IGN])
         self.assertEqual(signal.getsignal(signal.SIGTERM), before)
