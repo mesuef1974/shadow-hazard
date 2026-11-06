@@ -220,15 +220,23 @@ class DeployLocalTests(unittest.TestCase):
         self.assertIn('git fetch', record.call_args.args[2])
         self.assertIn('git fetch', notify.call_args.args[1])
 
-    def test_platform_task_starts_the_server_and_knows_who_asked(self):
-        with tempfile.TemporaryDirectory() as folder, \
-                patch.object(deploy_local.subprocess, 'run') as run:
-            root = Path(folder)
-            (root / deploy_local.NEXT_START).parent.mkdir(parents=True)
-            deploy_local.start_platform(root)
-            self.assertEqual((root / deploy_local.NEXT_START).read_text(encoding='utf-8'), 'deploy')
+    def test_platform_task_starts_the_server(self):
+        with patch.object(deploy_local.subprocess, 'run') as run:
+            deploy_local.start_platform(Path('.'))
         self.assertEqual(run.call_args.args[0],
                          ['schtasks', '/run', '/tn', deploy_local.PLATFORM_TASK])
+
+    def test_only_stopping_marks_the_next_start(self):
+        # علامة تُكتب بعد أن قرأها الحارس تجعله يظن أن موتًا حقيقيًا إيقاف نشر فلا يعيد الخادم.
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.object(deploy_local, 'ROOT', Path(folder)), \
+                patch.object(deploy_local.subprocess, 'run'):
+            marker = Path(folder) / deploy_local.NEXT_START
+            marker.parent.mkdir(parents=True)
+            deploy_local.start_platform(Path(folder))
+            self.assertFalse(marker.exists())
+            deploy_local.stop_platform()
+            self.assertEqual(marker.read_text(encoding='utf-8'), 'deploy')
 
     def test_start_is_retried_while_the_old_guard_holds_the_task(self):
         with patch.object(deploy_local, 'stop_platform'), \

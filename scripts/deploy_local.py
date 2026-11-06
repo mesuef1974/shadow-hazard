@@ -27,7 +27,8 @@ FAILED = Path('.local') / 'deploy-failed'
 PACKAGES = Path('.local') / 'deploy-packages.txt'
 PLATFORM_TASK = 'ShadowDanger-PlatformServer'
 NEXT_START = Path('backend') / '.local' / 'platform-next-start'
-START_TRIES = 3
+START_TRIES = 10
+START_HEALTH_TRIES = 3
 GUARD_EXIT_SECONDS = 2
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -122,7 +123,6 @@ def stop_platform():
 
 def start_platform(root):
     """المهمة تبدأ المنصة لا النشر: كل ما بدأه النشر مات بلا أثر أو فقد حارسه (ADR 0005)."""
-    (root / NEXT_START).write_text('deploy', encoding='utf-8')
     subprocess.run(['schtasks', '/run', '/tn', PLATFORM_TASK], capture_output=True,
                    creationflags=NO_WINDOW)
 
@@ -140,12 +140,12 @@ def healthy(tries=HEALTH_TRIES):
 
 
 def restart(root):
-    """المهمة IgnoreNew: طلب التشغيل يضيع ما دام حارس الخادم المقتول لم يخرج، فيُعاد."""
+    """المهمة IgnoreNew: الطلب يضيع ما دام الحارس القديم حيًّا، فيُعاد سريعًا لا بعد مهلة طويلة."""
     stop_platform()
     for _ in range(START_TRIES):
         time.sleep(GUARD_EXIT_SECONDS)
         start_platform(root)
-        if healthy():
+        if healthy(START_HEALTH_TRIES):
             return True
     return False
 
