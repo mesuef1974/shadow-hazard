@@ -126,9 +126,13 @@ jobs:
       # تعلّق مرآة apt قطع المهمة كلها عند مهلتها مرة؛ المحاولة المحدودة تنهي التعلّق وتعيد.
       - name: Install Chromium
         run: |
+          # المهلة تقتل playwright ويبقى apt-get ماسكًا القفل، فتفشل المحاولات التالية فورًا.
+          echo 'DPkg::Lock::Timeout "60";' | sudo tee /etc/apt/apt.conf.d/90-lock-wait
           for attempt in 1 2 3; do
             timeout 180 python -m playwright install --with-deps chromium && exit 0
             echo "attempt $attempt failed"
+            sudo pkill -x apt-get || true
+            sleep 5
           done
           exit 1
       - run: python tools/ci/check_report.py
