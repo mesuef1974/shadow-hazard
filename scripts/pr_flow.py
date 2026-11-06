@@ -14,6 +14,7 @@ PROTECTED = 'main'
 MERGE_TRIES = 12
 MERGE_WAIT = 30
 POLICY = 'base branch policy prohibits'
+OUTDATED = 'not up to date'
 TRAILER = re.compile(r'^PR-Base:\s*(\S+)\s*$', re.M)
 
 
@@ -55,6 +56,16 @@ def find_pr(repo, branch):
     return found[0] if found else None
 
 
+def update_branch(repo, number, branch):
+    """دفع GITHUB_TOKEN لا يشغّل CI؛ workflow_dispatch وحده يشغّله، ثم يعود هذا المسار فيدمج."""
+    out = gh('pr', 'update-branch', str(number), '--repo', repo)
+    if out.returncode == 0:
+        out = gh('workflow', 'run', 'ci.yml', '--repo', repo, '--ref', branch)
+    print(f"حُدّث الطلب {number} من قاعدته وأُعيدت فحوصه." if out.returncode == 0
+          else f"تعذّر تحديث الطلب: {out.stderr.strip()[:200]}")
+    return out.returncode
+
+
 def main(argv):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     repo, branch = argv
@@ -73,20 +84,19 @@ def main(argv):
         print(f'فُتح الطلب: {out.stdout.strip()}')
         pr = find_pr(repo, branch)
         action = decide(branch, pr) if pr else 'skip'
-    if action == 'update':
-        # دفع GITHUB_TOKEN لا يشغّل CI؛ workflow_dispatch وحده يشغّله، ثم يعود هذا المسار فيدمج.
-        out = gh('pr', 'update-branch', str(pr['number']), '--repo', repo)
-        if out.returncode == 0:
-            out = gh('workflow', 'run', 'ci.yml', '--repo', repo, '--ref', branch)
-        print(f"حُدّث الطلب {pr['number']} من قاعدته وأُعيدت فحوصه." if out.returncode == 0
-              else f"تعذّر تحديث الطلب: {out.stderr.strip()[:200]}")
-        return out.returncode
     if action == 'merge':
         # المستودع يقبل squash وحده.
         out = merge_when_allowed(lambda: gh('pr', 'merge', str(pr['number']), '--repo', repo, '--squash'))
-        print(f"دُمج الطلب {pr['number']}." if out.returncode == 0
-              else f"تعذّر الدمج: {out.stderr.strip()[:200]}")
-        return out.returncode
+        if out.returncode == 0:
+            print(f"دُمج الطلب {pr['number']}.")
+            return 0
+        if OUTDATED not in out.stderr:
+            print(f"تعذّر الدمج: {out.stderr.strip()[:200]}")
+            return out.returncode
+        # حالة طلب فُتح لتوّه لم تُحسب بعد، فلا يكشف تأخره إلا رفض الدمج.
+        action = 'update'
+    if action == 'update':
+        return update_branch(repo, pr['number'], branch)
     return 0
 
 
