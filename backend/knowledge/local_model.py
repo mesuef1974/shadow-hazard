@@ -7,7 +7,10 @@ import urllib.error
 import urllib.request
 
 from django.conf import settings
+from .model_startup import MODEL
 from .services import search, lexical_terms
+
+THINK = re.compile(r'<think>.*?</think>', re.S)
 
 _generation_lock = threading.Lock()
 UNAVAILABLE = 'النموذج المحلي غير متاح الآن. يمكنك مراجعة المصادر أدناه.'
@@ -87,11 +90,16 @@ def verify_answer(query, citations):
     return result['supported']
 
 
+def without_thinking(messages):
+    """Qwen3 يفكر افتراضيًا فيستهلك حد الرد ويفسد JSON؛ /no_think يوقفه لهذه الرسالة."""
+    return [*messages[:-1], {**messages[-1], 'content': messages[-1]['content'] + ' /no_think'}]
+
+
 def completion(messages, max_tokens=600):
     payload = {
-        'model': getattr(settings, 'KNOWLEDGE_LOCAL_MODEL', 'qwen3-vl-4b-instruct'),
+        'model': getattr(settings, 'KNOWLEDGE_LOCAL_MODEL', MODEL),
         'temperature': 0, 'max_tokens': max_tokens, 'stream': False,
-        'messages': messages,
+        'messages': without_thinking(messages),
     }
     # Fixed loopback destination, no environment proxies, redirects or tool access.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
@@ -104,7 +112,7 @@ def completion(messages, max_tokens=600):
     content = json.loads(data)['choices'][0]['message']['content']
     if not isinstance(content, str):
         raise ValueError('Model response must contain text')
-    content = content.strip()
+    content = THINK.sub('', content).strip()
     if content.startswith('```json') and content.endswith('```'):
         content = content[7:-3].strip()
     return json.loads(content)

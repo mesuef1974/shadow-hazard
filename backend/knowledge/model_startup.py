@@ -4,7 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
-MODEL = 'qwen3-vl-4b-instruct'
+# نموذج واحد للمنصة والدردشة: اثنان لا يتسعان في ذاكرة الرسوميات 8 غيغابايت.
+MODEL = 'qwen/qwen3-8b'
 API_PORT = 1234
 
 
