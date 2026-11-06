@@ -2,7 +2,7 @@
 {% load static %}
 {% block content %}
 {% include 'registry/_page_heading.html' with eyebrow='سجل موثق لا يُعدَّل' title='مسار البطاقة' description='كل بطاقة من الدفع إلى النشر، وكل حدث مسجل في قاعدة المنصة. انقر مرحلة أو يومًا أو بطاقة لاستكشاف تاريخها.' %}
-<link rel="stylesheet" href="{% static 'automation_log/flow.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'automation_log/flow.css' %}?v=3">
 <script src="{% static 'automation_log/flow.js' %}?v=1" defer></script>
 <div class="flow" id="flow" data-url="{% url 'automation-flow-data' %}" data-export="{% url 'automation-flow-export' %}">
   <p class="flow-sync" id="flow-sync" role="status">يُحمَّل السجل…</p>
