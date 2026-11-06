@@ -108,7 +108,8 @@ def deploy(root, target, checkout, run, restart_fn, previous):
 
 
 def main(argv):
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if sys.stdout:  # pythonw في مهمة ويندوز بلا stdout.
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     root = Path(argv[argv.index('--target') + 1]).resolve() if '--target' in argv else ROOT
     git(root, 'fetch', '-q', 'origin', 'main')
     current, target = git(root, 'rev-parse', 'HEAD'), git(root, 'rev-parse', 'origin/main')
