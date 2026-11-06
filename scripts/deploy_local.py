@@ -48,6 +48,7 @@ def steps(root):
         ('التبعيات', [python, '-m', 'pip', 'install', '-q', '-r',
                       str(root / 'backend' / 'requirements.txt')]),
         ('فحص Django', [python, manage, 'check']),
+        ('النسخة الاحتياطية', [python, manage, 'create_project_backup', '--before-migration']),
         ('الهجرة', [python, manage, 'migrate', '--noinput']),
         ('بيانات المسابقة', [python, manage, 'import_competition_data']),
     ]
