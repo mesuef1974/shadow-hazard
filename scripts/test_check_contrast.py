@@ -23,6 +23,10 @@ class ContrastTests(unittest.TestCase):
     def test_real_theme_passes_in_both_modes(self):
         self.assertEqual(c.main(), 0)
 
+    def test_weak_brand_color_is_refused_as_text_only(self):
+        self.assertTrue(c.WEAK_TEXT.search('.a{color:var(--brand-secondary)}'))
+        self.assertFalse(c.WEAK_TEXT.search('.a{accent-color:var(--brand-secondary);border-color:var(--brand-secondary)}'))
+
     def test_flow_page_has_no_private_colors(self):
         css = (c.ROOT / 'backend/automation_log/static/automation_log/flow.css').read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'#[0-9a-fA-F]{3,8}\b(?![\w-])', re.sub(r'#flow\b', '', css)), [])
