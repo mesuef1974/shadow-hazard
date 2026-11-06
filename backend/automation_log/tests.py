@@ -3,7 +3,6 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
-from django.utils import timezone
 
 from .models import Card, Event
 from .services import ingest_local, ingest_prs, ingest_runs, snapshot, sync_due
@@ -87,7 +86,7 @@ class PageTests(TestCase):
         other = Card.objects.create(branch='fix/other', title='غيره')
         for index, card in enumerate((wanted, other)):
             Event.objects.create(external_id=f'search-{index}', stage='ci', source='github', card=card,
-                                 occurred_at=timezone.now(), result='pass', detail=card.branch)
+                                 occurred_at='2026-11-05T12:00:00Z', result='pass', detail=card.branch)
         found = [card['id'] for card in snapshot({'q': 'wanted'})['cards']]
         self.assertEqual(found, [wanted.pk])
         kept = [card['id'] for card in snapshot({'card': str(wanted.pk)})['cards']]
