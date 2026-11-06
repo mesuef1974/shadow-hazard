@@ -12,11 +12,13 @@ import urllib.request
 from pathlib import Path
 
 from automation_events import record
+from deploy_alert import notify
 from pr_refresh import refresh
 
 PORT = 8011
 HEALTH_TRIES = 20
-WORKER_TASK = 'ShadowDanger-ModelDispatcher'
+WORKER_VERSION = Path('backend') / '.local' / 'worker-version'
+WORKER_GRACE = 600
 ROOT = Path(__file__).resolve().parents[1]
 FAILED = Path('.local') / 'deploy-failed'
 
@@ -90,21 +92,23 @@ def healthy():
     return False
 
 
-def restart_worker():
-    """العامل يحمّل الشيفرة مرة، فيعاد مع كل نشر. مهمته تحرسه؛ لا يوقف فشلها النشر."""
-    # التشغيل قبل انتهاء الإيقاف يُهمَل بصمت فيبقى العامل متوقفًا، فننتظر انتهاءه.
-    script = (f"Stop-ScheduledTask -TaskName {WORKER_TASK} -ErrorAction SilentlyContinue; "
-              f"$n=0; while ((Get-ScheduledTask -TaskName {WORKER_TASK}).State -eq 'Running' "
-              "-and $n -lt 20) { Start-Sleep 1; $n++ }; "
-              f"Start-ScheduledTask -TaskName {WORKER_TASK} -ErrorAction SilentlyContinue")
-    subprocess.run(['powershell', '-NoProfile', '-Command', script], capture_output=True)
-
-
 def restart(root):
     stop_platform()
     start_platform(root)
-    restart_worker()
     return healthy()
+
+
+def worker_problem(root, current, now=time.time):
+    """العامل يتجدد وحده حين تتغير الشيفرة (platform_worker)؛ هنا يُقرأ ما أبلغ به فقط."""
+    try:
+        age = now() - (root / FAILED).stat().st_mtime
+    except OSError:
+        return ''
+    path = root / WORKER_VERSION
+    running = path.read_text(encoding='utf-8').strip() if path.exists() else ''
+    if running == current or age < WORKER_GRACE:
+        return ''
+    return f'العامل لم يتجدد إلى {current[:7]}'
 
 
 def deploy(root, target, checkout, run, restart_fn, previous):
@@ -122,10 +126,7 @@ def deploy(root, target, checkout, run, restart_fn, previous):
     return False, f'المنصة لم تستجب؛ تراجعت إلى {previous[:7]}'
 
 
-def main(argv):
-    if sys.stdout:  # pythonw في مهمة ويندوز بلا stdout.
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    root = Path(argv[argv.index('--target') + 1]).resolve() if '--target' in argv else ROOT
+def run(root):
     refresh(root)
     git(root, 'fetch', '-q', 'origin', 'main')
     current, target = git(root, 'rev-parse', 'HEAD'), git(root, 'rev-parse', 'origin/main')
@@ -135,10 +136,15 @@ def main(argv):
     action = plan(current, target, bool(git(root, 'status', '--porcelain', '--untracked-files=no')),
                   failed)
     if action == 'idle':
+        if current == target:  # إيداع فشل نشره يبقى عطلًا قائمًا حتى يأتي أحدث منه.
+            problem = worker_problem(root, current)
+            if notify(root, problem) and problem:
+                record('deploy', 'fail', problem, root)
         return 0
     if action == 'refuse':
         print('النسخة متّسخة؛ لم أنشر.')
         record('deploy', 'fail', 'نسخة متّسخة', root)
+        notify(root, 'نسخة متّسخة')
         return 1
     ok, reason = deploy(root, target, lambda sha: git(root, 'checkout', '-q', '--detach', sha),
                         run_step, restart, current)
@@ -146,7 +152,21 @@ def main(argv):
     marker.parent.mkdir(exist_ok=True)
     marker.write_text('' if ok else target, encoding='utf-8')
     record('deploy', 'pass' if ok else 'fail', reason, root)
+    notify(root, '' if ok else reason)
     return 0 if ok else 1
+
+
+def main(argv):
+    if sys.stdout:  # pythonw في مهمة ويندوز بلا stdout.
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    root = Path(argv[argv.index('--target') + 1]).resolve() if '--target' in argv else ROOT
+    try:
+        return run(root)
+    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+        reason = f'تعطل النشر: {error}'
+        record('deploy', 'fail', reason, root)
+        notify(root, reason)
+        return 1
 
 
 if __name__ == '__main__':
