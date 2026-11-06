@@ -159,3 +159,10 @@ jobs:
         run: |
           set -o pipefail
           python3 scripts/pr_flow.py "$REPO" "$BRANCH" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Close superseded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -o pipefail
+          python3 scripts/pr_close_superseded.py "$REPO" | tee -a "$GITHUB_STEP_SUMMARY"
