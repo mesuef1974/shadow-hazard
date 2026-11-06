@@ -1,7 +1,7 @@
 """يحدّث الطلبات المتأخرة عن main بهوية المالك من مهمة النشر المحلية (ADR 0005).
 
-تحديث الفرع من CI لا يصلح: دفع GITHUB_TOKEN يترك تشغيل pull_request معلّقًا، وفحوص
-workflow_dispatch لا تُحتسب للطلب، فلا يُدمج أبدًا. دفع المالك يشغّل CI طبيعيًا فيدمج pr_flow.
+تحديث الفرع من CI لا يصلح: دفع GITHUB_TOKEN لا يشغّل CI، وفحوص workflow_dispatch لا تُحتسب
+للطلب، فلا يُدمج أبدًا. دفع المالك يشغّل CI طبيعيًا فيدمج pr_flow.
 """
 import json
 import subprocess
