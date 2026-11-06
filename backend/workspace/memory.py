@@ -3,6 +3,7 @@ import json
 from django.db import transaction
 from .models import ProjectMemory, ProjectDocumentation
 from .instruction_text import merge_instructions
+from knowledge.readable import has_glued_text
 
 
 CONTEXT_MODULES={
@@ -31,6 +32,8 @@ def instructions(project,kind='core',*,include_core=True):
 def document(project,session_key,task_key,summary,evidence):
     if not summary.strip() or not isinstance(evidence,dict) or not evidence:
         raise ValueError('التوثيق يتطلب ملخصًا وأدلة')
+    if has_glued_text(summary):
+        raise ValueError('الملخص ملتصق بلا مسافات؛ اكتبه بكلمات منفصلة')
     payload={'summary':summary,'evidence':evidence}
     digest=hashlib.sha256(json.dumps(payload,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     row,created=ProjectDocumentation.objects.get_or_create(project=project,session_key=session_key,task_key=task_key,

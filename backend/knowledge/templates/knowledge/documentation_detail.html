@@ -10,6 +10,8 @@
     <div><dt>المهمة</dt><dd><bdi>{{ record.task_key }}</bdi></dd></div>{% endif %}
     <div><dt>تاريخ السجل</dt><dd><time datetime="{{ record.created_at|date:'c' }}">{{ record.created_at|localtime|date:'Y/m/d — H:i' }} بتوقيت قطر</time></dd></div>
   </dl>
+  {% if summary_text and summary_text != display_title %}<p class="knowledge-summary" dir="auto">{{ summary_text }}</p>{% endif %}
+  {% if spacing_added %}<p class="knowledge-note">أُضيفت المسافات للعرض فقط، والنص الأصلي محفوظ كما كُتب في الأدلة أدناه.</p>{% endif %}
   <section aria-labelledby="evidence-title">
     <h2 id="evidence-title">{% if student_plan %}تفاصيل الدراسة{% else %}الإطار البحثي الكامل{% endif %}</h2>
     {% if sections %}
@@ -23,7 +25,10 @@
       {% endfor %}
       </div>
     {% else %}
-      <pre class="knowledge-evidence" dir="auto">{{ evidence_json }}</pre>
+      <details class="knowledge-raw"><summary>الأدلة الأصلية كما سُجلت</summary>
+        {% if spacing_added %}<p dir="auto">{{ record.summary }}</p>{% endif %}
+        <pre class="knowledge-evidence" dir="ltr">{{ evidence_json }}</pre>
+      </details>
     {% endif %}
   </section>
 </main>
