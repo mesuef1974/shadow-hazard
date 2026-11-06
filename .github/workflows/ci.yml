@@ -140,11 +140,12 @@ jobs:
   pr-flow:
     name: PR flow
     # بعد نجاح كل الفحوص فقط، وعلى الدفع إلى فرع عمل: يفتح الطلب ويدمج ما قاعدته غير main.
-    if: github.event_name == 'push' && github.ref_name != 'main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref_name != 'main'
     needs: [repository, backend, prepush, report, dependencies]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
+      actions: write
       contents: write
       pull-requests: write
     steps:

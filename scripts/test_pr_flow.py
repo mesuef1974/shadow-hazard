@@ -16,6 +16,9 @@ class PrFlowTests(unittest.TestCase):
         self.assertEqual(pr_flow.decide('f', None), 'open')
         self.assertEqual(pr_flow.decide('f', {'baseRefName': 'docs/a'}), 'merge')
 
+    def test_behind_branch_is_updated_before_merge(self):
+        self.assertEqual(pr_flow.decide('f', {'baseRefName': 'main', 'mergeStateStatus': 'BEHIND'}), 'update')
+
     def test_draft_is_left_alone(self):
         self.assertEqual(pr_flow.decide('f', {'baseRefName': 'docs/a', 'isDraft': True}), 'skip')
 

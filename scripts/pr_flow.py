@@ -19,12 +19,14 @@ def base_from_message(message):
 
 
 def decide(branch, pr):
-    """يرجع 'skip' أو 'open' أو 'merge'."""
+    """يرجع 'skip' أو 'open' أو 'update' أو 'merge'."""
     if branch == PROTECTED:
         return 'skip'
     if pr is None:
         return 'open'
-    return 'skip' if pr.get('isDraft') else 'merge'
+    if pr.get('isDraft'):
+        return 'skip'
+    return 'update' if pr.get('mergeStateStatus') == 'BEHIND' else 'merge'
 
 
 def gh(*args):
@@ -33,7 +35,7 @@ def gh(*args):
 
 def find_pr(repo, branch):
     out = gh('pr', 'list', '--repo', repo, '--head', branch, '--state', 'open',
-             '--json', 'number,baseRefName,isDraft')
+             '--json', 'number,baseRefName,isDraft,mergeStateStatus')
     if out.returncode != 0:
         raise RuntimeError(out.stderr.strip()[:200])
     found = json.loads(out.stdout)
@@ -58,6 +60,14 @@ def main(argv):
         print(f'فُتح الطلب: {out.stdout.strip()}')
         pr = find_pr(repo, branch)
         action = decide(branch, pr) if pr else 'skip'
+    if action == 'update':
+        # دفع GITHUB_TOKEN لا يشغّل CI؛ workflow_dispatch وحده يشغّله، ثم يعود هذا المسار فيدمج.
+        out = gh('pr', 'update-branch', str(pr['number']), '--repo', repo)
+        if out.returncode == 0:
+            out = gh('workflow', 'run', 'ci.yml', '--repo', repo, '--ref', branch)
+        print(f"حُدّث الطلب {pr['number']} من قاعدته وأُعيدت فحوصه." if out.returncode == 0
+              else f"تعذّر تحديث الطلب: {out.stderr.strip()[:200]}")
+        return out.returncode
     if action == 'merge':
         # المستودع يقبل squash وحده.
         out = gh('pr', 'merge', str(pr['number']), '--repo', repo, '--squash')
