@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   status:
@@ -22,6 +22,12 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+      - name: Close superseded
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          python3 scripts/pr_close_superseded.py "${{ github.repository }}" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Report
         env:
           GH_TOKEN: ${{ github.token }}
