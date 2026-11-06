@@ -39,8 +39,9 @@ def main():
     sys.path.insert(0, str(backend))
     if SERVE in sys.argv:
         return serve(backend, local)
-    from workspace.platform_run import guard
+    from workspace.platform_run import claim_start, guard
     local.mkdir(exist_ok=True)
+    claim_start(local)
     # الحارس بلا طرفية: خطؤه يضيع دون هذا الملف، ويضيع معه رمز الخروج.
     sys.stderr = (local / 'platform-guard.log').open('a', encoding='utf-8', buffering=1)
     guard([sys.executable, str(Path(__file__).resolve()), SERVE], local / 'platform-exits.jsonl')

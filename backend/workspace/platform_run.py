@@ -19,6 +19,7 @@ BEAT_SECONDS = 30
 MAX_BYTES = 256_000
 REASON_LIMIT = 1500
 STARTED_BY = 'PLATFORM_STARTED_BY'
+NEXT_START = 'platform-next-start'
 LOCK_HELD = 75  # منصة أخرى تعمل: يتكرر مع كل دورة للمهمة، فليس خروجًا يُسجَّل.
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 SIGNAL_NAMES = ('SIGBREAK', 'SIGTERM')
@@ -69,6 +70,16 @@ def catch_signals():
     names = [name for name in SIGNAL_NAMES if hasattr(signal, name)]
     return {getattr(signal, name): signal.signal(getattr(signal, name), leave(name))
             for name in names}
+
+
+def claim_start(local):
+    """النشر يطلب البدء من المهمة، فيترك من طلبه في ملف يقرؤه الحارس مرة واحدة."""
+    marker = local / NEXT_START
+    try:
+        os.environ[STARTED_BY] = marker.read_text(encoding='utf-8').strip()
+        marker.unlink()
+    except OSError:
+        pass
 
 
 def guard(command, exits):

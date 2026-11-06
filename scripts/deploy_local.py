@@ -4,7 +4,6 @@
 التراجع يعيد الشيفرة والتبعيات: الهجرة المطبّقة تبقى، فالهجرات تُكتب متوافقة مع الإصدار السابق.
 الاستعمال: python scripts/deploy_local.py [--target <مسار النسخة>]
 """
-import os
 import re
 import subprocess
 import sys
@@ -26,6 +25,11 @@ WORKER_GRACE = 600
 ROOT = Path(__file__).resolve().parents[1]
 FAILED = Path('.local') / 'deploy-failed'
 PACKAGES = Path('.local') / 'deploy-packages.txt'
+PLATFORM_TASK = 'ShadowDanger-PlatformServer'
+NEXT_START = Path('backend') / '.local' / 'platform-next-start'
+START_TRIES = 3
+GUARD_EXIT_SECONDS = 2
+NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
 
 def plan(current, target, dirty, failed=''):
@@ -116,11 +120,10 @@ def stop_platform():
 
 
 def start_platform(root):
-    flags = (getattr(subprocess, 'DETACHED_PROCESS', 0)
-             | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
-    subprocess.Popen([python_of(root), str(root / 'tools' / 'run-platform.py')], cwd=root,
-                     creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     env={**os.environ, 'PLATFORM_STARTED_BY': 'deploy'})
+    """المهمة تبدأ المنصة لا النشر: كل ما بدأه النشر مات بلا أثر أو فقد حارسه (ADR 0005)."""
+    (root / NEXT_START).write_text('deploy', encoding='utf-8')
+    subprocess.run(['schtasks', '/run', '/tn', PLATFORM_TASK], capture_output=True,
+                   creationflags=NO_WINDOW)
 
 
 def healthy(tries=HEALTH_TRIES):
@@ -136,9 +139,14 @@ def healthy(tries=HEALTH_TRIES):
 
 
 def restart(root):
+    """المهمة IgnoreNew: طلب التشغيل يضيع ما دام حارس الخادم المقتول لم يخرج، فيُعاد."""
     stop_platform()
-    start_platform(root)
-    return healthy()
+    for _ in range(START_TRIES):
+        time.sleep(GUARD_EXIT_SECONDS)
+        start_platform(root)
+        if healthy():
+            return True
+    return False
 
 
 def worker_problem(root, current, now=time.time):

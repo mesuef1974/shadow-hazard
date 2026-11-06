@@ -220,12 +220,31 @@ class DeployLocalTests(unittest.TestCase):
         self.assertIn('git fetch', record.call_args.args[2])
         self.assertIn('git fetch', notify.call_args.args[1])
 
-    def test_platform_started_by_deploy_says_so(self):
+    def test_platform_task_starts_the_server_and_knows_who_asked(self):
         with tempfile.TemporaryDirectory() as folder, \
-                patch.object(deploy_local, 'python_of', return_value='python'), \
-                patch.object(deploy_local.subprocess, 'Popen') as popen:
-            deploy_local.start_platform(Path(folder))
-        self.assertEqual(popen.call_args.kwargs['env']['PLATFORM_STARTED_BY'], 'deploy')
+                patch.object(deploy_local.subprocess, 'run') as run:
+            root = Path(folder)
+            (root / deploy_local.NEXT_START).parent.mkdir(parents=True)
+            deploy_local.start_platform(root)
+            self.assertEqual((root / deploy_local.NEXT_START).read_text(encoding='utf-8'), 'deploy')
+        self.assertEqual(run.call_args.args[0],
+                         ['schtasks', '/run', '/tn', deploy_local.PLATFORM_TASK])
+
+    def test_start_is_retried_while_the_old_guard_holds_the_task(self):
+        with patch.object(deploy_local, 'stop_platform'), \
+                patch.object(deploy_local, 'start_platform') as start, \
+                patch.object(deploy_local.time, 'sleep'), \
+                patch.object(deploy_local, 'healthy', side_effect=[False, True]):
+            self.assertTrue(deploy_local.restart(Path('.')))
+        self.assertEqual(start.call_count, 2)
+
+    def test_restart_gives_up_after_its_tries(self):
+        with patch.object(deploy_local, 'stop_platform'), \
+                patch.object(deploy_local, 'start_platform') as start, \
+                patch.object(deploy_local.time, 'sleep'), \
+                patch.object(deploy_local, 'healthy', return_value=False):
+            self.assertFalse(deploy_local.restart(Path('.')))
+        self.assertEqual(start.call_count, deploy_local.START_TRIES)
 
 
 if __name__ == '__main__':
