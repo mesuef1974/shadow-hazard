@@ -6,7 +6,15 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase, mock
 
-from .platform_run import LOCK_HELD, STARTED_BY, guard, report_no_trace, tracked_run
+from .platform_run import (
+    LOCK_HELD,
+    NEXT_START,
+    STARTED_BY,
+    claim_start,
+    guard,
+    report_no_trace,
+    tracked_run,
+)
 
 
 class TrackedRunTests(TestCase):
@@ -68,6 +76,23 @@ class TrackedRunTests(TestCase):
         self.marker.write_text('not json', encoding='utf-8')
         report_no_trace(self.marker, self.exits)
         self.assertFalse(self.exits.exists())
+
+
+class ClaimStartTests(TestCase):
+    def test_deploy_request_is_read_once(self):
+        with tempfile.TemporaryDirectory() as folder, mock.patch.dict(os.environ):
+            os.environ.pop(STARTED_BY, None)
+            local = Path(folder)
+            (local / NEXT_START).write_text('deploy', encoding='utf-8')
+            claim_start(local)
+            self.assertEqual(os.environ[STARTED_BY], 'deploy')
+            self.assertFalse((local / NEXT_START).exists())
+
+    def test_scheduled_start_stays_task(self):
+        with tempfile.TemporaryDirectory() as folder, mock.patch.dict(os.environ):
+            os.environ.pop(STARTED_BY, None)
+            claim_start(Path(folder))
+            self.assertNotIn(STARTED_BY, os.environ)
 
 
 class GuardTests(TestCase):
