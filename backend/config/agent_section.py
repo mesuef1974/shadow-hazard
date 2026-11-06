@@ -5,7 +5,7 @@ The code, data and the worker stay; only browsing to these pages is turned away.
 from django.conf import settings
 from django.shortcuts import redirect
 
-KEEP = ('/sessions/automation-model/',)
+KEEP = ('/sessions/automation-model/', '/sessions/automation/flow/')
 TARGETS = (('/usage/', 'claude-usage'), ('/sessions/', 'session-automation-model'))
 
 
