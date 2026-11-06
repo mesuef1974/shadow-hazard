@@ -1,9 +1,10 @@
 """النشر المحلي (ADR 0005): يسحب main ويهاجر ويعيد تشغيل المنصة، ويتراجع إن فشل شيء.
 
 تشغّله مهمة ويندوز كل 5 دقائق، فلا سر في المستودع العام ولا منفذ مفتوح. لا يلمس نسخة متّسخة.
-التراجع يعيد الشيفرة فقط: الهجرة المطبّقة تبقى، فالهجرات تُكتب متوافقة مع الإصدار السابق.
+التراجع يعيد الشيفرة والتبعيات: الهجرة المطبّقة تبقى، فالهجرات تُكتب متوافقة مع الإصدار السابق.
 الاستعمال: python scripts/deploy_local.py [--target <مسار النسخة>]
 """
+import re
 import subprocess
 import sys
 import time
@@ -21,6 +22,7 @@ WORKER_VERSION = Path('backend') / '.local' / 'worker-version'
 WORKER_GRACE = 600
 ROOT = Path(__file__).resolve().parents[1]
 FAILED = Path('.local') / 'deploy-failed'
+PACKAGES = Path('.local') / 'deploy-packages.txt'
 
 
 def plan(current, target, dirty, failed=''):
@@ -63,6 +65,43 @@ def steps(root):
 def run_step(root, command):
     return subprocess.run(command, cwd=root, capture_output=True, text=True, encoding='utf-8',
                           errors='replace').returncode == 0
+
+
+def freeze(root):
+    """ما في بيئة بايثون الآن بنسخه الدقيقة."""
+    out = subprocess.run([python_of(root), '-m', 'pip', 'freeze'], cwd=root, capture_output=True,
+                         text=True, encoding='utf-8', errors='replace')
+    if out.returncode != 0:
+        raise RuntimeError(f'pip freeze: {out.stderr.strip()[:200]}')
+    return {line.strip() for line in out.stdout.splitlines() if line.strip()}
+
+
+def package_name(line):
+    return re.split(r'[=@ ]', line, maxsplit=1)[0].lower()
+
+
+def restore_packages(root, saved, run=run_step):
+    """يعيد البيئة إلى ما كانت عليه قبل النشر بالضبط، فما أضافه النشر يُحذف وما رقّاه يعود.
+
+    لا يُقرأ ملف المتطلبات هنا: البيئة المحفوظة هي ما كان يعمل فعلًا.
+    """
+    try:
+        now = freeze(root)
+        if now == saved:
+            return True
+        python = python_of(root)
+        extra = sorted({package_name(line) for line in now}
+                       - {package_name(line) for line in saved})
+        if extra and not run(root, [python, '-m', 'pip', 'uninstall', '-q', '-y', *extra]):
+            return False
+        path = root / PACKAGES
+        path.parent.mkdir(exist_ok=True)
+        path.write_text('\n'.join(sorted(saved)) + '\n', encoding='utf-8')
+        # --no-deps: القائمة كاملة بنسخها، فلا حاجة لحلّ تبعيات في منتصف التراجع.
+        return (run(root, [python, '-m', 'pip', 'install', '-q', '--no-deps', '-r', str(path)])
+                and freeze(root) == saved)
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        return False
 
 
 def stop_platform():
@@ -111,19 +150,28 @@ def worker_problem(root, current, now=time.time):
     return f'العامل لم يتجدد إلى {current[:7]}'
 
 
+def rollback(root, previous, saved, checkout, restart_fn):
+    """الشيفرة ثم التبعيات ثم المنصة: المنصة متوقفة كي لا تمسك ملفات المكتبات أثناء إعادتها."""
+    checkout(previous)
+    stop_platform()
+    note = f'تراجعت إلى {previous[:7]}'
+    if not restore_packages(root, saved):
+        note += '، ولم تعد التبعيات'
+    if not restart_fn(root):
+        note += '، ولم تعد المنصة'
+    return note
+
+
 def deploy(root, target, checkout, run, restart_fn, previous):
     """يرجع (نجح؟، السبب). مفصول عن النظام ليُختبر مسار التراجع."""
+    saved = freeze(root)
     checkout(target)
     for name, command in steps(root):
         if not run(root, command):
-            checkout(previous)
-            restart_fn(root)
-            return False, f'فشل {name}؛ تراجعت إلى {previous[:7]}'
+            return False, f'فشل {name}؛ {rollback(root, previous, saved, checkout, restart_fn)}'
     if restart_fn(root):
         return True, f'نُشر {target[:7]}'
-    checkout(previous)
-    restart_fn(root)
-    return False, f'المنصة لم تستجب؛ تراجعت إلى {previous[:7]}'
+    return False, f'المنصة لم تستجب؛ {rollback(root, previous, saved, checkout, restart_fn)}'
 
 
 def run(root):
