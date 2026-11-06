@@ -92,6 +92,10 @@ class PageTests(TestCase):
         self.client.force_login(self.boss)
         self.assertContains(self.client.get(URL), 'مسار البطاقة')
 
+    def test_events_table_names_its_columns(self):
+        self.client.force_login(self.boss)
+        self.assertContains(self.client.get(URL), '<th scope="col"', count=5)
+
     @override_settings(HIDE_AGENT_SECTION=True)
     def test_page_survives_the_retired_section_redirect(self):
         # مشغّل الاختبار يعطّل هذا التحويل، فمرّت الصفحة في الاختبار وحُجبت على المنصة.
