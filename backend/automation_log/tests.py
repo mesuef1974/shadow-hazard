@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
 from .models import Card, Event
-from .services import ingest_local, ingest_prs, ingest_runs, sync_due
+from .services import ingest_local, ingest_prs, ingest_runs, snapshot, sync_due
 
 PR = {'number': 7, 'title': 'عمل', 'headRefName': 'chore/a', 'baseRefName': 'main', 'state': 'MERGED',
       'createdAt': '2026-11-05T10:00:00Z', 'mergedAt': '2026-11-05T11:00:00Z',
@@ -80,6 +80,17 @@ class PageTests(TestCase):
         self.assertEqual([e['stage'] for e in data['events']], ['ci'])
         data = self.client.get(URL + 'data.json', {'from': 'bad', 'q': 'نُشر'}).json()
         self.assertEqual(data['total'], 1)
+
+    def test_search_narrows_the_cards_too(self):
+        wanted = Card.objects.create(branch='fix/wanted', title='مطلوب')
+        other = Card.objects.create(branch='fix/other', title='غيره')
+        for index, card in enumerate((wanted, other)):
+            Event.objects.create(external_id=f'search-{index}', stage='ci', source='github', card=card,
+                                 occurred_at='2026-11-05T12:00:00Z', result='pass', detail=card.branch)
+        found = [card['id'] for card in snapshot({'q': 'wanted'})['cards']]
+        self.assertEqual(found, [wanted.pk])
+        kept = [card['id'] for card in snapshot({'card': str(wanted.pk)})['cards']]
+        self.assertIn(other.pk, kept)
 
     def test_csv_neutralizes_formulas(self):
         Event.objects.create(external_id='x', stage='guard', result='info', source='local',
