@@ -4,6 +4,7 @@ Every 30 seconds, token-free: the daily database backup when due, and the Claude
 It touches no Codex session, job lane, capacity or renewal code; those stay in the repository unused.
 """
 import os
+import subprocess
 import threading
 
 from django.conf import settings
@@ -15,6 +16,7 @@ from .worker_lock import single_worker
 
 CYCLE_SECONDS = 30
 RETIRED_BEATS = ('session_bridge', 'readonly')
+NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
 
 def maintenance():
@@ -34,6 +36,22 @@ def maintenance():
     return errors
 
 
+def code_version():
+    """إيداع الشيفرة على القرص، أو '' إن تعذرت قراءته."""
+    try:
+        out = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=settings.BASE_DIR, text=True,
+                             capture_output=True, timeout=10, creationflags=NO_WINDOW)
+    except (OSError, subprocess.SubprocessError):
+        return ''
+    return out.stdout.strip() if out.returncode == 0 else ''
+
+
+def renewed(version):
+    """تغيّرت الشيفرة تحت عامل حمّلها مرة؟ الخروج يترك لمهمته تشغيله من جديد خلال 5 دقائق."""
+    current = code_version()
+    return bool(version and current and current != version)
+
+
 def _beat(pid, **fields):
     DispatcherHeartbeat.objects.update_or_create(key='local', defaults={'pid': pid, **fields})
 
@@ -43,7 +61,8 @@ def run(stdout, watch=True, cycles=None):
         if not acquired:
             stdout.write('العامل يعمل بالفعل؛ لن تبدأ نسخة ثانية.')
             return
-        pid, now = os.getpid(), timezone.now()
+        pid, now, version = os.getpid(), timezone.now(), code_version()
+        (settings.BASE_DIR / '.local' / 'worker-version').write_text(version, encoding='utf-8')
         DispatcherRun.objects.filter(state='running').update(state='interrupted', finished_at=now)
         record = DispatcherRun.objects.create(pid=pid)
         _beat(pid, state='running', started_at=now, stopped_at=None, last_error='',
@@ -63,6 +82,9 @@ def run(stdout, watch=True, cycles=None):
                     pass
                 done += 1
                 if not watch or (cycles and done >= cycles):
+                    break
+                if renewed(version):
+                    stdout.write('تغيرت الشيفرة؛ يخرج العامل لتعيده مهمته.')
                     break
                 stop.wait(CYCLE_SECONDS)
         except KeyboardInterrupt:

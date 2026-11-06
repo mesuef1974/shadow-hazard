@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 
+from . import platform_worker
 from .models import DispatcherHeartbeat, DispatcherRun
 
 
@@ -38,3 +39,21 @@ class PlatformWorkerTests(TestCase):
             call_command('run_model_dispatcher', stdout=StringIO())
         usage.assert_called_once()
         self.assertIn('backup: OSError', DispatcherHeartbeat.objects.get(key='local').last_error)
+
+    def run_watch(self, versions, cycles=None):
+        with patch('workspace.platform_worker.maintenance', return_value=[]), \
+                patch('workspace.platform_worker.code_version', side_effect=versions), \
+                patch('workspace.platform_worker.CYCLE_SECONDS', 0):
+            output = StringIO()
+            platform_worker.run(output, watch=True, cycles=cycles)
+        return output.getvalue()
+
+    def test_worker_exits_when_the_code_on_disk_changes(self):
+        self.assertIn('تغيرت الشيفرة', self.run_watch(['old', 'new']))
+        self.assertEqual(DispatcherRun.objects.get().state, 'stopped')
+
+    def test_worker_stays_while_the_code_is_the_same(self):
+        self.assertEqual(self.run_watch(['same', 'same', 'same'], cycles=3), '')
+
+    def test_unreadable_version_never_stops_the_worker(self):
+        self.assertEqual(self.run_watch(['same', '', ''], cycles=3), '')
