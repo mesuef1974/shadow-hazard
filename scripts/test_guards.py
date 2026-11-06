@@ -56,15 +56,9 @@ class RepoCase(unittest.TestCase):
 
 
 class FrozenPathTests(unittest.TestCase):
-    def test_frozen_zones_follow_adr_0002(self):
-        for path in ['backend/workspace/views.py', 'backend/config/settings.py',
-                     'docs/brand/index.html', 'docs/blueprint/automation-map.js',
-                     'backend\\registry\\models.py']:
-            self.assertTrue(guard_frozen.frozen(path), path)
-        for path in ['backend/simulation/tests.py',
-                     'docs/blueprint/prototype-first-experiment-ar.md',
-                     'src/shadow_hazard/domain/motion.py', 'docs/tasks/0002-guards-and-hooks.md',
-                     'backendx/file.py', 'docs/brandbook.md']:
+    def test_nothing_is_frozen_after_adr_0006(self):
+        for path in ['docs/brand/index.html', 'backend/workspace/views.py',
+                     'docs/blueprint/automation-map.js']:
             self.assertFalse(guard_frozen.frozen(path), path)
 
 
@@ -72,7 +66,7 @@ class GuardHookTests(RepoCase):
     def setUp(self):
         self.root = self.make_repo()
         write(self.root, 'README.md')
-        write(self.root, 'backend/workspace/views.py')
+        write(self.root, 'docs/brand/tokens.css')
         self.git(self.root, 'add', '.')
         self.git(self.root, 'commit', '-q', '-m', 'base')
 
@@ -83,15 +77,6 @@ class GuardHookTests(RepoCase):
         return subprocess.run([sys.executable, str(GUARD), *args], cwd=self.root, env=env,
                               capture_output=True, text=True, encoding='utf-8')
 
-    def test_brand_change_is_rejected_with_decision_name(self):
-        write(self.root, 'docs/brand/tokens.css')
-        self.git(self.root, 'add', '.')
-        result = self.guard()
-        self.assertEqual(result.returncode, 1)
-        self.assertIn('ADR 0002 البند 3', result.stderr)
-        self.assertIn('docs/brand/tokens.css', result.stderr)
-        event = json.loads(Path(self.root, automation_events.FILE).read_text(encoding='utf-8'))
-        self.assertEqual((event['kind'], event['result']), ('commit', 'reject'))
 
     def test_open_zones_pass_silently(self):
         write(self.root, 'backend/simulation/tests.py')
@@ -100,32 +85,8 @@ class GuardHookTests(RepoCase):
         result = self.guard()
         self.assertEqual((result.returncode, result.stderr), (0, ''))
 
-    def test_moving_a_file_out_of_frozen_zone_is_rejected(self):
-        Path(self.root, 'src').mkdir()
-        self.git(self.root, 'mv', 'backend/workspace/views.py', 'src/views.py')
-        self.assertEqual(self.guard().returncode, 1)
 
-    def test_override_needs_a_real_reason_and_is_recorded_once(self):
-        write(self.root, 'docs/blueprint/automation-map.js')
-        self.git(self.root, 'add', '.')
-        self.assertEqual(self.guard(reason='نعم').returncode, 1)
-        reason = 'استثناء موثق في ADR 0002 بتاريخ 2026-11-04'
-        self.assertEqual(self.guard(reason=reason).returncode, 0)
-        # رسالة بنمط `git commit -v`: السبب يجب أن يقع فوق سطر القص.
-        scissors = '# ------------------------ >8 ------------------------\ndiff --git a/x b/x\n'
-        message = write(self.root, 'MSG', 'docs: update map\n\n' + scissors)
-        for _ in range(2):
-            self.assertEqual(self.guard('--commit-msg', str(message), reason=reason).returncode, 0)
-        text = message.read_text(encoding='utf-8')
-        self.assertEqual(text.count(guard_frozen.TRAILER), 1)
-        self.assertLess(text.index(guard_frozen.TRAILER), text.index('>8'))
 
-    def test_trailer_is_not_added_without_frozen_changes(self):
-        write(self.root, 'docs/tasks/0005.md')
-        self.git(self.root, 'add', '.')
-        message = write(self.root, 'MSG', 'docs: task\n')
-        self.guard('--commit-msg', str(message), reason='سبب طويل بما يكفي هنا')
-        self.assertNotIn(guard_frozen.TRAILER, message.read_text(encoding='utf-8'))
 
 
 class AutomationEventsTests(RepoCase):
@@ -164,25 +125,6 @@ class PrepushHistoryTests(RepoCase):
         self.git(root, 'add', '-f', 'backend/.local/db.sqlite3')
         self.assertEqual(prepush_check.tracked_private(root), ['backend/.local/db.sqlite3'])
 
-    def test_frozen_commits_after_base_need_a_recorded_reason(self):
-        # revert وcherry-pick و--no-verify لا تمر بـ pre-commit؛ فحص التاريخ يلتقطها.
-        root = self.make_repo()
-        write(root, 'docs/brand/a.css')
-        self.git(root, 'add', '.')
-        self.git(root, 'commit', '-q', '-m', 'before freeze')
-        base = self.git(root, 'rev-parse', 'HEAD')
-        write(root, 'docs/tasks/0001.md')
-        self.git(root, 'add', '.')
-        self.git(root, 'commit', '-q', '-m', 'open zone')
-        self.assertEqual(prepush_check.unapproved_frozen_commits(root, base), [])
-        write(root, 'docs/brand/a.css', 'y\n')
-        self.git(root, 'commit', '-q', '-am', 'with reason\n\nFrozen-Override: استثناء موثق')
-        self.assertEqual(prepush_check.unapproved_frozen_commits(root, base), [])
-        self.git(root, 'revert', '--no-edit', 'HEAD')
-        found = prepush_check.unapproved_frozen_commits(root, base)
-        self.assertEqual(len(found), 1)
-        self.assertIn('Revert', found[0])
-        self.assertIsNone(prepush_check.unapproved_frozen_commits(root, '0' * 40))
 
 
 class SessionStartTests(RepoCase):

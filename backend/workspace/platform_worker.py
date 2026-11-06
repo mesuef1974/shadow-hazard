@@ -22,7 +22,9 @@ def maintenance():
     errors = []
     from operations.services import run_due_backup
     from claude_usage.services import import_usage
-    for name, operation in (('backup', run_due_backup), ('claude_usage', import_usage)):
+    from automation_log.services import sync_due
+    for name, operation in (('backup', run_due_backup), ('claude_usage', import_usage),
+                            ('automation_log', sync_due)):
         try:
             result = operation()
             if name == 'claude_usage' and not result.ok:

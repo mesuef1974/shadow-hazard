@@ -1,0 +1,50 @@
+{% extends 'registry/base.html' %}
+{% load static %}
+{% block content %}
+{% include 'registry/_page_heading.html' with eyebrow='سجل موثق لا يُعدَّل' title='مسار البطاقة' description='كل بطاقة من الدفع إلى النشر، وكل حدث مسجل في قاعدة المنصة. انقر مرحلة أو يومًا أو بطاقة لاستكشاف تاريخها.' %}
+<link rel="stylesheet" href="{% static 'automation_log/flow.css' %}?v=1">
+<script src="{% static 'automation_log/flow.js' %}?v=1" defer></script>
+<div class="flow" id="flow" data-url="{% url 'automation-flow-data' %}" data-export="{% url 'automation-flow-export' %}">
+  <p class="flow-sync" id="flow-sync" role="status">يُحمَّل السجل…</p>
+  <section aria-labelledby="flow-path-title">
+    <h2 id="flow-path-title">المسار</h2>
+    <ol class="flow-path" id="flow-path">
+      <li><button type="button" data-stage="guard"><span class="flow-node">1</span><strong>الدفع</strong><small>كل البطاقات</small><b data-count="all">–</b></button></li>
+      <li><button type="button" data-stage="ci"><span class="flow-node">2</span><strong>الفحوص</strong><small>لم يُفتح طلبها</small><b data-count="ci">–</b></button></li>
+      <li><button type="button" data-stage="pr_opened"><span class="flow-node">3</span><strong>الطلب</strong><small>مفتوح</small><b data-count="pr">–</b></button></li>
+      <li><button type="button" data-stage="merged"><span class="flow-node">4</span><strong>الدمج</strong><small>لم يُنشر بعد</small><b data-count="merged">–</b></button></li>
+      <li><button type="button" data-stage="deploy"><span class="flow-node">5</span><strong>النشر</strong><small>يعمل على المنصة</small><b data-count="deployed">–</b></button></li>
+    </ol>
+    <p class="flow-sync">أُغلق بلا دمج: <b data-count="closed">–</b></p>
+  </section>
+  <section aria-labelledby="flow-day-title">
+    <h2 id="flow-day-title">آخر 30 يومًا</h2>
+    <div class="flow-chart" id="flow-chart" role="group" aria-label="الأحداث يوميًا بحسب النتيجة"></div>
+    <p class="flow-legend"><span data-r="pass">نجح</span><span data-r="fail">فشل</span><span data-r="info">معلومة</span></p>
+  </section>
+  <section aria-labelledby="flow-filter-title">
+    <h2 id="flow-filter-title">الاستكشاف</h2>
+    <form class="flow-filters" id="flow-filters">
+      <label>بحث<input type="search" name="q" placeholder="فرع أو عنوان أو التزام"></label>
+      <label>المرحلة<select name="stage"><option value="">الكل</option>{% for key, label in stages %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+      <label>النتيجة<select name="result"><option value="">الكل</option>{% for key, label in results %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+      <label>المصدر<select name="source"><option value="">الكل</option>{% for key, label in sources %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+      <label>من<input type="date" name="from"></label>
+      <label>إلى<input type="date" name="to"></label>
+      <input type="hidden" name="card">
+      <button type="reset">مسح</button>
+      <a id="flow-export" href="{% url 'automation-flow-export' %}">تصدير CSV</a>
+    </form>
+  </section>
+  <div class="flow-grid">
+    <section aria-labelledby="flow-cards-title">
+      <h2 id="flow-cards-title">البطاقات</h2>
+      <ul class="flow-cards" id="flow-cards"></ul>
+    </section>
+    <section aria-labelledby="flow-events-title">
+      <h2 id="flow-events-title">الأحداث <small id="flow-total"></small></h2>
+      <div class="flow-table"><table><thead><tr><th>الوقت</th><th>المرحلة</th><th>النتيجة</th><th>البطاقة</th><th>التفصيل</th></tr></thead><tbody id="flow-events"></tbody></table></div>
+    </section>
+  </div>
+</div>
+{% endblock %}

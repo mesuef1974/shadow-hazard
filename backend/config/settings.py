@@ -82,3 +82,4 @@ HIDE_AGENT_SECTION = True  # ADR 0002 exception 5: the retired agent section red
 AUTO_RENEWAL_EXECUTION_ENABLED = True
 TEST_RUNNER = "config.test_runner.Runner"
 INSTALLED_APPS += ['competition.apps.CompetitionConfig']
+INSTALLED_APPS += ['automation_log.apps.AutomationLogConfig']

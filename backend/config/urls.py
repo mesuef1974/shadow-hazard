@@ -3,6 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path, include
 from registry import portal
 from workspace import views as workspace
+from automation_log import views as automation_log
 from token_usage import views as token_usage
 from claude_usage import views as claude_usage
 from execution_context import views as execution_context
@@ -20,6 +21,9 @@ urlpatterns = [
  path('sessions/escalations/',execution_context.escalation_list,name='escalations'),
  path('sessions/escalations/<int:pk>/decision/',execution_context.decide_escalation,name='decide-escalation'),
  path('sessions/jobs/<int:job_id>/escalation/',execution_context.request_escalation,name='request-escalation'),
+ path('sessions/automation/flow/', automation_log.flow, name='automation-flow'),
+ path('sessions/automation/flow/data.json', automation_log.data, name='automation-flow-data'),
+ path('sessions/automation/flow/export.csv', automation_log.export, name='automation-flow-export'),
  path('sessions/automation/', workspace.automation, name='automation'),
  path('sessions/automation-model/', workspace.automation_model, name='session-automation-model'),
  path('sessions/automation-model/live.json', workspace.automation_live, name='session-automation-live'),
