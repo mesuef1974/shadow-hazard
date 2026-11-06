@@ -1,3 +1,4 @@
+from django.test import SimpleTestCase
 import json
 from unittest.mock import patch, MagicMock
 from django.test import TestCase, Client
@@ -166,3 +167,15 @@ class LocalModelTests(TestCase):
         request = build.return_value.open.call_args.args[0]
         self.assertEqual(request.full_url, 'http://127.0.0.1:1234/v1/chat/completions')
         self.assertEqual(build.return_value.open.call_args.kwargs['timeout'], 35)
+
+
+class ThinkingModelTests(SimpleTestCase):
+    def test_last_message_disables_thinking_and_stays_a_copy(self):
+        from knowledge.local_model import without_thinking
+        messages = [{'role': 'system', 'content': 'a'}, {'role': 'user', 'content': 'b'}]
+        self.assertEqual(without_thinking(messages)[-1]['content'], 'b /no_think')
+        self.assertEqual(messages[-1]['content'], 'b')
+
+    def test_empty_think_block_does_not_break_json(self):
+        from knowledge.local_model import THINK
+        self.assertEqual(THINK.sub('', '<think> </think>{"a":1}').strip(), '{"a":1}')
