@@ -159,6 +159,10 @@ def snapshot(params, days=30, limit=200):
         cards.append({'id': card.pk, 'branch': card.branch, 'title': card.title, 'stage': stage,
                       'pr': card.pr_number, 'url': card.pr_url})
     events = filtered_events(params)
+    narrowed = {key: value for key, value in params.items() if value and key != 'card'}
+    if narrowed:
+        matched = set(filtered_events(narrowed).exclude(card=None).values_list('card_id', flat=True))
+        cards = [card for card in cards if card['id'] in matched]
     today = timezone.localdate()
     since = today - timedelta(days=days - 1)
     daily = {(since + timedelta(days=i)).isoformat(): {'pass': 0, 'fail': 0, 'info': 0}
