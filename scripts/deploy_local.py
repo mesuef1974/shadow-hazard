@@ -4,6 +4,7 @@
 التراجع يعيد الشيفرة والتبعيات: الهجرة المطبّقة تبقى، فالهجرات تُكتب متوافقة مع الإصدار السابق.
 الاستعمال: python scripts/deploy_local.py [--target <مسار النسخة>]
 """
+import os
 import re
 import subprocess
 import sys
@@ -118,7 +119,8 @@ def start_platform(root):
     flags = (getattr(subprocess, 'DETACHED_PROCESS', 0)
              | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
     subprocess.Popen([python_of(root), str(root / 'tools' / 'run-platform.py')], cwd=root,
-                     creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                     creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     env={**os.environ, 'PLATFORM_STARTED_BY': 'deploy'})
 
 
 def healthy(tries=HEALTH_TRIES):

@@ -220,6 +220,13 @@ class DeployLocalTests(unittest.TestCase):
         self.assertIn('git fetch', record.call_args.args[2])
         self.assertIn('git fetch', notify.call_args.args[1])
 
+    def test_platform_started_by_deploy_says_so(self):
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.object(deploy_local, 'python_of', return_value='python'), \
+                patch.object(deploy_local.subprocess, 'Popen') as popen:
+            deploy_local.start_platform(Path(folder))
+        self.assertEqual(popen.call_args.kwargs['env']['PLATFORM_STARTED_BY'], 'deploy')
+
 
 if __name__ == '__main__':
     unittest.main()

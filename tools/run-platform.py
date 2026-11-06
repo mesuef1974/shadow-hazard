@@ -9,6 +9,7 @@ def main():
     backend = root / 'backend'
     local = backend / '.local'
     sys.path.insert(0, str(backend))
+    from workspace.platform_run import tracked_run
     from workspace.worker_lock import single_worker
 
     with single_worker(local / 'platform-server.lock') as acquired:
@@ -22,10 +23,11 @@ def main():
             os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
             from django.core.management import execute_from_command_line
             # Local development only; serve the approved brand/static files too.
-            execute_from_command_line([
-                str(backend / 'manage.py'), 'runserver', '127.0.0.1:8011',
-                '--insecure', '--noreload',
-            ])
+            with tracked_run(local, output):
+                execute_from_command_line([
+                    str(backend / 'manage.py'), 'runserver', '127.0.0.1:8011',
+                    '--insecure', '--noreload',
+                ])
 
 
 if __name__ == '__main__':
