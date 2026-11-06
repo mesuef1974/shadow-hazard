@@ -18,6 +18,7 @@ from pr_refresh import refresh
 
 PORT = 8011
 HEALTH_TRIES = 20
+IDLE_TRIES = 3
 WORKER_VERSION = Path('backend') / '.local' / 'worker-version'
 WORKER_GRACE = 600
 ROOT = Path(__file__).resolve().parents[1]
@@ -119,8 +120,8 @@ def start_platform(root):
                      creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def healthy():
-    for _ in range(HEALTH_TRIES):
+def healthy(tries=HEALTH_TRIES):
+    for _ in range(tries):
         try:
             urllib.request.urlopen(f'http://127.0.0.1:{PORT}/', timeout=3)
             return True
@@ -162,6 +163,22 @@ def rollback(root, previous, saved, checkout, restart_fn):
     return note
 
 
+def platform_problem():
+    """مهمة المنصة تعيدها خلال 5 دقائق، فهنا يُسجَّل التوقف ويُنبَّه عنه ولا يُعاد تشغيلها."""
+    return '' if healthy(IDLE_TRIES) else f'المنصة لا تجيب على {PORT}'
+
+
+def watch(root, current, target):
+    """الدورة الخاملة. الزوال يُسجَّل معلومة لا نجاحًا: نجاح deploy يعني نشرًا في سجل الأتمتة."""
+    problem = platform_problem()
+    if not problem and current == target:
+        problem = worker_problem(root, current)
+    if not problem and current != target:
+        return  # إيداع فشل نشره يبقى عطلًا قائمًا حتى يأتي أحدث منه.
+    if notify(root, problem):
+        record('deploy', 'fail' if problem else 'info', problem or 'زال العطل', root)
+
+
 def deploy(root, target, checkout, run, restart_fn, previous):
     """يرجع (نجح؟، السبب). مفصول عن النظام ليُختبر مسار التراجع."""
     saved = freeze(root)
@@ -184,10 +201,7 @@ def run(root):
     action = plan(current, target, bool(git(root, 'status', '--porcelain', '--untracked-files=no')),
                   failed)
     if action == 'idle':
-        if current == target:  # إيداع فشل نشره يبقى عطلًا قائمًا حتى يأتي أحدث منه.
-            problem = worker_problem(root, current)
-            if notify(root, problem) and problem:
-                record('deploy', 'fail', problem, root)
+        watch(root, current, target)
         return 0
     if action == 'refuse':
         print('النسخة متّسخة؛ لم أنشر.')

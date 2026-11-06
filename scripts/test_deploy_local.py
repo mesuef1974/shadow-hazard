@@ -146,6 +146,45 @@ class DeployLocalTests(unittest.TestCase):
     def test_worker_that_reports_nothing_is_stale(self):
         self.assertIn(NEW[:7], self.worker_problem('', 9999))
 
+    def watch(self, platform='', worker='', target=NEW, shown=True):
+        with patch.object(deploy_local, 'platform_problem', return_value=platform), \
+                patch.object(deploy_local, 'worker_problem', return_value=worker), \
+                patch.object(deploy_local, 'notify', return_value=shown) as notify, \
+                patch.object(deploy_local, 'record') as record:
+            deploy_local.watch(Path('.'), NEW, target)
+        return notify, record
+
+    def test_stopped_platform_is_alerted_and_recorded(self):
+        notify, record = self.watch(platform='المنصة لا تجيب على 8011')
+        self.assertIn('8011', notify.call_args.args[1])
+        self.assertEqual(record.call_args.args[:2], ('deploy', 'fail'))
+
+    def test_platform_outranks_worker_in_the_single_alert(self):
+        notify, _ = self.watch(platform='المنصة', worker='العامل')
+        self.assertEqual(notify.call_args.args[1], 'المنصة')
+
+    def test_recovery_is_never_recorded_as_a_deployment(self):
+        notify, record = self.watch()
+        self.assertEqual(notify.call_args.args[1], '')
+        self.assertEqual(record.call_args.args[:3], ('deploy', 'info', 'زال العطل'))
+
+    def test_quiet_cycle_records_nothing(self):
+        _, record = self.watch(shown=False)
+        record.assert_not_called()
+
+    def test_failed_deploy_alert_survives_a_healthy_platform(self):
+        notify, _ = self.watch(target=OLD)
+        notify.assert_not_called()
+
+    def test_stopped_platform_is_reported_even_after_a_failed_deploy(self):
+        notify, _ = self.watch(platform='المنصة', target=OLD)
+        self.assertEqual(notify.call_args.args[1], 'المنصة')
+
+    def test_idle_check_stays_short(self):
+        with patch.object(deploy_local, 'healthy', return_value=False) as healthy:
+            self.assertIn('8011', deploy_local.platform_problem())
+        healthy.assert_called_once_with(deploy_local.IDLE_TRIES)
+
     def test_crash_is_recorded_and_alerted(self):
         with patch.object(deploy_local, 'run', side_effect=RuntimeError('git fetch: x')), \
                 patch.object(deploy_local, 'record') as record, \
