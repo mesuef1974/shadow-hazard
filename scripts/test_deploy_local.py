@@ -13,6 +13,10 @@ class DeployLocalTests(unittest.TestCase):
         self.assertEqual(deploy_local.plan('a', 'b', False), 'deploy')
         self.assertEqual(deploy_local.plan('a', 'b', True), 'refuse')
 
+    def test_failed_commit_is_not_retried_but_a_newer_one_is(self):
+        self.assertEqual(deploy_local.plan('a', 'b', False, 'b'), 'idle')
+        self.assertEqual(deploy_local.plan('a', 'c', False, 'b'), 'deploy')
+
     def attempt(self, run_ok=True, healthy=True):
         moves = []
         with patch.object(deploy_local, 'steps', return_value=[('الهجرة', ['x'])]):

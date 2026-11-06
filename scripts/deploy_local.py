@@ -16,12 +16,14 @@ from automation_events import record
 PORT = 8011
 HEALTH_TRIES = 20
 ROOT = Path(__file__).resolve().parents[1]
+FAILED = Path('.local') / 'deploy-failed'
 
 
-def plan(current, target, dirty):
+def plan(current, target, dirty, failed=''):
+    """إيداع فشل نشره لا يُعاد: وإلا تكررت النسخة الاحتياطية وإيقاف المنصة كل 5 دقائق."""
     if dirty:
         return 'refuse'
-    return 'idle' if current == target else 'deploy'
+    return 'idle' if target in (current, failed) else 'deploy'
 
 
 def git(root, *args):
@@ -114,7 +116,10 @@ def main(argv):
     git(root, 'fetch', '-q', 'origin', 'main')
     current, target = git(root, 'rev-parse', 'HEAD'), git(root, 'rev-parse', 'origin/main')
     # غير المتعقَّب لا يمنع النشر: ملفات المالك المحلية تبقى ولا يمسها checkout.
-    action = plan(current, target, bool(git(root, 'status', '--porcelain', '--untracked-files=no')))
+    marker = root / FAILED
+    failed = marker.read_text(encoding='utf-8').strip() if marker.exists() else ''
+    action = plan(current, target, bool(git(root, 'status', '--porcelain', '--untracked-files=no')),
+                  failed)
     if action == 'idle':
         return 0
     if action == 'refuse':
@@ -124,6 +129,8 @@ def main(argv):
     ok, reason = deploy(root, target, lambda sha: git(root, 'checkout', '-q', '--detach', sha),
                         run_step, restart, current)
     print(reason)
+    marker.parent.mkdir(exist_ok=True)
+    marker.write_text('' if ok else target, encoding='utf-8')
     record('deploy', 'pass' if ok else 'fail', reason, root)
     return 0 if ok else 1
 
