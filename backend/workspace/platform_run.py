@@ -2,11 +2,13 @@
 
 القتل من الخارج لا يمر بشيفرة هنا، فأثر التشغيل يبقى ونبضه يدل على وقت الموت، ويقرؤه البدء التالي.
 next_by='deploy' مع نبض حديث يعني إعادة تشغيل النشر، أما نبض قديم فهو توقف فعلي.
+الحارس (guard) عملية أم تنتظر الخادم فتسجل رمز خروجه ووقته، وهما ما لا يراه الخادم المقتول.
 """
 import faulthandler
 import json
 import os
 import signal
+import subprocess
 import threading
 import traceback
 from contextlib import contextmanager
@@ -16,6 +18,9 @@ BEAT_SECONDS = 30
 MAX_BYTES = 256_000
 REASON_LIMIT = 1500
 STARTED_BY = 'PLATFORM_STARTED_BY'
+LOCK_HELD = 75  # منصة أخرى تعمل: يتكرر مع كل دورة للمهمة، فليس خروجًا يُسجَّل.
+NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+SIGNAL_NAMES = ('SIGBREAK', 'SIGTERM')
 
 
 def stamp(seconds=None):
@@ -60,9 +65,27 @@ def leave(name):
 
 def catch_signals():
     """إغلاق الطرفية أو الجلسة يصل SIGBREAK على ويندوز؛ يرجع المعالجات السابقة لتُعاد."""
-    names = [name for name in ('SIGBREAK', 'SIGTERM') if hasattr(signal, name)]
+    names = [name for name in SIGNAL_NAMES if hasattr(signal, name)]
     return {getattr(signal, name): signal.signal(getattr(signal, name), leave(name))
             for name in names}
+
+
+def guard(command, exits):
+    """القفل عند الخادم لا هنا: النشر يبدأ خادمًا فور قتل سابقه ولا ينتظر خروج حارسه."""
+    numbers = [getattr(signal, name) for name in SIGNAL_NAMES if hasattr(signal, name)]
+    previous = {number: signal.signal(number, signal.SIG_IGN) for number in numbers}
+    started = stamp()
+    try:
+        # بلا NO_WINDOW يفتح الخادم نافذة حين يبدؤه النشر، فالحارس هناك بلا طرفية.
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+        code = process.wait()
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+    if code != LOCK_HELD:
+        note(exits, kind='server-exit', code=f'{code & 0xFFFFFFFF:#010x}', launcher=process.pid,
+             started=started, started_by=os.environ.get(STARTED_BY, 'task'))
 
 
 @contextmanager
