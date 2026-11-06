@@ -1,28 +1,41 @@
-<meta charset="utf-8">
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>نموذج ظل الحافلة</title></head><body style="margin:8px">
 <style>
-.bz{--tx:var(--text-primary,#1f1e1d);--t2:var(--text-secondary,#5f5e5a);--ln:var(--border-strong,#b4b2a9);--cd:var(--surface-1,#f1efe8);font-family:var(--font-sans,system-ui,sans-serif);color:var(--tx);direction:rtl;font-size:13px}
-.bz svg{display:block;width:100%;touch-action:none;direction:ltr;border:.5px solid var(--ln);border-radius:8px;margin-bottom:8px}
-.bz svg text{fill:var(--tx);font-size:12px}
-.bz .row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
-.bz .st{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:8px 0}
-.bz .st div{background:var(--cd);border-radius:8px;padding:8px 10px}
-.bz .st small{display:block;color:var(--t2);font-size:12px}
-.bz .st b{font-weight:500;font-size:15px}
-.bz .gr{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:10px}
-.bz fieldset{border:.5px solid var(--ln);border-radius:8px;padding:6px 10px;margin:0;min-width:0}
-.bz legend{font-weight:500;padding:0 4px}
-.bz label{display:flex;align-items:center;gap:6px;color:var(--t2);margin:5px 0}
-.bz label span{flex:1 1 auto}
-.bz label output{min-width:44px;text-align:left;color:var(--tx);direction:ltr}
-.bz label.r{flex-wrap:wrap}
-.bz label.r input{flex:1 0 100%;margin:0}
+.bz{--tx:var(--text-primary,#1f1e1d);--t2:var(--text-secondary,#5f5e5a);--ln:var(--border-strong,#b4b2a9);--cd:var(--surface-1,#f1efe8);font-family:var(--font-sans,system-ui,sans-serif);color:var(--tx);direction:rtl;font-size:14px;line-height:1.6}
+.bz .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.bz svg{display:block;width:100%;touch-action:none;direction:ltr;border:.5px solid var(--ln);border-radius:8px;margin-bottom:6px}
+.bz svg text{fill:var(--tx);font-size:13px}
+.bz .bar{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.bz .bar button,.bz .bar select{height:34px;flex:none;width:auto;font-size:14px}
+.bz #state{flex:1 1 auto;min-width:0;min-height:34px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:8px;background:var(--cd)}
+.bz #state b{font-weight:500}
+.bz #state span{color:var(--t2)}
+.bz #state[data-tone=d]{background:var(--bg-danger,#fcebeb)}
+.bz #state[data-tone=d] b{color:var(--text-danger,#a32d2d)}
+.bz #state[data-tone=w]{background:var(--bg-warning,#faeeda)}
+.bz #state[data-tone=w] b{color:var(--text-warning,#854f0b)}
+.bz .st{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:6px}
+.bz .st div{background:var(--cd);border-radius:8px;padding:2px 8px;line-height:1.4}
+.bz .st small{display:block;color:var(--t2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bz .st b{font-weight:500}
+.bz .gr{columns:3;column-gap:8px}
+.bz fieldset{break-inside:avoid;border:.5px solid var(--ln);border-radius:8px;padding:0 8px 1px;margin:0 0 4px}
+.bz legend{font-weight:500;padding:0 4px;line-height:1.3}
+.bz label{display:flex;align-items:center;gap:6px;min-height:24px;color:var(--t2);line-height:1.2}
+.bz label.r{display:grid;grid-template-columns:minmax(0,1fr) 62px 56px}
+.bz label input[type=range]{width:100%;margin:0;min-width:0}
+.bz label input[type=checkbox]{width:18px;height:18px;margin:3px}
+.bz label output{color:var(--tx);white-space:nowrap}
+.bz :focus-visible{outline:2px solid currentColor;outline-offset:2px}
+@media(min-width:900px){.bz{display:grid;grid-template-columns:minmax(0,1fr) 500px;gap:10px;align-items:start}.bz .gr{columns:2}}
 </style>
-<div class="bz" id="bz">
-<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">نموذج تفاعلي للحافلة والكاميرتين والظل والتحذير</h2>
-<div class="row"><button id="play">تشغيل</button><button id="reset">إعادة</button><span id="presets" style="display:contents"></span></div>
-<svg id="far" viewBox="0 0 680 80" role="img" aria-label="الطريق كاملا بمقياس حقيقي"></svg>
-<svg id="near" viewBox="0 0 680 320" role="img" aria-label="مقدمة الحافلة مكبرة مع الظل"></svg>
+<div class="bz" id="bz" lang="ar">
+<div>
+<h2 class="sr">نموذج تفاعلي للحافلة والكاميرتين والظل والتحذير</h2>
+<div class="bar"><button id="play">تشغيل</button><button id="reset">إعادة</button><select id="presets" aria-label="حالة جاهزة"></select><div id="state"><b id="stName" role="status"></b><span id="stRes"></span></div></div>
+<svg id="far" viewBox="0 0 680 44" role="img" aria-label="الطريق كاملا بمقياس حقيقي"></svg>
+<svg id="near" viewBox="0 0 680 150" role="img" aria-label="الحافلة مكبرة مع الظل والكاميرتين والطفل"></svg>
 <div class="st" id="stats"></div>
+</div>
 <div class="gr" id="ctl"></div>
 </div>
 <script>
@@ -31,13 +44,14 @@ const DEF={busL:11,busW:2.5,curb:.3,lane:5.5,v:60,d0:60,cx:1,cv:1.4,rt:1.5,dec:6
 aOn:true,aPos:0,aArm:.2,aHead:180,aFov:40,aPx:20,bOn:true,bPos:.5,bHead:0,bFov:120,bH:2.8,bTilt:45,
 sys:true,panel:true,arm:true,light:true,dObey:true,cObey:true};
 const PRE={'الأساس':{},'طفل يركض':{cv:2.5},'بلا نظام':{sys:false},'عطل كاميرا':{aOn:false},'سيارة 90':{v:90},'بلا تحذير السائق':{panel:false,arm:false},'بلا ضوء الطفل':{light:false},'عدسة واسعة':{aFov:120,aPx:30}};
+const LTR=new Set(['aPos','cx']);
 const SPEC=[
-['كاميرا السيارات',[['aOn','تعمل'],['aPos','موضعها: خلف ← أمام',0,1,.05,''],['aArm','بروزها عن الجانب',0,1,.05,'م'],['aHead','اتجاهها',120,240,5,'°'],['aFov','زاوية العدسة',20,140,5,'°'],['aPx','أقل عرض للرصد',8,60,1,'بكسل']]],
-['كاميرا الطفل',[['bOn','تعمل'],['bPos','موضعها: يمين ← يسار',0,1,.05,''],['bHead','اتجاهها',-60,60,5,'°'],['bFov','زاوية العدسة',40,160,5,'°'],['bH','ارتفاعها',1.5,3.5,.1,'م'],['bTilt','ميلها للأسفل',0,80,5,'°']]],
-['الحافلة والطريق',[['busL','طول الحافلة',6,13,.5,'م'],['busW','عرضها',2,2.6,.1,'م'],['lane','مركز مسار السيارة',4.5,9,.1,'م']]],
-['السيارة والسائق',[['v','السرعة',20,120,5,'كم/س'],['d0','بعدها عن المقدمة',10,125,1,'م'],['rt','زمن استجابة السائق',.5,3,.1,'ث'],['dec','الكبح',3,9,.5,'م/ث²'],['dObey','يستجيب للتحذير']]],
-['الطفل',[['cx','بعده أمام المصد',.3,8,.1,'م'],['cv','سرعته',.8,4,.1,'م/ث'],['crt','زمن استجابته',.2,2,.1,'ث'],['cObey','يستجيب للضوء']]],
-['القرار والتحذير',[['sys','النظام يعمل'],['hz','أفق التحذير',2,8,.5,'ث'],['panel','اللوحة الخلفية'],['arm','الذراع الممتد'],['light','ضوء وصوت الطفل']]]];
+['كاميرا السيارات',[['aOn','تعمل'],['aPos','الموضع',0,1,.05,''],['aArm','البروز',0,1,.05,'م'],['aHead','الاتجاه',120,240,5,'°'],['aFov','العدسة',20,140,5,'°'],['aPx','أقل عرض',8,60,1,'بكسل']]],
+['كاميرا الطفل',[['bOn','تعمل'],['bPos','الموضع',0,1,.05,''],['bHead','الاتجاه',-60,60,5,'°'],['bFov','العدسة',40,160,5,'°'],['bH','الارتفاع',1.5,3.5,.1,'م'],['bTilt','الميل',0,80,5,'°']]],
+['القرار والتحذير',[['sys','النظام يعمل'],['hz','الأفق',2,8,.5,'ث'],['panel','اللوحة الخلفية'],['arm','الذراع الممتد'],['light','ضوء الطفل']]],
+['السيارة والسائق',[['v','السرعة',20,120,5,'كم/س'],['d0','البعد',10,125,1,'م'],['rt','الاستجابة',.5,3,.1,'ث'],['dec','الكبح',3,9,.5,'م/ث²'],['dObey','يستجيب للتحذير']]],
+['الطفل',[['cx','البعد',.3,8,.1,'م'],['cv','السرعة',.8,4,.1,'م/ث'],['crt','الاستجابة',.2,2,.1,'ث'],['cObey','يستجيب للضوء']]],
+['الحافلة والطريق',[['busL','الطول',6,13,.5,'م'],['busW','العرض',2,2.6,.1,'م'],['lane','المسار',4.5,6,.1,'م']]]];
 const CARL=4.4,CARW=1.8,R=.25,PXW=960;
 const rad=d=>d*Math.PI/180;
 function rect(p){return{x0:-p.busL,x1:0,y0:p.curb,y1:p.curb+p.busW}}
@@ -79,19 +93,20 @@ window.__bz={run,DEF,PRE};
 if(!document.getElementById('bz'))return;
 let P=Object.assign({},DEF),S=fresh(P),playing=false,last=0,timer=0;S.state=assess(P,S);
 const $=id=>document.getElementById(id),inputs={};
-function fmt(k,v,u){return(Number.isInteger(+v)?v:(+v).toFixed(k==='aPos'||k==='bPos'||k==='aArm'?2:1))+(u?' '+u:'')}
-function syncInputs(){for(const k in inputs){const [el,o,u]=inputs[k];if(el.type==='checkbox')el.checked=P[k];else{el.value=P[k];o.textContent=fmt(k,P[k],u)}}}
+function fmt(k,v,u){const n=Number.isInteger(+v)?v:(+v).toFixed(k==='aPos'||k==='bPos'||k==='aArm'?2:1);return u==='°'?n+'°':n+(u?' '+u:'')}
+function syncInputs(){for(const k in inputs){const [el,o,u]=inputs[k];if(el.type==='checkbox')el.checked=P[k];else{el.value=P[k];o.textContent=fmt(k,P[k],u);el.setAttribute('aria-valuetext',o.textContent)}}}
 function reset(){S=fresh(P);S.state=assess(P,S);playing=false;$('play').textContent='تشغيل';draw()}
 for(const [title,items] of SPEC){const f=document.createElement('fieldset'),l=document.createElement('legend');l.textContent=title;f.append(l);
-for(const [k,name,min,max,st,u] of items){const lb=document.createElement('label'),sp=document.createElement('span'),i=document.createElement('input');sp.textContent=name;
+for(const [k,name,min,max,st,u] of items){const lb=document.createElement('label'),sp=document.createElement('span'),i=document.createElement('input');sp.textContent=name;i.setAttribute('aria-label',title+': '+name);
 if(min===undefined){i.type='checkbox';lb.append(i,sp);i.onchange=()=>{P[k]=i.checked;reset()};inputs[k]=[i]}
-else{const o=document.createElement('output');lb.className='r';i.type='range';i.min=min;i.max=max;i.step=st;lb.append(sp,o,i);i.oninput=()=>{P[k]=+i.value;o.textContent=fmt(k,P[k],u);reset()};inputs[k]=[i,o,u]}
+else{const o=document.createElement('output');lb.className='r';i.type='range';i.min=min;i.max=max;i.step=st;if(LTR.has(k))i.dir='ltr';lb.append(sp,i,o);i.oninput=()=>{P[k]=+i.value;o.textContent=fmt(k,P[k],u);i.setAttribute('aria-valuetext',o.textContent);reset()};inputs[k]=[i,o,u]}
 f.append(lb)}$('ctl').append(f)}
-for(const n in PRE){const b=document.createElement('button');b.textContent=n;b.onclick=()=>{P=Object.assign({},DEF,PRE[n]);syncInputs();reset()};$('presets').append(b)}
+for(const n in PRE){const o=document.createElement('option');o.textContent=n;$('presets').append(o)}
+$('presets').onchange=e=>{P=Object.assign({},DEF,PRE[e.target.value]);syncInputs();reset()};
 $('play').onclick=()=>{if(S.done)reset();playing=!playing;$('play').textContent=playing?'إيقاف':'تشغيل';last=performance.now();clearInterval(timer);if(playing)timer=setInterval(loop,33)};
 $('reset').onclick=reset;
 function loop(){const n=performance.now();if(!playing){clearInterval(timer);return}const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;for(let i=0;i<5;i++)step(P,S,dt/5);if(S.done){playing=false;$('play').textContent='تشغيل'}draw()}
-function view(x0,x1,y0,h){const k=680/(x1-x0);return{k,X:x=>(x-x0)*k,Y:y=>h-(y-y0)*k}}
+function view(x0,x1,y0,h){const k=680/(x1-x0);return{k,x0,X:x=>(x-x0)*k,Y:y=>h-(y-y0)*k}}
 function wedge(v,c,head,fov,len,col){const a=rad(head-fov/2),b=rad(head+fov/2),n=[];for(let i=0;i<=12;i++){const t=a+(b-a)*i/12;n.push(v.X(c.x+len*Math.cos(t))+','+v.Y(c.y+len*Math.sin(t)))}
 return`<polygon points="${v.X(c.x)},${v.Y(c.y)} ${n.join(' ')}" fill="${col}" opacity=".14"/>`}
 function shadow(v,e,r){const cs=[[r.x0,r.y0],[r.x0,r.y1],[r.x1,r.y0],[r.x1,r.y1]].map(([x,y])=>({x,y,a:Math.atan2(y-e.y,x-e.x)}));cs.sort((m,n)=>m.a-n.a);
@@ -109,16 +124,19 @@ if(P.light)o+=`<circle cx="${v.X(-.15)}" cy="${v.Y(r.y1-.15)}" r="${Math.max(2,.
 o+=`<rect x="${v.X(S.carX-CARL)}" y="${v.Y(P.lane+CARW/2)}" width="${CARL*W}" height="${CARW*W}" rx="3" fill="#5F5E5A"/><circle cx="${v.X(e.x)}" cy="${v.Y(e.y)}" r="${Math.max(2,.15*W)}" fill="#F1EFE8"/>`;
 o+=`<circle cx="${v.X(a.x)}" cy="${v.Y(a.y)}" r="${Math.max(3,.28*W)}" fill="${P.aOn?'#185FA5':'#888780'}"/><circle cx="${v.X(b.x)}" cy="${v.Y(b.y)}" r="${Math.max(3,.28*W)}" fill="${P.bOn?'#185FA5':'#888780'}"/>`;
 o+=`<circle cx="${v.X(S.chX)}" cy="${v.Y(S.chY)}" r="${Math.max(3,R*W)}" fill="#A32D2D"/>`;
-if(full)o+=`<text x="${v.X(-P.busL/2)}" y="${v.Y(P.curb+P.busW/2)+4}" text-anchor="middle">الحافلة</text><text x="10" y="${v.Y(0)+16}" style="fill:var(--t2)">الرصيف</text>`;
+if(full)o+=`<text x="${v.X(-P.busL/2)}" y="${v.Y(P.curb+P.busW/2)+5}" text-anchor="middle">الحافلة</text>`;
 return o}
-const VF=view(-130,20,-2,80),VN=view(-14,14,-2,320);
+const VF=view(-130,20,-.5,44),VN=view(-20,14,-.5,150);
 const NAMES={warn:'تحذير: طفل في الظل',clear:'لا تحذير',na:'غير متاح',off:'النظام مطفأ',nochild:'الطفل خارج الرؤية',nocar:'السيارة غير مرصودة'};
+const TONE={warn:'d',na:'w',nochild:'w',nocar:'w'};
+function put(id,t){const e=$(id);if(e.textContent!==t)e.textContent=t}
 function draw(){$('far').innerHTML=scene(VF,false);$('near').innerHTML=scene(VN,true);
 const v=P.v/3.6,stop=v*P.rt+v*v/(2*P.dec),path=(P.lane-CARW/2-P.curb)/P.cv;
-const c=[['الحالة',NAMES[S.state]||'-'],['الزمن',S.t.toFixed(1)+' ث'],['مسافة توقف السيارة',stop.toFixed(0)+' م'],['وصول الطفل للمسار',path.toFixed(1)+' ث'],['عرض السيارة في الصورة',Math.round(S.px)+' بكسل'],['أول تحذير',S.tWarn===null?'لم يصدر':S.tWarn.toFixed(1)+' ث'],['النتيجة',S.res||'لم تنته']];
+put('stName',NAMES[S.state]||'-');put('stRes',S.res);$('state').dataset.tone=S.res.startsWith('اصطدام')?'d':TONE[S.state]||'';
+const c=[['الزمن',S.t.toFixed(1)+' ث'],['مسافة التوقف',stop.toFixed(0)+' م'],['وصول الطفل',path.toFixed(1)+' ث'],['عرض السيارة',Math.round(S.px)+' بكسل'],['أول تحذير',S.tWarn===null?'لم يصدر':S.tWarn.toFixed(1)+' ث']];
 $('stats').innerHTML=c.map(([a,b])=>`<div><small>${a}</small><b>${b}</b></div>`).join('')}
 let drag=null;
-function pt(ev,sv,v){const q=sv.getBoundingClientRect(),X=(ev.clientX-q.left)/q.width*680,Y=(ev.clientY-q.top)/q.height*sv.viewBox.baseVal.height;return{x:X/v.k+(v===VN?-14:-130),y:(v.Y(0)-Y)/v.k}}
+function pt(ev,sv,v){const q=sv.getBoundingClientRect(),X=(ev.clientX-q.left)/q.width*680,Y=(ev.clientY-q.top)/q.height*sv.viewBox.baseVal.height;return{x:X/v.k+v.x0,y:(v.Y(0)-Y)/v.k}}
 function bind(sv,v,tol){sv.onpointerdown=ev=>{const m=pt(ev,sv,v),a=camA(P),b=camB(P),o=[['child',S.chX,S.chY],['a',a.x,a.y],['b',b.x,b.y],['car',S.carX-2,P.lane]].map(([n,x,y])=>[Math.hypot(x-m.x,y-m.y),n]).sort((p,q)=>p[0]-q[0])[0];
 if(o[0]<tol){drag=[o[1],sv,v];sv.setPointerCapture(ev.pointerId)}};
 sv.onpointermove=ev=>{if(!drag||drag[1]!==sv)return;const m=pt(ev,sv,v),cl=(n,a,b)=>Math.min(b,Math.max(a,n));
@@ -126,3 +144,4 @@ if(drag[0]==='child')P.cx=+cl(m.x,.3,8).toFixed(1);if(drag[0]==='a')P.aPos=+cl((
 sv.onpointerup=()=>{drag=null}}
 bind($('near'),VN,1.5);bind($('far'),VF,6);syncInputs();draw()})();
 </script>
+</body></html>
