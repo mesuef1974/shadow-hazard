@@ -12,6 +12,16 @@
     Object.entries(attrs || {}).forEach(([key, value]) => node.setAttribute(key, value));
     return node;
   };
+  // الفرع ووقت الحدث لاتينيان داخل صفحة عربية: يُعزلان ويُكسر الفرع عند فواصله لا وسط كلمة.
+  const latin = (text) => {
+    const node = el('bdi', undefined, { dir: 'ltr' });
+    String(text).split(/(?<=[/_-])/).forEach((part, index) => {
+      if (index) node.append(el('wbr'));
+      node.append(part);
+    });
+    return node;
+  };
+  const cleaned = (text) => (text || '').replace(/:\s*$/, '');
   const query = () => {
     const params = new URLSearchParams();
     new FormData(form).forEach((value, key) => { if (value) params.set(key, value); });
@@ -32,10 +42,14 @@
   }
 
   function drawCards(cards) {
-    document.getElementById('flow-cards').replaceChildren(...cards.map((card) => {
+    const list = document.getElementById('flow-cards');
+    if (!cards.length) { list.replaceChildren(el('li', 'لا بطاقات تطابق هذا البحث.', { class: 'flow-empty' })); return; }
+    list.replaceChildren(...cards.map((card) => {
       const item = el('li');
-      const button = el('button', card.title || card.branch, { type: 'button', 'aria-pressed': String(form.elements.card.value === String(card.id)) });
-      button.append(el('small', `${card.branch}${card.pr ? ' · الطلب ' + card.pr : ''} · ${names[card.stage]}`));
+      const button = el('button', undefined, { type: 'button', 'aria-pressed': String(form.elements.card.value === String(card.id)) });
+      const meta = el('small');
+      meta.append(latin(card.branch), `${card.pr ? ' · الطلب ' + card.pr : ''} · ${names[card.stage]}`);
+      button.append(el('bdi', card.title || card.branch), meta);
       button.addEventListener('click', () => {
         form.elements.card.value = form.elements.card.value === String(card.id) ? '' : card.id;
         load();
@@ -46,16 +60,31 @@
   }
 
   function drawEvents(events) {
-    document.getElementById('flow-events').replaceChildren(...events.map((event) => {
-      const row = el('tr');
-      row.append(el('td', event.at), el('td', event.stage_label), el('td', event.result_label, { 'data-r': event.result }), el('td', event.branch));
-      const cell = el('td');
-      if (event.url.startsWith('https://github.com/')) {
-        cell.append(el('a', event.detail || event.sha, { href: event.url, rel: 'noopener', target: '_blank' }));
-      } else {
-        cell.textContent = event.detail;
-      }
-      row.append(cell);
+    const body = document.getElementById('flow-events');
+    if (!events.length) {
+      const row = el('tr', undefined, { role: 'row' });
+      row.append(el('td', 'لا أحداث تطابق هذا البحث.', { class: 'flow-empty', colspan: '5', role: 'cell' }));
+      body.replaceChildren(row);
+      return;
+    }
+    const cell = (label, content, attrs) => {
+      const node = el('td', undefined, { role: 'cell', 'data-label': label, ...attrs });
+      node.append(content);
+      return node;
+    };
+    body.replaceChildren(...events.map((event) => {
+      const row = el('tr', undefined, { role: 'row' });
+      const detail = cleaned(event.detail);
+      const content = event.url.startsWith('https://github.com/')
+        ? el('a', detail || event.sha, { href: event.url, rel: 'noopener', target: '_blank', dir: 'auto' })
+        : el('bdi', detail);
+      row.append(
+        cell('الوقت', el('bdi', event.at, { dir: 'ltr' })),
+        cell('المرحلة', event.stage_label),
+        cell('النتيجة', event.result_label, { 'data-r': event.result }),
+        cell('البطاقة', latin(event.branch)),
+        cell('التفصيل', content),
+      );
       return row;
     }));
   }
@@ -72,8 +101,10 @@
       Object.entries(data.counts).forEach(([key, value]) => {
         root.querySelectorAll(`[data-count="${key}"]`).forEach((n) => { n.textContent = value; });
       });
-      status.textContent = data.synced ? `آخر تسجيل في السجل: ${data.synced}` : 'السجل فارغ؛ ينتظر مزامنة العامل.';
-      document.getElementById('flow-total').textContent = `(${data.total})`;
+      status.textContent = data.synced ? 'آخر تسجيل في السجل: ' : 'السجل فارغ؛ ينتظر مزامنة العامل.';
+      if (data.synced) status.append(el('bdi', data.synced, { dir: 'ltr' }));
+      const shown = data.events.length;
+      document.getElementById('flow-total').textContent = shown < data.total ? `(آخر ${shown} من ${data.total})` : `(${data.total})`;
       drawChart(data.daily);
       drawCards(data.cards);
       drawEvents(data.events);
