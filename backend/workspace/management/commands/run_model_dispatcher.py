@@ -77,6 +77,8 @@ class Command(BaseCommand):
                         from operations.operator_monitor import maintenance as operator_maintenance
                         operator_result=operator_maintenance()
                         maintenance.setdefault('errors',[]).extend(operator_result['errors'])
+                        from execution_context.container_reaper import maintenance as container_maintenance
+                        maintenance.setdefault('errors',[]).extend(container_maintenance()['errors'])
                         last_maintenance=time.monotonic()
                         errors=maintenance.get('errors',[])
                         if errors:
