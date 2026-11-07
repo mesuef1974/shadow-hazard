@@ -98,7 +98,8 @@ def bundle(directory):
                 if not path.resolve(strict=True).is_relative_to(directory): raise OSError('File escaped skill directory')
                 if before.st_size + total > limit: raise OSError('Skill bundle size limit exceeded: '+str(directory))
                 with path.open('rb') as stream:
-                    data = stream.read(limit - total + 1)
+                    # الحجم الفعلي لا السقف: read(n) تحجز n بايت مسبقًا، فكان كل ملف يحجز نحو 256 MB.
+                    data = stream.read(min(before.st_size, limit - total) + 1)
             after = path.lstat()
             if (before.st_mtime_ns,before.st_size,before.st_ino) != (after.st_mtime_ns,after.st_size,after.st_ino):
                 raise OSError('File changed during snapshot: '+str(path))

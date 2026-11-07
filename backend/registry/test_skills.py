@@ -21,6 +21,19 @@ class SkillInventoryTests(TestCase):
         self.config=override_settings(SKILL_INVENTORY_ROOTS={'test':self.root})
         self.config.enable();self.addCleanup(self.config.disable)
 
+    def test_file_read_requests_actual_size_not_the_bundle_limit(self):
+        """read(n) تحجز n بايت مسبقًا؛ طلب السقف (256 MB) لكل ملف كان يرفع حجز الذاكرة."""
+        import tracemalloc
+        from registry.skill_inventory import collect
+        tracemalloc.start()
+        try:
+            found = collect(self.root)
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        self.assertEqual(len(found), 1)
+        self.assertLess(peak, 8 * 1024 * 1024)
+
     def test_lifecycle_and_idempotency(self):
         scan_skills(); installation=Installation.objects.get()
         first=installation.version_id
