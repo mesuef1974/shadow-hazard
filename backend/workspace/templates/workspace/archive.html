@@ -1,0 +1,6 @@
+{% extends 'registry/base.html' %}{% block content %}{% include 'registry/_page_heading.html' with eyebrow='سجل المشروع' title='أرشيف النموذج السابق' description='التصميم السابق (جانب الطريق) قبل ADR 0007، محفوظ كما هو. أرقامه لا تنطبق على تصميم الحافلة، ولا تُنقل إلى الاستمارة قبل إعادة بروتوكول 731.' %}
+<section class="work-panel"><h2>التجارب</h2><p>{{ runs }} تجربة محفوظة بنتائجها الكاملة، ولم يُحذف منها شيء.</p><p><a href="/simulation/#prior-design">افتح المختبر السابق وسجل تجاربه</a></p></section>
+{% if user.role == 'supervisor' %}<section class="work-panel"><h2>العرض</h2><p>عرض المسابقة كما كان قبل تصميم الحافلة، بكل نتائجه وشرائحه.</p><p><a href="/exhibition/archive/">افتح عرض التصميم السابق</a></p></section>{% endif %}
+{% if documents %}<section class="work-panel"><h2>الوثائق</h2><ul>{% for name, title in documents %}<li><a href="{% url 'project-document' name %}">{{ title }}</a></li>{% endfor %}</ul></section>{% endif %}
+{% if user.role == 'supervisor' %}<section class="work-panel"><h2>الإيصالات</h2><ul>{% for name, title in receipts %}<li><a href="{% url 'project-document' name %}">{{ title }}</a></li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

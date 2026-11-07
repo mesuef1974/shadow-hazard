@@ -26,7 +26,7 @@
       <div class="library-doc-details">
         <a href="{% url 'project-document' doc.name %}">{{ doc.title }}</a>
         <p dir="ltr">{{ doc.name }}</p>
-        <small>{% if doc.record %}نسخة موثقة · {{ doc.record.created_at|date:"Y/m/d" }}{% else %}نسخة جديدة بانتظار الفهرسة{% endif %}</small>
+        <small>{% if doc.prior_design %}أرشيف: التصميم السابق · {% endif %}{% if doc.record %}نسخة موثقة · {{ doc.record.created_at|date:"Y/m/d" }}{% else %}نسخة جديدة بانتظار الفهرسة{% endif %}</small>
       </div>
       <a class="download" href="{% url 'project-document' doc.name %}?download=1">تنزيل</a>
     </article>

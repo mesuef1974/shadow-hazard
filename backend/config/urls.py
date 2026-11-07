@@ -42,6 +42,8 @@ urlpatterns = [
  path('tasks/<int:pk>/', workspace.task_detail, name='task-detail'),
  path('decisions/', workspace.decisions, name='project-decisions'),
  path('exhibition/', workspace.exhibition, name='project-exhibition'),
+ path('exhibition/archive/', workspace.exhibition_archive, name='project-exhibition-archive'),
+ path('archive/', workspace.prior_design_archive, name='project-archive'),
  path('logout/', auth_views.LogoutView.as_view(next_page='/login/'), name='logout'),
  path('login/', auth_views.LoginView.as_view(template_name='registry/login.html'), name='login'),
  path('documents/<path:name>', portal.document, name='project-document'),

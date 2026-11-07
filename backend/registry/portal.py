@@ -12,6 +12,7 @@ import json
 from token_usage.capacity import verified_document
 ROOT = settings.BASE_DIR.parent / "docs"
 EXTENSIONS = {".md", ".html", ".pdf", ".mmd"}
+from workspace.prior_design import PRIOR_NAMES
 
 def resolve_document(name):
     path = (ROOT / name).resolve()
@@ -34,7 +35,7 @@ def home(request):
             if path.suffix == ".md":
                 title = next((line.lstrip("# ") for line in path.read_text(encoding="utf-8-sig").splitlines() if line.startswith("# ")), title)
             if query.casefold() not in (title + name).casefold(): continue
-            documents.append({"name": name, "title": title, "kind": path.suffix[1:].upper(), "group": path.parts[len(ROOT.parts)]})
+            documents.append({"name": name, "title": title, "kind": path.suffix[1:].upper(), "group": path.parts[len(ROOT.parts)], "prior_design": name in PRIOR_NAMES})
     if request.user.role == 'supervisor':
         receipts = ProjectDocumentation.objects.only('id', 'summary', 'session_key', 'created_at').order_by('-created_at', '-pk')
         if query:
@@ -44,7 +45,7 @@ def home(request):
             documents.append({'name': f'__receipts__/{receipt.pk}.md',
                 'title': f'إيصال #{receipt.pk} — {receipt.summary[:100]}',
                 'kind': 'سجل المشروع', 'group': receipt.session_key,
-                'record': receipt, 'receipt': True})
+                'record': receipt, 'receipt': True, 'prior_design': f'__receipts__/{receipt.pk}.md' in PRIOR_NAMES})
     page_obj = Paginator(documents, 10).get_page(request.GET.get("page"))
     for item in page_obj.object_list:
         if not item.get('receipt'):
@@ -91,7 +92,7 @@ def document(request, name):
                       {'name': report.evidence.get('report_title', f'إيصال #{receipt.pk}'),
                        'content': content, 'report_sections': report.evidence.get('report_sections'),
                        'receipt_summary': report.summary,
-                       'receipt_id': receipt.pk})
+                       'receipt_id': receipt.pk, 'prior_design': name in PRIOR_NAMES})
     path = resolve_document(name)
     if path.suffix.lower() == ".html" and request.GET.get("download") != "1":
         response = FileResponse(path.open("rb"), content_type="text/html; charset=utf-8")
@@ -100,4 +101,4 @@ def document(request, name):
         return response
     if request.GET.get("download") == "1" or path.suffix.lower() not in {".md", ".mmd"}:
         return FileResponse(path.open("rb"), as_attachment=True, filename=path.name)
-    return render(request, "registry/document.html", {"name": name, "content": path.read_text(encoding="utf-8-sig")})
+    return render(request, "registry/document.html", {"name": name, "content": path.read_text(encoding="utf-8-sig"), "prior_design": name in PRIOR_NAMES})
