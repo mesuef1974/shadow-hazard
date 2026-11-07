@@ -20,7 +20,8 @@ def project_runs():
 @require_GET
 @never_cache
 def index(request):
-    page = Paginator(project_runs().defer('result'), 100).get_page(request.GET.get('page'))
+    # الأعمدة المعروضة فقط: digest يلي result في الصف، فقراءته تمرّ SQLite بالنتيجة كلها.
+    page = Paginator(project_runs().only('title', 'config', 'metrics'), 100).get_page(request.GET.get('page'))
     return render(request, 'simulation/index.html', {'scenarios': [asdict(s) for s in catalogue()],
                                                    'runs': page, 'page': page})
 
