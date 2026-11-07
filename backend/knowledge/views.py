@@ -5,10 +5,9 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET
 from workspace.models import Project, ProjectDocumentation
 from .services import digest, search, snapshot
-from .local_model import answer
 from .readable import has_glued_text, headline, readable
 from .models import KnowledgeSource
 
@@ -31,13 +30,6 @@ def search_view(request):
 def search_page(request):
     query = request.GET.get('q', '').strip()
     return render_page(request, query)
-
-
-@login_required(login_url='/login/')
-@require_POST
-@never_cache
-def answer_page(request):
-    return render_page(request, request.POST.get('q', '').strip(), use_model=True)
 
 
 @login_required(login_url='/login/')
@@ -280,16 +272,12 @@ def readable_research_protocol(evidence):
     return sections
 
 
-def render_page(request, query, use_model=False):
+def render_page(request, query):
     project = Project.objects.order_by('pk').first()
     error = ''
     results = []
-    model_answer = None
     try:
-        if use_model:
-            results, model_answer = answer(request.user, project.pk if project else None, query)
-        else:
-            results = search(request.user, project.pk if project else None, query)
+        results = search(request.user, project.pk if project else None, query)
     except ValueError as exc:
         error = str(exc)
     labels = {'memory': 'تعليمات المشروع', 'documentation': 'سجل التوثيق', 'decision': 'قرار'}
@@ -297,5 +285,5 @@ def render_page(request, query, use_model=False):
         hit['kind_label'] = labels[hit['kind']]
         hit['date'] = parse_datetime(hit['source_date'])
     return render(request, 'knowledge/search.html', {
-        'query': query, 'results': results, 'error': error, 'model_answer': model_answer,
+        'query': query, 'results': results, 'error': error,
     }, status=400 if error else 200)

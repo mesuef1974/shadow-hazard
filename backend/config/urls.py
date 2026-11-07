@@ -9,11 +9,10 @@ from claude_usage import views as claude_usage
 from execution_context import views as execution_context
 from releases.pages import dashboard as release_dashboard
 from knowledge.views import (search_view as knowledge_search, search_page as knowledge_page,
-    answer_page as knowledge_answer, documentation_detail as knowledge_documentation_detail)
+    documentation_detail as knowledge_documentation_detail)
 urlpatterns = [
  path('simulation/', include('simulation.urls')),
  path('knowledge/', knowledge_page, name='knowledge-page'),
- path('knowledge/answer/', knowledge_answer, name='knowledge-answer'),
  path('knowledge/search/', knowledge_search, name='knowledge-search'),
  path('knowledge/documentation/<int:documentation_id>/', knowledge_documentation_detail, name='knowledge-documentation-detail'),
  path('releases/', include('releases.urls')),

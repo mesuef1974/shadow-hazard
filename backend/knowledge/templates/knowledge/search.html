@@ -19,23 +19,6 @@
   </form>
   {% if error %}
   {% elif query %}
-    {% if results %}
-    <section class="knowledge-model" aria-labelledby="knowledge-model-title">
-      <h2 id="knowledge-model-title">مساعدة النموذج المحلي</h2>
-      <p>يختار النموذج مقتطفات من المصادر المتاحة لك. راجع سياقها وتواريخها أدناه.</p>
-      <form method="post" action="{% url 'knowledge-answer' %}">
-        {% csrf_token %}<input type="hidden" name="q" value="{{ query }}">
-        <button type="submit">{% if model_answer %}إعادة طلب المساعدة{% else %}استخراج إجابة من المصادر{% endif %}</button>
-        <small>قد يستغرق الطلب بعض الوقت للتحقق من كفاية المصادر.</small>
-      </form>
-      {% if model_answer %}
-        {% if model_answer.message %}<p role="status">{{ model_answer.message }}</p>{% endif %}
-        {% for citation in model_answer.citations %}
-        <blockquote><p dir="auto">{{ citation.display_quote|default:citation.quote|readable }}</p><a href="#knowledge-title-{{ citation.source_id }}">راجع المصدر وتاريخه</a></blockquote>
-        {% endfor %}
-      {% endif %}
-    </section>
-    {% elif model_answer %}<p role="status">{{ model_answer.message }}</p>{% endif %}
     <section class="knowledge-results" aria-labelledby="knowledge-results-title">
       <h2 id="knowledge-results-title">نتائج البحث</h2>
       {% if results %}
