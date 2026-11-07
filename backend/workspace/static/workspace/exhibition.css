@@ -9,3 +9,4 @@
 .slide:nth-child(even){background:linear-gradient(145deg,rgba(244,181,68,.07),transparent 55%),var(--brand-background)}
 :fullscreen .deck-header{padding-block:10px}:fullscreen .deck-footer{padding-block:8px}:fullscreen .slide{padding-block:3vh}:fullscreen .mascot img{max-height:62vh}
 @media(max-width:700px){.slide:not(.cover):not(.scene-slide)::after{opacity:.05;width:40vw}.slide::before{opacity:.65}}
+.scene-image.portrait{object-fit:contain;inline-size:auto;max-inline-size:100%;block-size:calc(100dvh - 230px);justify-self:center}

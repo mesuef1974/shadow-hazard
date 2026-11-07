@@ -177,6 +177,23 @@ def exhibition(request):
         adoption=None
     return render(request,'workspace/exhibition.html',{'project':current_project,'coordination_adoption':adoption})
 
+@login_required(login_url='/login/')
+def exhibition_archive(request):
+    if not supervisor(request.user):return HttpResponseForbidden('وضع العرض للمشرف فقط')
+    return render(request,'workspace/exhibition_archive.html',{'project':project()})
+
+@login_required(login_url='/login/')
+def prior_design_archive(request):
+    from workspace.models import DocumentAccess
+    from simulation.models import SimulationRun
+    from .prior_design import PRIOR_DOCUMENTS,PRIOR_RECEIPTS
+    documents=list(PRIOR_DOCUMENTS)
+    if not supervisor(request.user):
+        allowed=set(DocumentAccess.objects.filter(team_visible=True).values_list('path',flat=True))
+        documents=[item for item in documents if item[0] in allowed]
+    receipts=[(f'__receipts__/{pk}.md',title) for pk,title in PRIOR_RECEIPTS]
+    return render(request,'workspace/archive.html',{'runs':SimulationRun.objects.count(),'documents':documents,'receipts':receipts})
+
 
 AUTOMATION_EVIDENCE_LABELS = {
     'job_id': 'رقم الطلب',
