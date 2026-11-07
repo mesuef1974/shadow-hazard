@@ -14,6 +14,7 @@ class HtmlDocumentTests(TestCase):
         self.assertEqual(response['Content-Type'], 'text/html; charset=utf-8')
         self.assertEqual(response['Content-Security-Policy'], 'sandbox allow-scripts')
         self.assertNotIn('attachment', response.get('Content-Disposition', ''))
+        self.assertEqual(response['X-Frame-Options'], 'SAMEORIGIN')
 
     def test_download_stays_an_attachment(self):
         response = self.client.get(PAGE + '?download=1')

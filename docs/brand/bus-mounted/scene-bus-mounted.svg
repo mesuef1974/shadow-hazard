@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 1350" role="img" aria-label="حافلة متوقفة تحجب طفلًا عن سائق قادم؛ كاميرتان على الحافلة وتحذير للسائق والطفل">
+<style>text{font-family:'IBM Plex Sans Arabic',Tahoma,sans-serif;font-size:22px;font-weight:600;fill:#142d4e;text-anchor:middle;direction:rtl}.h{font-size:34px;font-weight:700}.s{font-size:20px;font-weight:500}.w{fill:#fff}.d{fill:#a32d2d}</style>
+<rect width="640" height="1350" fill="#e7eef3"/>
+<!-- المشهد بإحداثيات الطريق؛ التدوير يجعل السيارة تصعد والحافلة على يمينها -->
+<g transform="matrix(0 -1 1 0 -85 1350)">
+<rect x="0" y="0" width="1200" height="170" fill="#c8d3db"/>
+<rect y="170" width="1200" height="350" fill="#414b57"/>
+<rect y="520" width="1200" height="205" fill="#c8d3db"/>
+<line x1="0" x2="1200" y1="520" y2="520" stroke="#fff" stroke-width="4"/>
+<line x1="0" x2="1200" y1="170" y2="170" stroke="#fff" stroke-width="4"/>
+<line x1="0" x2="1200" y1="345" y2="345" stroke="#fff" stroke-width="3" stroke-dasharray="26 22"/>
+<!-- مجال الكاميرتين -->
+<polygon points="520,400 69,236 69,564" fill="#378add" opacity=".22"/>
+<polygon points="962,458 1060,285 1060,631" fill="#378add" opacity=".22"/>
+<!-- ظل رؤية السائق -->
+<polygon points="960,408 1200,451 1200,725 735,725 520,508" fill="#e24b4a" opacity=".32"/>
+<line x1="264" y1="284" x2="1200" y2="451" stroke="#a32d2d" stroke-width="3" stroke-dasharray="12 9"/>
+<line x1="264" y1="284" x2="520" y2="508" stroke="#a32d2d" stroke-width="3" stroke-dasharray="12 9"/>
+<!-- الحافلة والتحذير -->
+<rect x="520" y="408" width="440" height="100" rx="10" fill="#fac775" stroke="#854f0b" stroke-width="3"/>
+<rect x="506" y="420" width="14" height="76" fill="#e24b4a"/>
+<rect x="856" y="340" width="10" height="68" fill="#e24b4a"/>
+<circle cx="948" cy="418" r="9" fill="#e24b4a"/>
+<!-- الكاميرتان والسيارة والطفل -->
+<circle cx="520" cy="400" r="11" fill="#185fa5" stroke="#fff" stroke-width="2"/>
+<circle cx="962" cy="458" r="11" fill="#185fa5" stroke="#fff" stroke-width="2"/>
+<rect x="160" y="264" width="176" height="72" rx="12" fill="#235b87" stroke="#84c0ff" stroke-width="2"/>
+<circle cx="264" cy="284" r="7" fill="#f1efe8"/>
+<circle cx="1000" cy="444" r="13" fill="#a32d2d" stroke="#fff" stroke-width="2"/>
+</g>
+<rect width="640" height="150" fill="#e7eef3"/>
+<text class="h" x="320" y="46">الرصد والتحذير من الحافلة</text>
+<text class="s" x="320" y="82">نحسب ظل رؤية السائق، ولا نحذّر إلا من طفل داخله.</text>
+<text class="s" x="320" y="110">إشارة قف تبقى طوال التوقف.</text>
+<text class="s" x="320" y="138">رسم توضيحي للتصميم، وليس قياسًا.</text>
+<text x="373" y="602">الحافلة</text>
+<text x="373" y="632">المتوقفة</text>
+<text class="w" x="215" y="1222">السائق القادم</text>
+<text class="w" x="205" y="836">كاميرا السيارات</text>
+<text class="w" x="170" y="482">الذراع الممتد</text>
+<text class="w" x="170" y="512">للمتجاوز</text>
+<text class="w" x="176" y="402">ضوء وصوت للطفل</text>
+<text x="536" y="396">كاميرا الطفل</text>
+<text class="d" x="526" y="346">طفل داخل الظل</text>
+<line x1="411" y1="842" x2="468" y2="880" stroke="#142d4e" stroke-width="2"/>
+<text x="540" y="896">اللوحة الخلفية:</text>
+<text x="540" y="926">التحذير الرئيسي</text>
+</svg>

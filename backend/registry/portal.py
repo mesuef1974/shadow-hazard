@@ -96,6 +96,7 @@ def document(request, name):
     if path.suffix.lower() == ".html" and request.GET.get("download") != "1":
         response = FileResponse(path.open("rb"), content_type="text/html; charset=utf-8")
         response["Content-Security-Policy"] = "sandbox allow-scripts"  # بلا أصل فلا يصل إلى الجلسة.
+        response["X-Frame-Options"] = "SAMEORIGIN"  # صفحة المحاكاة تضمّن النموذج من المنصة نفسها.
         return response
     if request.GET.get("download") == "1" or path.suffix.lower() not in {".md", ".mmd"}:
         return FileResponse(path.open("rb"), as_attachment=True, filename=path.name)
