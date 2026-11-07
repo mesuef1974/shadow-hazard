@@ -1,9 +1,10 @@
-"""يسجّل ADR 0007 ويعلّم مهام التصميم السابق بتحديثات جديدة؛ لا يعدّل ولا يحذف قديمًا، ويُعاد بأمان."""
+"""يسجّل ADR 0007 ويعلّم مهام التصميم السابق بتحديثات جديدة ويُخفي ما لا يخص الطالبين؛ لا يحذف شيئًا، ويُعاد بأمان."""
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from workspace.models import Decision, Project, Task, TaskUpdate
+from workspace.models import Decision, DocumentAccess, Project, Task, TaskUpdate
+from workspace.prior_design import HIDDEN_FROM_STUDENTS
 
 DECISION_TITLE = 'اعتماد الرصد والتحذير من الحافلة (ADR 0007)'
 DECISION_BODY = (
@@ -37,4 +38,6 @@ class Command(BaseCommand):
             if task and not task.updates.filter(body=body).exists():
                 TaskUpdate.objects.create(task=task, author=author, body=body, state=task.state)
                 added += 1
-        self.stdout.write(f'decision_created={created} updates_added={added}')
+        hidden = DocumentAccess.objects.filter(
+            path__in=HIDDEN_FROM_STUDENTS, team_visible=True).update(team_visible=False)
+        self.stdout.write(f'decision_created={created} updates_added={added} students_hidden={hidden}')
