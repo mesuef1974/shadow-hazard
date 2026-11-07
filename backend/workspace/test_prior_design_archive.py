@@ -5,6 +5,7 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from workspace.models import Decision, DocumentAccess, Phase, Project, Task, TaskUpdate
+from workspace.prior_design import HIDDEN_FROM_STUDENTS
 
 
 class PriorDesignArchiveTests(TestCase):
@@ -41,17 +42,24 @@ class PriorDesignArchiveTests(TestCase):
         self.assertEqual(TaskUpdate.objects.filter(task=task).count(), 1)
         self.assertEqual(Decision.objects.count(), 1)
 
-    def test_command_hides_the_roadside_decision_from_students_but_not_the_owner(self):
-        path = 'roadside-warning-decision-ar.md'
+    def test_command_hides_prior_documents_from_students_but_not_the_owner(self):
+        for path in HIDDEN_FROM_STUDENTS:
+            with self.subTest(path=path):
+                DocumentAccess.objects.create(path=path, team_visible=True)
+                self.client.force_login(self.student)
+                self.assertEqual(self.client.get(f'/documents/{path}').status_code, 200)
+                for _ in range(2):
+                    out = StringIO()
+                    call_command('archive_prior_design', stdout=out)
+                self.assertIn('students_hidden=0', out.getvalue())
+                self.assertEqual(self.client.get(f'/documents/{path}').status_code, 404)
+                self.assertNotContains(self.client.get('/archive/'), path)
+                self.client.force_login(self.owner)
+                self.assertEqual(self.client.get(f'/documents/{path}').status_code, 200)
+                self.assertTrue(DocumentAccess.objects.filter(path=path).exists())
+
+    def test_bus_shadow_explorer_stays_visible_to_students(self):
+        path = 'exercises/bus-shadow-explorer.html'
         DocumentAccess.objects.create(path=path, team_visible=True)
-        self.client.force_login(self.student)
-        self.assertEqual(self.client.get(f'/documents/{path}').status_code, 200)
-        for _ in range(2):
-            out = StringIO()
-            call_command('archive_prior_design', stdout=out)
-        self.assertIn('students_hidden=0', out.getvalue())
-        self.assertEqual(self.client.get(f'/documents/{path}').status_code, 404)
-        self.assertNotContains(self.client.get('/archive/'), path)
-        self.client.force_login(self.owner)
-        self.assertEqual(self.client.get(f'/documents/{path}').status_code, 200)
-        self.assertTrue(DocumentAccess.objects.filter(path=path).exists())
+        call_command('archive_prior_design', stdout=StringIO())
+        self.assertTrue(DocumentAccess.objects.get(path=path).team_visible)

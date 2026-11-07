@@ -7,7 +7,10 @@ PRIOR_DOCUMENTS = (
     ('roadside-warning-decision-ar.md', 'قرار التحذير من جانب الطريق'),
 )
 # تبقى ظاهرة للمشرف وفي الأرشيف، وتُخفى عن الطالبين: حلّ محلها ADR 0007 (قرار المالك 2026-11-07).
-HIDDEN_FROM_STUDENTS = ('roadside-warning-decision-ar.md',)
+HIDDEN_FROM_STUDENTS = (
+    'roadside-warning-decision-ar.md',
+    'blueprint/prototype-first-experiment-ar.md',
+)
 PRIOR_RECEIPTS = (
     (704, 'بروتوكول تقييم المحاكاة v3'),
     (716, 'نتائج الدفعة الأساسية'),
