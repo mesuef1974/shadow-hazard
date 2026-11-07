@@ -381,8 +381,10 @@ class LabTests(TestCase):
             response=self.client.get('/simulation/')
         self.assertContains(response,f'data-load="{row.pk}"')
         selected=[q['sql'] for q in queries if 'FROM "simulation_simulationrun"' in q['sql'] and 'COUNT(' not in q['sql']]
-        self.assertTrue(selected)
-        self.assertTrue(all('"result"' not in sql for sql in selected))
+        # استعلام واحد، ولا عمود بعد result: قراءته تمرّ SQLite بصفحات النتيجة كلها.
+        self.assertEqual(len(selected),1)
+        for column in ('"result"','"digest"','"created_by_id"'):
+            self.assertNotIn(column,selected[0].split(' FROM ')[0])
         row.refresh_from_db()
         self.assertEqual(self.client.get(f'/simulation/runs/{row.pk}/').json()['result'],row.result)
         SimulationRun.objects.filter(pk=row.pk).update(result={'tampered':True})
