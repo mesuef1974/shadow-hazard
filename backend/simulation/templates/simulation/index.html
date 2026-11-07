@@ -1,8 +1,13 @@
 {% extends 'registry/base.html' %}{% load static %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'simulation/lab.css' %}?v=suite-contrast-2"><script src="{% static 'simulation/lab.js' %}?v=scene-zoom-1" defer></script>{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'simulation/lab.css' %}?v=bus-model-1"><script src="{% static 'simulation/lab.js' %}?v=scene-zoom-1" defer></script>{% endblock %}
 {% block content %}
 <div class="lab">
-<div class="lab-heading"><div><h1>مختبر المشهد الافتراضي</h1><p>نتتبّع الحركة، ونتوقع التعارض، ونقيس وقت التنبيه قبل ظهور الطالب.</p></div><span class="lab-badge">تجربة اصطناعية · متر / ثانية</span></div>
+<div class="lab-heading"><div><h1>مختبر ظل الحافلة</h1><p>الكاميرتان والتحذير على الحافلة المتوقفة: غيّر السرعة والمسافة والعدسة، وشاهد متى يدخل الطفل الظل ومتى يصدر التحذير.</p></div><span class="lab-badge">نموذج شرح بافتراضات</span></div>
+<section class="bus-model" aria-labelledby="bus-model-title"><h2 id="bus-model-title">النموذج الحالي: الرصد والتحذير من الحافلة</h2>
+<iframe src="{% url 'project-document' 'exercises/bus-shadow-explorer.html' %}" title="نموذج ظل الحافلة التفاعلي"></iframe>
+<p class="legend">أداة شرح بافتراضات، وليست قياسًا ولا دليلًا على سلامة طريق حقيقي. استجابة الطفل للضوء فرضية.</p></section>
+<details class="prior-design"><summary>التصميم السابق: جانب الطريق ({{ page.paginator.count }} تجربة محفوظة)</summary>
+<p class="prior-note">قيست هذه التجارب قبل ADR 0007، فلا تُنقل أرقامها إلى الاستمارة قبل إعادة بروتوكول 731 على التصميم الجديد.</p>
 <div class="lab-layout">
 <section class="scene-panel" aria-label="المشهد ونتائج الرصد">
 <div id="suite-view" hidden><p id="suite-status" role="status" aria-live="polite"></p><progress id="suite-progress" max="77" value="0" aria-label="تقدم عرض السيناريوهات"></progress><button type="button" id="suite-next">السيناريو التالي</button><button type="button" id="suite-stop">إيقاف عرض السيناريوهات</button><p>يتوقف العرض 3 ثوانٍ عند أول تداخل لتوضيحه ثم يتابع تلقائيًا. يمكنك الانتقال إلى التالي أو إيقاف العرض.</p></div><div class="scenario-summary"><h2 id="scene-title">المشهد المختار</h2><p id="scene-description"></p><p id="scene-config"></p></div>
@@ -45,6 +50,7 @@
 <details open><summary>ما الذي تختبره التجربة؟</summary><p>المسار المحدد معروف مسبقًا. تُحسب السرعة من الرصد، ويُفترض استمرارها خلال أفق التوقع. الحركة المستقبلية الحقيقية لا تدخل إلى المتنبئ.</p><p>الحجب محسوب من خط النظر في مخطط علوي. الحدود الرقمية إعدادات بحثية غير معتمدة للطريق. التصادم هنا تداخل جسمين افتراضيين.</p><p>تُلتقط عينة كل 0.1 ثانية ويُفحص التوقع كل 0.05 ثانية؛ قد تفوت أحداث أقصر من هذه الخطوات. المقارنة الزمنية تستبعد نهاية التسجيل التي لا يتوفر بعدها أفق كامل. الإنذارات الكاذبة والفقد محسوبان لكل عينة زمنية، والحالات غير الموثوقة مسجلة منفصلة.</p></details>
 </aside></div>
 <section class="history"><h2>سجل التجارب</h2><p>الحزمة تغطي 21 حالة أساسية. يمكن تغيير المعلمات وتكرارها؛ لا تمثل حصرًا لكل ظروف العالم الحقيقي.</p><div class="table-scroll"><table><thead><tr><th>التجربة</th><th>مصدر الرصد</th><th>أسبقية التنبيه على الظهور (ث)</th><th>تنبيه كاذب / عينة</th><th>فقد / عينة</th><th>غير موثوق / عينة</th><th>المشهد</th></tr></thead><tbody id="history">{% for r in runs %}<tr><td>{{ r.title }}</td><td>{% if r.config.mode == 'vision' %}تتبع لوني{% else %}قياسات اصطناعية{% endif %}</td><td>{{ r.metrics.lead_before_visible|default_if_none:'—' }}</td><td>{{ r.metrics.fp }}</td><td>{{ r.metrics.fn }}</td><td>{{ r.metrics.unavailable }}</td><td><button data-load="{{ r.pk }}">عرض #{{ r.pk }}</button></td></tr>{% endfor %}</tbody></table></div><p>الصفحة {{ page.number }} من {{ page.paginator.num_pages }} · {{ page.paginator.count }} تجربة محفوظة</p>{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">الأحدث</a>{% endif %} {% if page.has_next %}<a href="?page={{ page.next_page_number }}">الأقدم</a>{% endif %}</section>
+</details>
 </div>{{ scenarios|json_script:'scenario-data' }}
 {% endblock %}
 
