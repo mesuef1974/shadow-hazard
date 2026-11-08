@@ -73,6 +73,20 @@ def explanation(name):
         return 'قالب لإعداد مستند أو عرض أو جدول؛ راجع وصف المصدر لتحديد مجال القالب.', False
     return 'مهارة مكتشفة؛ الشرح العربي التفصيلي يحتاج مراجعة وصف المصدر.', False
 
+# توقيع كل ملف (الحجم والزمن والمعرّف) وتجزئته من آخر مسح؛ يتجاوز ما لم يتغير.
+_FILE_HASHES = {}
+
+
+def member_data(member):
+    """بيانات الملف عند الحاجة وحدها، مع التحقق من أنه لم يتغير عن تجزئة المسح."""
+    if member['data'] is not None:
+        return member['data']
+    data = Path(member['abs']).read_bytes()
+    if hashlib.sha256(data).hexdigest() != member['sha256']:
+        raise OSError('File changed after snapshot: ' + str(member['abs']))
+    return data
+
+
 def is_link(path):
     return path.is_symlink() or path.is_junction()
 
@@ -97,15 +111,28 @@ def bundle(directory):
                 if not stat.S_ISREG(before.st_mode): raise OSError('Unsupported special file: '+str(path))
                 if not path.resolve(strict=True).is_relative_to(directory): raise OSError('File escaped skill directory')
                 if before.st_size + total > limit: raise OSError('Skill bundle size limit exceeded: '+str(directory))
-                with path.open('rb') as stream:
-                    # الحجم الفعلي لا السقف: read(n) تحجز n بايت مسبقًا، فكان كل ملف يحجز نحو 256 MB.
-                    data = stream.read(min(before.st_size, limit - total) + 1)
+                signature = (before.st_size, before.st_mtime_ns, before.st_ino)
+                cached = _FILE_HASHES.get(str(path))
+                if cached and cached[0] == signature:
+                    data = None  # لم يتغير منذ آخر مسح: لا قراءة ولا تجزئة.
+                    digest_hex = cached[1]
+                else:
+                    with path.open('rb') as stream:
+                        # الحجم الفعلي لا السقف: read(n) تحجز n بايت مسبقًا، فكان كل ملف يحجز نحو 256 MB.
+                        data = stream.read(min(before.st_size, limit - total) + 1)
+                    digest_hex = hashlib.sha256(data).hexdigest()
             after = path.lstat()
             if (before.st_mtime_ns,before.st_size,before.st_ino) != (after.st_mtime_ns,after.st_size,after.st_ino):
                 raise OSError('File changed during snapshot: '+str(path))
-            total += len(data)
+            size = len(data) if data is not None else before.st_size
+            total += size
             if total > limit: raise OSError('Skill bundle size limit exceeded')
-            files.append({'path':path.relative_to(directory).as_posix(),'kind':kind,'sha256':hashlib.sha256(data).hexdigest(),'data':data})
+            if kind == 'link':
+                digest_hex = hashlib.sha256(data).hexdigest()
+            else:
+                _FILE_HASHES[str(path)] = (signature, digest_hex)
+                data = None  # لا تُبقى البيانات في الذاكرة؛ تُقرأ عند الحاجة وحدها (member_data).
+            files.append({'path':path.relative_to(directory).as_posix(),'kind':kind,'sha256':digest_hex,'data':data,'abs':path,'size':size})
     files.sort(key=lambda f:f['path'])
     manifest=[{k:f[k] for k in ('path','kind','sha256')} for f in files]
     digest=hashlib.sha256(json.dumps(manifest,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
@@ -123,14 +150,17 @@ def collect(root):
         if is_link(path): raise OSError('Skill definition must be a regular file')
         digest, members = bundle(path.parent.resolve())
         definition = next(f for f in members if f['path']=='SKILL.md')
-        text = definition['data'].decode('utf-8-sig')
+        text = member_data(definition).decode('utf-8-sig')
         name, description = metadata(text, path.parent.name)
         found.append((path.relative_to(root).as_posix(),name,description,digest,members))
     return found
 
 def save_files(version, members):
     for member in members:
-        blob, _ = SkillBlob.objects.get_or_create(sha256=member['sha256'],defaults={'content':member['data'],'size':len(member['data'])})
+        blob = SkillBlob.objects.filter(sha256=member['sha256']).first()
+        if blob is None:
+            data = member_data(member)
+            blob = SkillBlob.objects.create(sha256=member['sha256'], content=data, size=len(data))
         SkillFileSnapshot.objects.get_or_create(version=version,path=member['path'],defaults={'kind':member['kind'],'blob':blob})
 
 def file_changes(change, old, new, baseline=False):

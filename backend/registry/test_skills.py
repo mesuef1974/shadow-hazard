@@ -34,6 +34,22 @@ class SkillInventoryTests(TestCase):
         self.assertEqual(len(found), 1)
         self.assertLess(peak, 8 * 1024 * 1024)
 
+    def test_unchanged_files_are_not_reread_and_changes_are_still_detected(self):
+        from registry import skill_inventory as si
+        si._FILE_HASHES.clear()
+        scan_skills()
+        opened = []
+        real_open = Path.open
+        def spy(path, mode='r', *a, **k):
+            if 'b' in mode: opened.append(path.name)
+            return real_open(path, mode, *a, **k)
+        with patch.object(Path, 'open', spy):
+            scan_skills()
+        self.assertEqual(opened, ['SKILL.md'])  # التعريف وحده يُقرأ لاسمه ووصفه
+        self.file.write_text('---'+chr(10)+'name: sample'+chr(10)+'description: A sample skill'+chr(10)+'---'+chr(10)+'Version two!',encoding='utf-8')
+        scan_skills()
+        self.assertEqual(SkillChange.objects.filter(action='updated').count(), 1)
+
     def test_lifecycle_and_idempotency(self):
         scan_skills(); installation=Installation.objects.get()
         first=installation.version_id
