@@ -1,9 +1,9 @@
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
-from django.utils import timezone
 
 from competition import training
 from competition.models import (
@@ -25,7 +25,7 @@ class TrainingPagesTests(TestCase):
         users = get_user_model().objects
         self.owner = users.create_user(username="mesuef", role="supervisor")
         self.student = users.create_user(username="saud", role="student")
-        now = timezone.now()
+        now = datetime(2026, 11, 12, 12, 30, tzinfo=UTC)
         course = TrainingCourse.objects.create(
             key="c", kind="mandatory", title="التدريب الأساسي", source_url="https://x/c",
             scraped_at=now)
