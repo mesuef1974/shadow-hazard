@@ -4,6 +4,7 @@ import socket
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from io import StringIO
 from pathlib import Path
@@ -179,15 +180,21 @@ class TrainingToolTests(TestCase):
                 except OSError:
                     time.sleep(0.1)
 
-            def post(origin, body=b"[]"):
+            def post(origin, body=b"[]", kind="application/json"):
                 request = urllib.request.Request(
-                    "http://127.0.0.1:8734/", data=body, method="POST", headers={"Origin": origin})
+                    "http://127.0.0.1:8734/", data=body, method="POST",
+                    headers={"Origin": origin, "Content-Type": kind})
                 return urllib.request.urlopen(request, timeout=5).status  # noqa: S310
 
             with self.assertRaises(urllib.error.HTTPError):
                 post("https://evil.example")
             self.assertFalse(output.exists())
-            self.assertEqual(post("https://hamdanfsc.com", b'[{"url": "/x"}]'), 200)
+            with urllib.request.urlopen("http://127.0.0.1:8734/", timeout=5) as page:  # noqa: S310
+                self.assertIn(b"postMessage", page.read())
+            # نموذج المتصفح: الناتج في حقل payload مرمَّزًا
+            form = urllib.parse.urlencode({"payload": '[{"url": "/x"}]'}).encode()
+            self.assertEqual(
+                post("https://hamdanfsc.com", form, "application/x-www-form-urlencoded"), 200)
             thread.join(10)
             self.assertEqual(code, [0])
             self.assertEqual(json.loads(output.read_text(encoding="utf-8")), [{"url": "/x"}])

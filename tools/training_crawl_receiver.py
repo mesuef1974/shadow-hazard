@@ -10,9 +10,20 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs
 
 ORIGIN = "https://hamdanfsc.com"
 MAX_BYTES = 64 * 1024 * 1024
+RELAY = """<!doctype html><meta charset="utf-8"><title>relay</title><p id="s">waiting</p><script>
+addEventListener('message', async (event) => {
+  if (event.origin !== '__ORIGIN__' || typeof event.data !== 'string') return;
+  const reply = await fetch('/', {method: 'POST', body: event.data,
+                                  headers: {'Content-Type': 'application/json'}});
+  document.getElementById('s').textContent = 'saved ' + reply.status;
+  event.source.postMessage('saved ' + reply.status, event.origin);
+});
+(window.opener || window.parent).postMessage('ready', '__ORIGIN__');
+</script>"""
 
 
 def make_handler(output, finished):
@@ -28,6 +39,16 @@ def make_handler(output, finished):
             self._cors()
             self.end_headers()
 
+        def do_GET(self):
+            # صفحة ترحيل: تستقبل الناتج برسالة postMessage من صفحة المسابقة وحدها ثم ترسله
+            # إلى هذا المستقبِل من أصله نفسه، حين يمنع المتصفح الطلب المباشر إلى 127.0.0.1.
+            page = RELAY.replace("__ORIGIN__", ORIGIN).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(page)))
+            self.end_headers()
+            self.wfile.write(page)
+
         def do_POST(self):
             size = int(self.headers.get("Content-Length") or 0)
             if not 0 < size <= MAX_BYTES:
@@ -36,10 +57,15 @@ def make_handler(output, finished):
                 return
             # يُقرأ الجسم قبل الرفض: الرد قبل قراءته يقطع الاتصال على ويندوز.
             body = self.rfile.read(size)
-            if self.headers.get("Origin") != ORIGIN:
+            own = f"http://127.0.0.1:{self.server.server_port}"
+            if self.headers.get("Origin") not in (ORIGIN, own):
                 self.send_response(403)
                 self.end_headers()
                 return
+            # المتصفح قد يمنع fetch من صفحة عامة إلى 127.0.0.1؛ إرسال نموذج (حقل payload)
+            # انتقالٌ لا يشمله ذلك المنع.
+            if self.headers.get_content_type() == "application/x-www-form-urlencoded":
+                body = parse_qs(body.decode("utf-8")).get("payload", [""])[0].encode("utf-8")
             try:
                 json.loads(body)
             except ValueError:
