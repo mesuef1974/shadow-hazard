@@ -2,11 +2,13 @@
 
     python training_crawl_receiver.py <output.json> [--port 8733] [--minutes 10]
 
+يطبع عنوان الاستلام وفيه رمز سري لهذا التشغيل؛ يُمرَّر العنوان إلى trainingSend في المتصفح.
 يستمع على 127.0.0.1 وحده، يقبل طلب POST واحدًا ثم يغلق نفسه، ويغلق بعد المهلة إن لم يصله
 شيء؛ فلا يبقى خادم مفتوحًا. لا يخدم ملفات ولا يقرأ من القرص.
 """
 import argparse
 import json
+import secrets
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -17,7 +19,7 @@ MAX_BYTES = 64 * 1024 * 1024
 RELAY = """<!doctype html><meta charset="utf-8"><title>relay</title><p id="s">waiting</p><script>
 addEventListener('message', async (event) => {
   if (event.origin !== '__ORIGIN__' || typeof event.data !== 'string') return;
-  const reply = await fetch('/', {method: 'POST', body: event.data,
+  const reply = await fetch(location.pathname, {method: 'POST', body: event.data,
                                   headers: {'Content-Type': 'application/json'}});
   document.getElementById('s').textContent = 'saved ' + reply.status;
   event.source.postMessage('saved ' + reply.status, event.origin);
@@ -26,7 +28,7 @@ addEventListener('message', async (event) => {
 </script>"""
 
 
-def make_handler(output, finished):
+def make_handler(output, finished, token):
     class Handler(BaseHTTPRequestHandler):
         def _cors(self):
             self.send_header("Access-Control-Allow-Origin", ORIGIN)
@@ -57,8 +59,11 @@ def make_handler(output, finished):
                 return
             # يُقرأ الجسم قبل الرفض: الرد قبل قراءته يقطع الاتصال على ويندوز.
             body = self.rfile.read(size)
+            # المتصفح يرسل Origin: null في انتقال النموذج بين الموقعين، فلا يكفي Origin وحده؛
+            # الرمز السري في المسار (يُولَّد لكل تشغيل) هو ما يثبت أن المرسل هو ناسخنا.
             own = f"http://127.0.0.1:{self.server.server_port}"
-            if self.headers.get("Origin") not in (ORIGIN, own):
+            allowed = self.headers.get("Origin") in (ORIGIN, own, "null")
+            if not allowed or not secrets.compare_digest(self.path, "/" + token):
                 self.send_response(403)
                 self.end_headers()
                 return
@@ -90,9 +95,13 @@ def main(argv=None):
     parser.add_argument("output", type=Path)
     parser.add_argument("--port", type=int, default=8733)
     parser.add_argument("--minutes", type=float, default=10)
+    parser.add_argument("--token", default="")
     args = parser.parse_args(argv)
+    token = args.token or secrets.token_urlsafe(16)
+    print(f"http://127.0.0.1:{args.port}/{token}", flush=True)
     finished = threading.Event()
-    server = HTTPServer(("127.0.0.1", args.port), make_handler(args.output, finished))
+    server = HTTPServer(
+        ("127.0.0.1", args.port), make_handler(args.output, finished, token))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     received = finished.wait(args.minutes * 60)
     server.shutdown()

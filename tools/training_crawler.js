@@ -4,7 +4,7 @@
 // التشغيل تكمل من حيث توقف ولا يضيع الناتج بانتقال الصفحة.
 // الاستعمال:
 //   trainingCrawl()                      يبدأ أو يكمل؛ التقدم في trainingCrawlStatus()
-//   trainingSend('http://127.0.0.1:8733/')  يرسل الناتج إلى tools/training_crawl_receiver.py
+//   trainingSend(<العنوان الذي يطبعه tools/training_crawl_receiver.py>)  يرسل الناتج إليه
 // الإرسال نموذج POST ينتقل به التبويب نفسه: المتصفح يمنع fetch والإطارات من صفحة عامة إلى
 // 127.0.0.1 ولا يمنع الانتقال. الناتج يبقى في localStorage حتى trainingCrawlClear().
 (() => {
@@ -74,7 +74,7 @@
     frame.remove();
     return { outline, steps };
   };
-  window.trainingCrawl = async () => {
+  window.trainingCrawl = async (parallel = 5) => {
     const state = load();
     if (!state.courses.length) {
       const links = [...document.querySelectorAll('a[href*="/dawrat/"]')]
@@ -95,9 +95,11 @@
       }
       save(state);
     }
-    for (const course of state.courses) {
-      for (const lesson of course.lessons) {
-        if (lesson.steps && lesson.steps.length) continue; // نُسخ سابقًا
+    // عدة دروس معًا (كلٌّ في إطاره) تختصر زمن النسخ؛ الحفظ بعد كل درس.
+    const pending = state.courses.flatMap((course) => course.lessons)
+      .filter((lesson) => !(lesson.steps && lesson.steps.length));
+    const worker = async () => {
+      for (let lesson = pending.shift(); lesson; lesson = pending.shift()) {
         try {
           Object.assign(lesson, await lessonOf(lesson.href));
           delete lesson.error;
@@ -106,7 +108,8 @@
         }
         save(state);
       }
-    }
+    };
+    await Promise.all(Array.from({ length: parallel }, worker));
     state.done = true;
     save(state);
     return window.trainingCrawlStatus();
