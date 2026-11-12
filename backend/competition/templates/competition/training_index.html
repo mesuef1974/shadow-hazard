@@ -1,7 +1,9 @@
-{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=2">
+{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=3">
 <div class="training-page">
 {% include 'registry/_page_heading.html' with eyebrow='المسابقة · للمشرف' title='المحتوى التدريبي' description='دورات منصة المسابقة بشرائحها ونصوصها المقروءة آليًا، وتفريغ اللقاءات. النصوص آلية غير مراجَعة؛ الصورة هي المرجع.' %}
 <p class="note">{{ totals.courses }} دورات · {{ totals.lessons }} درسًا · {{ totals.slides }} شريحة (المقروء ضوئيًا منها {{ totals.slides_read }}) · {{ totals.recordings }} لقاء.</p>
+
+<a class="training-project-link" href="{% url 'training-project' %}"><strong>ما يفيد ظل الخطر</strong><span>ما نأخذه من اللقاءات والدروس لمشروعنا، مرتبًا حسب أجزائه وبمصادره.</span></a>
 
 <form class="training-search" method="get" role="search" aria-label="بحث في المحتوى التدريبي">
   <label for="training-q">بحث في نصوص الشرائح والتفريغ</label>
@@ -21,8 +23,9 @@
 <section aria-labelledby="courses-title"><h2 id="courses-title">الدورات</h2>
 {% for course in courses %}<details class="work-panel training-course"{% if forloop.first and results is None %} open{% endif %}>
   <summary><span>{{ course.title }}</span> <small>{{ course.get_kind_display }} · {{ course.lessons.all|length }} درسًا</small></summary>
+  {% if course.digest.headline %}<p class="training-course-headline">{{ course.digest.headline }}</p>{% endif %}
   {% if course.summary %}<p class="note">{{ course.summary }}</p>{% endif %}
-  <ol class="training-lessons">{% for lesson in course.lessons.all %}<li><a href="{% url 'training-lesson' lesson.pk %}">{{ lesson.title }}</a> <small>{{ lesson.slide_count }} شريحة{% if lesson.duration_label %} · {{ lesson.duration_label }}{% endif %}</small></li>{% endfor %}</ol>
+  <ol class="training-lessons">{% for lesson in course.lessons.all %}<li><a href="{% url 'training-lesson' lesson.pk %}">{{ lesson.title }}</a> <small>{{ lesson.slide_count }} شريحة{% if lesson.duration_label %} · {{ lesson.duration_label }}{% endif %}</small>{% if lesson.digest.headline %}<p class="training-lesson-headline">{{ lesson.digest.headline }}</p>{% endif %}</li>{% endfor %}</ol>
 </details>{% empty %}<p>لا دورات مستوردة بعد.</p>{% endfor %}
 </section>
 

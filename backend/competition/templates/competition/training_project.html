@@ -1,0 +1,39 @@
+{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=3">
+<div class="training-page">
+<nav class="training-crumbs" aria-label="مسار الصفحة"><a href="{% url 'training-index' %}">المحتوى التدريبي</a> <span aria-hidden="true">‹</span> <span>ما يفيد ظل الخطر</span></nav>
+{% include 'registry/_page_heading.html' with eyebrow='من التدريب إلى مشروعنا' title='ما يفيد ظل الخطر' description='ما نأخذه من اللقاءات والدروس، مرتبًا حسب أجزاء مشروعنا، وكل بند برابط موضعه في المصدر.' metric=item_count metric_label='بندًا من المصادر' %}
+
+{% if playbook %}
+<section class="digest-lead" aria-labelledby="playbook-headline">
+  <p class="eyebrow">الخلاصة في جملة</p>
+  <h2 id="playbook-headline">{{ playbook.headline }}</h2>
+  {% if playbook.overview %}<p class="digest-overview">{{ playbook.overview }}</p>{% endif %}
+  <p class="note">خلاصة مصاغة من ملخصات آلية غير مراجَعة · حُدّثت {{ playbook.updated_at|date:"Y-m-d" }}. كل مصدر يفتح موضعه للتحقق.</p>
+</section>
+
+<nav class="playbook-index" aria-label="أجزاء المشروع"><ol>{% for area in playbook.areas %}<li><a href="#area-{{ area.number }}"><span class="digest-map-number">{{ area.number }}</span>{{ area.title }}</a></li>{% endfor %}</ol></nav>
+
+{% for area in playbook.areas %}<section class="playbook-area" id="area-{{ area.number }}" aria-labelledby="area-title-{{ area.number }}">
+  <header><span class="digest-map-number">{{ area.number }}</span><h2 id="area-title-{{ area.number }}">{{ area.title }}</h2></header>
+  {% if area.why %}<p class="playbook-why">{{ area.why }}</p>{% endif %}
+  <ol class="playbook-steps">{% for step in area.steps %}<li><p>{{ step.text }}</p>
+    {% if step.sources %}<p class="playbook-sources">{% for source in step.sources %}{% if source.url %}<a class="digest-clock" href="{{ source.url }}">{{ source.label }}{% if source.detail %} · <span dir="ltr">{{ source.detail }}</span>{% endif %}</a>{% else %}<span class="digest-clock">{{ source.label }}</span>{% endif %} {% endfor %}</p>{% endif %}</li>{% endfor %}</ol>
+</section>{% endfor %}
+
+{% if playbook.gaps %}<section class="digest-doubts" aria-labelledby="gaps-title"><h2 id="gaps-title">ما لا يغطيه التدريب ونحتاجه</h2>
+  <p class="note">حاجات في مشروعنا لم نجد لها مادة في اللقاءات ولا الدروس؛ مصدرها خارج المحتوى التدريبي.</p>
+  <ul>{% for gap in playbook.gaps %}<li>{{ gap }}</li>{% endfor %}</ul>
+</section>{% endif %}
+{% else %}
+<p class="note" role="note">لم تُكتب الخلاصة المصاغة بعد؛ المعروض البنود الخام من الملخصات.</p>
+{% endif %}
+
+<section aria-labelledby="sources-title"><h2 id="sources-title">كل البنود حسب المصدر</h2>
+{% for group in groups %}<details class="work-panel training-course">
+  <summary><span>{{ group.title }}</span> <small>{{ group.kind }} · {{ group.count }} بندًا</small></summary>
+  {% if group.general %}<ul class="training-lessons">{% for text in group.general %}<li>{{ text }}</li>{% endfor %}</ul>{% endif %}
+  {% if group.rows %}<ul class="training-results">{% for item in group.rows %}<li><p class="playbook-item">{{ item.text }}</p><a class="digest-clock" href="{{ item.url }}">{% if item.source %}{{ item.source }}{% endif %}{% if item.source and item.detail %} · {% endif %}{% if item.detail %}<span dir="ltr">{{ item.detail }}</span>{% endif %}{% if not item.source and not item.detail %}المصدر{% endif %}</a></li>{% endfor %}</ul>{% endif %}
+</details>{% empty %}<p>لا بنود بعد: لم تُستورد ملخصات الدروس واللقاءات.</p>{% endfor %}
+</section>
+</div>
+{% endblock %}
