@@ -1,0 +1,85 @@
+"""قراءة ضوئية محلية لصور الشرائح بـ PaddleOCR؛ بلا Django وبلا أي خدمة خارجية.
+
+    python training_ocr.py <manifest.jsonl> <results.jsonl> [--lang ar]
+
+كل سطر في manifest: {"sha256": ..., "path": ...}. يُكتب لكل صورة سطر في results فور
+قراءتها، والصور المقروءة سابقًا تُتخطى، فإعادة التشغيل تكمل من حيث توقف.
+"""
+import argparse
+import json
+import sys
+from pathlib import Path
+
+
+def ordered_text(texts, boxes, right_to_left=True):
+    """يرتب الأسطر من أعلى إلى أسفل، وداخل السطر من اليمين إلى اليسار للعربية."""
+    items = []
+    for text, box in zip(texts, boxes, strict=True):
+        left, top, right, bottom = (float(value) for value in box)
+        items.append((top, bottom, left, right, text))
+    items.sort(key=lambda item: (item[0] + item[1]) / 2)
+    lines, current, limit = [], [], None
+    for item in items:
+        middle = (item[0] + item[1]) / 2
+        if current and middle > limit:
+            lines.append(current)
+            current = []
+        if not current:
+            limit = item[1]  # ما يبدأ منتصفه قبل أسفل أول عنصر فهو في السطر نفسه
+        current.append(item)
+    if current:
+        lines.append(current)
+    out = []
+    for line in lines:
+        line.sort(key=lambda item: item[2], reverse=right_to_left)
+        out.append(" ".join(item[4].strip() for item in line if item[4].strip()))
+    return "\n".join(part for part in out if part)
+
+
+def done_hashes(path):
+    seen = set()
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                row = json.loads(line)
+                if not row.get("error"):
+                    seen.add(row["sha256"])
+    return seen
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("manifest", type=Path)
+    parser.add_argument("results", type=Path)
+    parser.add_argument("--lang", default="ar")
+    args = parser.parse_args(argv)
+    rows = [json.loads(line) for line in args.manifest.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    seen = done_hashes(args.results)
+    todo = [row for row in rows if row["sha256"] not in seen]
+    if not todo:
+        return 0
+    import paddleocr  # استيراد متأخر: الاختبارات لا تحتاج المحرك
+    engine = f"paddleocr-{paddleocr.__version__}-{args.lang}"
+    reader = paddleocr.PaddleOCR(
+        lang=args.lang, use_doc_orientation_classify=False, use_doc_unwarping=False,
+        use_textline_orientation=False,
+        enable_mkldnn=False)  # oneDNN يتعطل في paddle 3.3 على المعالج (ConvertPirAttribute)
+    failed = 0
+    with args.results.open("a", encoding="utf-8") as out:
+        for row in todo:
+            record = {"sha256": row["sha256"], "engine": engine}
+            try:
+                page = reader.predict(row["path"])[0]
+                record["text"] = ordered_text(page["rec_texts"], page["rec_boxes"])
+            except Exception as exc:  # صورة تالفة لا توقف الباقي
+                failed += 1
+                record["error"] = f"{type(exc).__name__}: {exc}"[:300]
+            out.write(json.dumps(record, ensure_ascii=False) + "\n")
+            out.flush()
+    print(json.dumps({"read": len(todo) - failed, "failed": failed}), file=sys.stderr)
+    return 1 if failed == len(todo) else 0  # فشل كل الصور عطل في المحرك لا في الصور
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

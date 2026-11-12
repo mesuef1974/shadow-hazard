@@ -1,0 +1,201 @@
+"""خدمات المحتوى التدريبي: استيراد ناتج النسخ، تنزيل الشرائح، نتائج القراءة الضوئية، التفريغ.
+
+كل دالة آمنة للتكرار (idempotent): تُحدَّث السجلات بمفاتيحها ولا تتكرر.
+"""
+import hashlib
+import json
+import re
+from datetime import date
+from pathlib import Path
+from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
+
+from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
+
+from .models import (
+    TrainingCourse,
+    TrainingLesson,
+    TrainingRecording,
+    TrainingSlide,
+    TranscriptSegment,
+)
+
+SITE = "https://hamdanfsc.com"
+# المصدر الوحيد المسموح لتنزيل الصور (حماية من طلبات إلى عناوين غير مقصودة).
+ALLOWED_IMAGE_HOSTS = frozenset({"firebasestorage.googleapis.com"})
+IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".gif", ".webp"})
+MAX_IMAGE_BYTES = 20 * 1024 * 1024
+ICONS = re.compile(r"\b(?:arrow_back|arrow_forward|school|verified|menu_book|schedule|translate)\b")
+NOISE = frozenset({
+    "المحتوى التدريبي", "إلزامي", "دورة تدريبية", "جميع المواد التدريبية باللغة العربية"})
+LESSON_LABEL = re.compile(r"^الدرس\s+(\d+)\s+(.*)$")
+DURATION = re.compile(r"\s+(\d+\s+دقيقة|ساعة(?:\s+و\d+\s+دقيقة)?|ساعتان|\d+\s+ساعات)$")
+STAMP = re.compile(r"^\[(\d+):(\d\d):(\d\d)\]\s*(.*)$")
+
+
+def slides_dir():
+    return Path(settings.LOCAL_DIR) / "training" / "slides"
+
+
+def _course_fields(url, head):
+    parts = [p.strip() for p in ICONS.sub("", head).split("|")]
+    parts = [p for p in parts if p and p not in NOISE]
+    return (parts[0] if parts else url), " | ".join(parts[1:])
+
+
+def _lesson_fields(label):
+    match = LESSON_LABEL.match(label.strip())
+    rest = match.group(2).strip() if match else label.strip()
+    duration = DURATION.search(rest)
+    if duration:
+        return rest[:duration.start()].strip(), duration.group(1)
+    return rest, ""
+
+
+def _stable(url):
+    """الرابط بلا رمز الوصول المتغيّر؛ به يُعرف هل تبدّلت الصورة."""
+    return url.split("?", 1)[0]
+
+
+def _last(url):
+    return url.rstrip("/").rsplit("/", 1)[-1]
+
+
+@transaction.atomic
+def import_crawl(courses, now=None):
+    """يستورد ناتج tools/training_crawler.js. يعيد أعداد الدورات والدروس والشرائح."""
+    now = now or timezone.now()
+    counts = {"courses": 0, "lessons": 0, "slides": 0}
+    for course_position, item in enumerate(courses, 1):
+        url = item["url"]
+        title, summary = _course_fields(url, item.get("head", ""))
+        course, _ = TrainingCourse.objects.update_or_create(key=_last(url), defaults={
+            "kind": "mandatory" if "/mandatory/" in url else "course", "title": title[:200],
+            "summary": summary, "source_url": SITE + url, "position": course_position,
+            "scraped_at": now,
+        })
+        counts["courses"] += 1
+        for lesson_position, row in enumerate(item.get("lessons", []), 1):
+            lesson_title, duration = _lesson_fields(row.get("label", ""))
+            lesson, _ = TrainingLesson.objects.update_or_create(
+                course=course, key=_last(row["href"]), defaults={
+                    "position": lesson_position, "title": lesson_title[:300],
+                    "duration_label": duration, "outline": row.get("outline", []),
+                    "source_url": SITE + row["href"],
+                })
+            counts["lessons"] += 1
+            steps = row.get("steps", [])
+            for slide_position, step in enumerate(steps, 1):
+                _save_slide(lesson, slide_position, step)
+                counts["slides"] += 1
+            if steps:  # درس فشل نسخه (بلا شرائح) لا يمحو شرائح نسخة سابقة.
+                lesson.slides.filter(position__gt=len(steps)).delete()
+    return counts
+
+
+def _save_slide(lesson, position, step):
+    images = step.get("img") or [""]
+    slide, created = TrainingSlide.objects.get_or_create(
+        lesson=lesson, position=position, defaults={"image_url": images[0]})
+    # تغيّر الرابط (بلا رمزه) يعني صورة جديدة: يُصفَّر ما نُزِّل وقُرئ.
+    if not created and _stable(slide.image_url) != _stable(images[0]):
+        slide.image_sha256 = slide.image_path = slide.ocr_text = slide.ocr_engine = ""
+        slide.image_bytes, slide.downloaded_at, slide.ocr_at = 0, None, None
+    slide.image_url = images[0]
+    slide.media_urls = list(images[1:]) + list(step.get("med", []))
+    slide.text = step.get("text", "")
+    slide.save()
+
+
+def _read_image(url, timeout=60):
+    parts = urlsplit(url)
+    if parts.scheme != "https" or parts.hostname not in ALLOWED_IMAGE_HOSTS:
+        raise ValueError("image host not allowed")
+    request = Request(url, headers={"User-Agent": "shadow-hazard-training/1"})
+    with urlopen(request, timeout=timeout) as response:  # noqa: S310 - المضيف مقيَّد أعلاه
+        if not response.headers.get_content_type().startswith("image/"):
+            raise ValueError("not an image")
+        data = response.read(MAX_IMAGE_BYTES + 1)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError("image too large")
+    return data
+
+
+def _pending_download():
+    return TrainingSlide.objects.filter(image_sha256="").exclude(image_url="")
+
+
+def download_slides(read=_read_image, limit=None, log=lambda message: None):
+    """ينزّل صور الشرائح التي لم تُنزَّل بعد. الملف يُسمّى بتجزئته فلا تتكرر الصور."""
+    target = slides_dir()
+    target.mkdir(parents=True, exist_ok=True)
+    done = failed = 0
+    for slide in _pending_download().iterator():
+        if limit is not None and done >= limit:
+            break
+        try:
+            data = read(slide.image_url)
+        except Exception as exc:  # فشل صورة لا يوقف الباقي؛ إعادة التشغيل تكمل.
+            failed += 1
+            log(f"failed slide {slide.pk}: {type(exc).__name__}")
+            continue
+        sha = hashlib.sha256(data).hexdigest()
+        suffix = Path(urlsplit(slide.image_url).path).suffix.lower()
+        name = sha + (suffix if suffix in IMAGE_SUFFIXES else ".img")
+        if not (target / name).exists():
+            (target / name).write_bytes(data)
+        slide.image_sha256, slide.image_path, slide.image_bytes = sha, name, len(data)
+        slide.downloaded_at = timezone.now()
+        slide.save(update_fields=["image_sha256", "image_path", "image_bytes", "downloaded_at"])
+        done += 1
+    return {"downloaded": done, "failed": failed, "remaining": _pending_download().count()}
+
+
+def ocr_manifest(redo=False):
+    """صور تنتظر القراءة: سطر لكل تجزئة فريدة (الصورة المكررة تُقرأ مرة واحدة)."""
+    slides = TrainingSlide.objects.exclude(image_sha256="")
+    if not redo:
+        slides = slides.filter(ocr_at__isnull=True)
+    names = dict(slides.values_list("image_sha256", "image_path"))
+    folder = slides_dir()
+    return [{"sha256": sha, "path": str(folder / name)} for sha, name in sorted(names.items())]
+
+
+def import_ocr(lines, now=None):
+    """يستورد ناتج tools/training_ocr.py (JSONL) إلى كل الشرائح التي تحمل التجزئة."""
+    now = now or timezone.now()
+    updated = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if row.get("error"):
+            continue
+        updated += TrainingSlide.objects.filter(image_sha256=row["sha256"]).update(
+            ocr_text=row.get("text", ""), ocr_engine=row.get("engine", "")[:80], ocr_at=now)
+    return updated
+
+
+@transaction.atomic
+def import_transcript(path, key, title, category="", held_on=None, engine="", now=None):
+    """يستورد ملف تفريغ بصيغة «[HH:MM:SS] نص». إعادة الاستيراد تستبدل المقاطع."""
+    raw = Path(path).read_bytes()
+    rows = []
+    for line in raw.decode("utf-8-sig").splitlines():
+        match = STAMP.match(line.strip())
+        if match and match.group(4):
+            hours, minutes, seconds, text = match.groups()
+            rows.append((int(hours) * 3600 + int(minutes) * 60 + int(seconds), text))
+    recording, _ = TrainingRecording.objects.update_or_create(key=key, defaults={
+        "title": title, "category": category, "engine": engine,
+        "held_on": date.fromisoformat(held_on) if held_on else None,
+        "duration_seconds": rows[-1][0] if rows else 0,
+        "source_digest": hashlib.sha256(raw).hexdigest(), "imported_at": now or timezone.now(),
+    })
+    recording.segments.all().delete()
+    TranscriptSegment.objects.bulk_create([
+        TranscriptSegment(recording=recording, position=i, start_seconds=start, text=text)
+        for i, (start, text) in enumerate(rows, 1)])
+    return recording, len(rows)
