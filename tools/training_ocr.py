@@ -38,6 +38,25 @@ def ordered_text(texts, boxes, right_to_left=True):
     return "\n".join(part for part in out if part)
 
 
+ENGINE_SUFFIXES = frozenset(
+    "bmp dib jpeg jpg png webp pbm pgm ppm pnm sr ras tiff tif pdf".split())
+
+
+def first_frame(path):
+    """الإطار الأول من الصورة مصفوفةَ BGR كما يتوقعها المحرك."""
+    import numpy
+    from PIL import Image
+    with Image.open(path) as image:
+        return numpy.asarray(image.convert("RGB"))[:, :, ::-1].copy()
+
+
+def engine_input(path, decode=first_frame):
+    """المحرك يرفض الملف بلاحقته (GIF مثلًا)؛ ما لا يقبله يُسلَّم له إطاره الأول مفكوكًا."""
+    if Path(path).suffix.lower().lstrip(".") in ENGINE_SUFFIXES:
+        return path
+    return decode(path)
+
+
 def done_hashes(path):
     seen = set()
     if path.exists():
@@ -74,7 +93,7 @@ def main(argv=None):
         for row in todo:
             record = {"sha256": row["sha256"], "engine": engine}
             try:
-                page = reader.predict(row["path"])[0]
+                page = reader.predict(engine_input(row["path"]))[0]
                 record["text"] = ordered_text(page["rec_texts"], page["rec_boxes"])
             except Exception as exc:  # صورة تالفة لا توقف الباقي
                 failed += 1

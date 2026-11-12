@@ -156,6 +156,14 @@ class TrainingToolTests(TestCase):
         self.assertEqual(tool.ordered_text(texts, boxes), "يمين يسار\nأسفل")
         self.assertEqual(tool.ordered_text(texts, boxes, right_to_left=False), "يسار يمين\nأسفل")
 
+    def test_ocr_tool_decodes_only_what_the_engine_refuses(self):
+        tool = load_tool("training_ocr")
+        decoded = []
+        decode = lambda path: decoded.append(path) or "frame"  # noqa: E731
+        self.assertEqual(tool.engine_input("a/b.JPEG", decode), "a/b.JPEG")
+        self.assertEqual(tool.engine_input("a/c.gif", decode), "frame")
+        self.assertEqual(decoded, ["a/c.gif"])
+
     def test_ocr_tool_skips_images_already_read(self):
         tool = load_tool("training_ocr")
         with TemporaryDirectory() as folder:
