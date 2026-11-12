@@ -1,0 +1,27 @@
+{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=1">
+<div class="training-page">
+<nav class="training-crumbs" aria-label="مسار الصفحة"><a href="{% url 'training-index' %}">المحتوى التدريبي</a> <span aria-hidden="true">‹</span> <span>{{ lesson.course.title }}</span></nav>
+{% include 'registry/_page_heading.html' with eyebrow=lesson.course.title title=lesson.title description='الصورة هي المرجع؛ النص بجانبها مقروء آليًا وقد يخطئ.' metric=slides|length metric_label='شريحة' %}
+{% if lesson.duration_label %}<p class="note">المدة: {{ lesson.duration_label }}</p>{% endif %}
+{% if lesson.outline %}<details class="work-panel"><summary>فهرس الدرس</summary><ol class="training-lessons">{% for line in lesson.outline %}<li dir="auto">{{ line }}</li>{% endfor %}</ol></details>{% endif %}
+
+{% for slide in slides %}<article class="training-slide" id="slide-{{ slide.position }}" aria-labelledby="slide-title-{{ slide.position }}">
+  <h2 id="slide-title-{{ slide.position }}"><a href="#slide-{{ slide.position }}">الشريحة {{ slide.position }}</a></h2>
+  <div class="training-slide-body">
+    {% if slide.image_path %}<figure><a href="{% url 'training-slide-image' slide.pk %}"><img src="{% url 'training-slide-image' slide.pk %}" alt="صورة الشريحة {{ slide.position }}" loading="lazy" decoding="async" width="1280" height="720"></a></figure>
+    {% else %}<p class="note training-slide-empty">لا صورة لهذه الشريحة.</p>{% endif %}
+    <div class="training-slide-text">
+      {% if slide.ocr_text %}<h3>النص المقروء آليًا</h3><p class="training-text" dir="auto">{{ slide.ocr_text }}</p>{% endif %}
+      {% if slide.text %}<h3>نص الصفحة الأصلي</h3><p class="training-text" dir="auto">{{ slide.text }}</p>{% endif %}
+      {% if not slide.ocr_text and not slide.text %}<p class="note">لا نص لهذه الشريحة.</p>{% endif %}
+      {% if slide.media_urls %}<p class="note">في الشريحة وسائط ({{ slide.media_urls|length }}) تُشاهَد في منصة المسابقة.</p>{% endif %}
+    </div>
+  </div>
+</article>{% empty %}<p>لا شرائح لهذا الدرس.</p>{% endfor %}
+
+<nav class="training-pager" aria-label="التنقل بين الدروس">
+  {% if previous %}<a href="{% url 'training-lesson' previous.pk %}" rel="prev">الدرس السابق: {{ previous.title }}</a>{% else %}<span></span>{% endif %}
+  {% if next %}<a href="{% url 'training-lesson' next.pk %}" rel="next">الدرس التالي: {{ next.title }}</a>{% endif %}
+</nav>
+</div>
+{% endblock %}
