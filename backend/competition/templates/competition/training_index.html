@@ -1,0 +1,34 @@
+{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=1">
+<div class="training-page">
+{% include 'registry/_page_heading.html' with eyebrow='المسابقة · للمشرف' title='المحتوى التدريبي' description='دورات منصة المسابقة بشرائحها ونصوصها المقروءة آليًا، وتفريغ اللقاءات. النصوص آلية غير مراجَعة؛ الصورة هي المرجع.' %}
+<p class="note">{{ totals.courses }} دورات · {{ totals.lessons }} درسًا · {{ totals.slides }} شريحة (المقروء ضوئيًا منها {{ totals.slides_read }}) · {{ totals.recordings }} لقاء.</p>
+
+<form class="training-search" method="get" role="search" aria-label="بحث في المحتوى التدريبي">
+  <label for="training-q">بحث في نصوص الشرائح والتفريغ</label>
+  <div class="training-search-row"><input id="training-q" name="q" type="search" value="{{ query }}" maxlength="100" autocomplete="off"><button type="submit">بحث</button></div>
+</form>
+
+{% if results is not None %}
+<section aria-labelledby="results-title"><h2 id="results-title">نتائج «{{ query }}»</h2>
+  {% if not results.slide_total and not results.segment_total %}<p>لا نتائج.</p>{% endif %}
+  {% if results.slide_total %}<h3>الشرائح: {{ results.slide_total }}{% if results.slide_total > results.limit %} (المعروض أول {{ results.limit }}){% endif %}</h3>
+  <ul class="training-results">{% for row in results.slides %}<li><a href="{% url 'training-lesson' row.slide.lesson_id %}#slide-{{ row.slide.position }}">{{ row.slide.lesson.course.title }} · {{ row.slide.lesson.title }} · الشريحة {{ row.slide.position }}</a><p dir="auto">{{ row.snippet }}</p></li>{% endfor %}</ul>{% endif %}
+  {% if results.segment_total %}<h3>التفريغ: {{ results.segment_total }}{% if results.segment_total > results.limit %} (المعروض أول {{ results.limit }}){% endif %}</h3>
+  <ul class="training-results">{% for row in results.segments %}<li><a href="{% url 'training-recording' row.segment.recording_id %}#segment-{{ row.segment.position }}">{{ row.segment.recording.title }} · <span dir="ltr">{{ row.clock }}</span></a><p dir="auto">{{ row.snippet }}</p></li>{% endfor %}</ul>{% endif %}
+</section>
+{% endif %}
+
+<section aria-labelledby="courses-title"><h2 id="courses-title">الدورات</h2>
+{% for course in courses %}<details class="work-panel training-course"{% if forloop.first and results is None %} open{% endif %}>
+  <summary><span>{{ course.title }}</span> <small>{{ course.get_kind_display }} · {{ course.lessons.all|length }} درسًا</small></summary>
+  {% if course.summary %}<p class="note">{{ course.summary }}</p>{% endif %}
+  <ol class="training-lessons">{% for lesson in course.lessons.all %}<li><a href="{% url 'training-lesson' lesson.pk %}">{{ lesson.title }}</a> <small>{{ lesson.slide_count }} شريحة{% if lesson.duration_label %} · {{ lesson.duration_label }}{% endif %}</small></li>{% endfor %}</ol>
+</details>{% empty %}<p>لا دورات مستوردة بعد.</p>{% endfor %}
+</section>
+
+<section aria-labelledby="recordings-title"><h2 id="recordings-title">اللقاءات المسجَّلة</h2>
+{% if recordings %}<ul class="training-lessons">{% for item in recordings %}<li><a href="{% url 'training-recording' item.pk %}">{{ item.title }}</a> <small>{% if item.category %}{{ item.category }} · {% endif %}{% if item.held_on %}{{ item.held_on|date:"Y-m-d" }} · {% endif %}{{ item.segment_count }} مقطعًا · {% if item.reviewed %}مراجَع{% else %}تفريغ آلي غير مراجَع{% endif %}</small></li>{% endfor %}</ul>
+{% else %}<p>لا لقاءات مستوردة بعد.</p>{% endif %}
+</section>
+</div>
+{% endblock %}

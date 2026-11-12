@@ -12,6 +12,7 @@ from knowledge.views import (search_view as knowledge_search, search_page as kno
     documentation_detail as knowledge_documentation_detail)
 urlpatterns = [
  path('simulation/', include('simulation.urls')),
+ path('training/', include('competition.urls')),
  path('knowledge/', knowledge_page, name='knowledge-page'),
  path('knowledge/search/', knowledge_search, name='knowledge-search'),
  path('knowledge/documentation/<int:documentation_id>/', knowledge_documentation_detail, name='knowledge-documentation-detail'),

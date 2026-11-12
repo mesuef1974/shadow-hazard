@@ -1,0 +1,9 @@
+{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=1">
+<div class="training-page">
+<nav class="training-crumbs" aria-label="مسار الصفحة"><a href="{% url 'training-index' %}">المحتوى التدريبي</a> <span aria-hidden="true">‹</span> <span>اللقاءات المسجَّلة</span></nav>
+{% include 'registry/_page_heading.html' with eyebrow='لقاء مسجَّل' title=recording.title description='تفريغ صوتي آلي بتوقيت كل مقطع من بداية التسجيل.' metric=segments|length metric_label='مقطعًا' %}
+<p class="note">{% if recording.category %}الفئة: {{ recording.category }} · {% endif %}{% if recording.held_on %}التاريخ: {{ recording.held_on|date:"Y-m-d" }} · {% endif %}المدة: <span dir="ltr">{{ duration }}</span>{% if recording.engine %} · المحرك: <span dir="ltr">{{ recording.engine }}</span>{% endif %}</p>
+{% if not recording.reviewed %}<p class="note" role="note"><strong>تفريغ آلي غير مراجَع:</strong> قد يخطئ في الأسماء والأرقام والمصطلحات؛ لا يُعتمد عليه في قرار دون الرجوع إلى التسجيل.</p>{% endif %}
+<ol class="training-transcript">{% for row in segments %}<li id="segment-{{ row.position }}"><a class="training-clock" href="#segment-{{ row.position }}" dir="ltr">{{ row.clock }}</a><p dir="auto">{{ row.text }}</p></li>{% empty %}<li>لا مقاطع.</li>{% endfor %}</ol>
+</div>
+{% endblock %}

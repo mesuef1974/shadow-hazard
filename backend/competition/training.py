@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 
 from .models import (
@@ -199,3 +200,63 @@ def import_transcript(path, key, title, category="", held_on=None, engine="", no
         TranscriptSegment(recording=recording, position=i, start_seconds=start, text=text)
         for i, (start, text) in enumerate(rows, 1)])
     return recording, len(rows)
+
+
+# ---- قراءة للعرض (صفحات المشرف) ----
+
+SEARCH_LIMIT = 40
+SNIPPET_RADIUS = 90
+
+
+def clock(seconds):
+    """ثوانٍ إلى ساعة:دقيقة:ثانية."""
+    minutes, rest = divmod(int(seconds or 0), 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}:{minutes:02d}:{rest:02d}"
+
+
+def lessons_with_slide_counts():
+    return Prefetch("lessons", queryset=TrainingLesson.objects.annotate(
+        slide_count=Count("slides")).order_by("position"))
+
+
+def totals():
+    slides = TrainingSlide.objects
+    return {
+        "courses": TrainingCourse.objects.count(),
+        "lessons": TrainingLesson.objects.count(),
+        "slides": slides.count(),
+        "slides_read": slides.filter(ocr_at__isnull=False).count(),
+        "recordings": TrainingRecording.objects.count(),
+    }
+
+
+def snippet(text, query, radius=SNIPPET_RADIUS):
+    """مقطع من النص حول أول ظهور للعبارة؛ بدايته إن لم تظهر."""
+    flat = " ".join(text.split())
+    at = flat.casefold().find(query.casefold())
+    start = max(0, at - radius) if at >= 0 else 0
+    end = min(len(flat), (at if at >= 0 else 0) + len(query) + radius)
+    return ("…" if start else "") + flat[start:end] + ("…" if end < len(flat) else "")
+
+
+def search(query, limit=SEARCH_LIMIT):
+    """بحث نصي في نصوص الشرائح (الأصلي والمقروء ضوئيًا) وفي مقاطع التفريغ."""
+    slides = (TrainingSlide.objects
+              .filter(Q(ocr_text__icontains=query) | Q(text__icontains=query))
+              .select_related("lesson__course").order_by("lesson__course__position",
+                                                         "lesson__position", "position"))
+    segments = (TranscriptSegment.objects.filter(text__icontains=query)
+                .select_related("recording").order_by("recording_id", "position"))
+    return {
+        "slides": [{"slide": slide, "snippet": snippet(
+                        slide.ocr_text if query.casefold() in slide.ocr_text.casefold()
+                        else slide.text, query)}
+                   for slide in slides[:limit]],
+        "slide_total": slides.count(),
+        "segments": [{"segment": segment, "clock": clock(segment.start_seconds),
+                      "snippet": snippet(segment.text, query)}
+                     for segment in segments[:limit]],
+        "segment_total": segments.count(),
+        "limit": limit,
+    }
