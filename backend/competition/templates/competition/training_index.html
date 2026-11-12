@@ -1,4 +1,4 @@
-{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=1">
+{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=2">
 <div class="training-page">
 {% include 'registry/_page_heading.html' with eyebrow='المسابقة · للمشرف' title='المحتوى التدريبي' description='دورات منصة المسابقة بشرائحها ونصوصها المقروءة آليًا، وتفريغ اللقاءات. النصوص آلية غير مراجَعة؛ الصورة هي المرجع.' %}
 <p class="note">{{ totals.courses }} دورات · {{ totals.lessons }} درسًا · {{ totals.slides }} شريحة (المقروء ضوئيًا منها {{ totals.slides_read }}) · {{ totals.recordings }} لقاء.</p>

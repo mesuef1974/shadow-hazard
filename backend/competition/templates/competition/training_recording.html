@@ -1,9 +1,57 @@
-{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=1">
+{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=2">
 <div class="training-page">
 <nav class="training-crumbs" aria-label="مسار الصفحة"><a href="{% url 'training-index' %}">المحتوى التدريبي</a> <span aria-hidden="true">‹</span> <span>اللقاءات المسجَّلة</span></nav>
-{% include 'registry/_page_heading.html' with eyebrow='لقاء مسجَّل' title=recording.title description='تفريغ صوتي آلي بتوقيت كل مقطع من بداية التسجيل.' metric=segments|length metric_label='مقطعًا' %}
-<p class="note">{% if recording.category %}الفئة: {{ recording.category }} · {% endif %}{% if recording.held_on %}التاريخ: {{ recording.held_on|date:"Y-m-d" }} · {% endif %}المدة: <span dir="ltr">{{ duration }}</span>{% if recording.engine %} · المحرك: <span dir="ltr">{{ recording.engine }}</span>{% endif %}</p>
-{% if not recording.reviewed %}<p class="note" role="note"><strong>تفريغ آلي غير مراجَع:</strong> قد يخطئ في الأسماء والأرقام والمصطلحات؛ لا يُعتمد عليه في قرار دون الرجوع إلى التسجيل.</p>{% endif %}
-<ol class="training-transcript">{% for row in segments %}<li id="segment-{{ row.position }}"><a class="training-clock" href="#segment-{{ row.position }}" dir="ltr">{{ row.clock }}</a><p dir="auto">{{ row.text }}</p></li>{% empty %}<li>لا مقاطع.</li>{% endfor %}</ol>
+{% include 'registry/_page_heading.html' with eyebrow='لقاء مسجَّل' title=recording.title description='ما قيل في اللقاء وما يلزمنا منه، ثم التفريغ الكامل بتوقيته.' metric=duration metric_label='مدة اللقاء' %}
+<p class="note">{% if recording.category %}الفئة: {{ recording.category }} · {% endif %}{% if recording.held_on %}التاريخ: {{ recording.held_on|date:"Y-m-d" }} · {% endif %}{{ segments|length }} مقطعًا{% if recording.engine %} · محرك التفريغ: <span dir="ltr">{{ recording.engine }}</span>{% endif %}</p>
+
+{% if digest %}
+<section class="digest-lead" aria-labelledby="digest-headline">
+  <p class="eyebrow">الخلاصة في جملة</p>
+  <h2 id="digest-headline">{{ digest.headline }}</h2>
+  {% if digest.overview %}<p class="digest-overview">{{ digest.overview }}</p>{% endif %}
+  <p class="note">ملخص مستخلَص من تفريغ آلي غير مراجَع{% if recording.digest_at %} · كُتب {{ recording.digest_at|date:"Y-m-d" }}{% endif %}{% if digest.author %} · {{ digest.author }}{% endif %}. كل توقيت يفتح موضعه في التفريغ للتحقق.</p>
+</section>
+
+{% if digest.chapters %}<section aria-labelledby="map-title"><h2 id="map-title">خريطة اللقاء</h2>
+  <p class="note">عرض كل قسم بقدر زمنه من اللقاء.</p>
+  <ol class="digest-map">{% for chapter in digest.chapters %}<li style="flex-grow:{{ chapter.share|stringformat:'s' }}"><a href="#chapter-{{ chapter.number }}" title="{{ chapter.title }} · {{ chapter.minutes }} د"><span class="digest-map-number">{{ chapter.number }}</span><span class="digest-map-title">{{ chapter.title }}</span></a></li>{% endfor %}</ol>
+</section>{% endif %}
+
+{% if digest.takeaways %}<section aria-labelledby="takeaways-title"><h2 id="takeaways-title">أهم ما خرجنا به</h2>
+  <ol class="digest-cards">{% for item in digest.takeaways %}<li><h3>{{ item.title }}</h3><p>{{ item.text }}</p>{% include 'competition/_clock.html' with mark=item.mark %}</li>{% endfor %}</ol>
+</section>{% endif %}
+
+{% if digest.actions %}<section class="digest-actions" aria-labelledby="actions-title"><h2 id="actions-title">المطلوب منّا بعد اللقاء</h2>
+  <ul>{% for item in digest.actions %}<li><span>{{ item.text }}</span> {% include 'competition/_clock.html' with mark=item.mark %}</li>{% endfor %}</ul>
+</section>{% endif %}
+
+{% if digest.fact_groups %}<section aria-labelledby="facts-title"><h2 id="facts-title">حقائق تُحفظ</h2>
+  <div class="digest-facts">{% for kind, facts in digest.fact_groups %}<div class="digest-fact-group"><h3>{{ kind }}</h3>
+    <dl>{% for fact in facts %}<div><dt>{{ fact.label }}</dt><dd>{{ fact.value }} {% include 'competition/_clock.html' with mark=fact.mark %}</dd></div>{% endfor %}</dl></div>{% endfor %}</div>
+</section>{% endif %}
+
+{% if digest.chapters %}<section aria-labelledby="chapters-title"><h2 id="chapters-title">اللقاء قسمًا قسمًا</h2>
+  {% for chapter in digest.chapters %}<article class="digest-chapter" id="chapter-{{ chapter.number }}"><header><span class="digest-map-number">{{ chapter.number }}</span><h3>{{ chapter.title }}</h3>{% include 'competition/_clock.html' with mark=chapter.mark %}<small>{{ chapter.minutes }} د</small></header>
+    <ul>{% for point in chapter.points %}<li>{{ point }}</li>{% endfor %}</ul></article>{% endfor %}
+</section>{% endif %}
+
+{% if digest.questions %}<section aria-labelledby="questions-title"><h2 id="questions-title">أسئلة المشاركين</h2>
+  {% for item in digest.questions %}<details class="work-panel digest-question"><summary>{{ item.question }}</summary><p>{{ item.answer }}</p>{% include 'competition/_clock.html' with mark=item.mark %}</details>{% endfor %}
+</section>{% endif %}
+
+{% if digest.doubts %}<section class="digest-doubts" aria-labelledby="doubts-title"><h2 id="doubts-title">يُتحقق منه قبل الاعتماد</h2>
+  <p class="note">مواضع يُرجَّح أن التفريغ الآلي أخطأ فيها أو لم تتضح؛ تُراجَع في التسجيل نفسه.</p>
+  <ul>{% for item in digest.doubts %}<li><span>{{ item.text }}</span> {% include 'competition/_clock.html' with mark=item.mark %}</li>{% endfor %}</ul>
+</section>{% endif %}
+{% else %}
+<p class="note" role="note">لا ملخص لهذا اللقاء بعد؛ المعروض التفريغ الخام.</p>
+{% endif %}
+
+<details class="work-panel training-transcript-panel" id="transcript"{% if not digest %} open{% endif %}>
+  <summary>التفريغ الكامل · {{ segments|length }} مقطعًا</summary>
+  {% if not recording.reviewed %}<p class="note" role="note"><strong>تفريغ آلي غير مراجَع:</strong> قد يخطئ في الأسماء والأرقام والمصطلحات؛ لا يُعتمد عليه في قرار دون الرجوع إلى التسجيل.</p>{% endif %}
+  <ol class="training-transcript">{% for row in segments %}<li id="segment-{{ row.position }}"><a class="training-clock" href="#segment-{{ row.position }}" dir="ltr">{{ row.clock }}</a><p dir="auto">{{ row.text }}</p></li>{% empty %}<li>لا مقاطع.</li>{% endfor %}</ol>
+</details>
 </div>
+<script src="{% static 'competition/training.js' %}?v=1" defer></script>
 {% endblock %}

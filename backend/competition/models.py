@@ -122,6 +122,9 @@ class TrainingRecording(models.Model):
     source_digest = models.CharField(max_length=64, blank=True)
     reviewed = models.BooleanField(default=False)
     imported_at = models.DateTimeField()
+    # ملخص منظَّم للّقاء (العناوين والمحاور والحقائق والمطلوب)؛ بنيته في training.DIGEST_LISTS.
+    digest = models.JSONField(default=dict, blank=True)
+    digest_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.title

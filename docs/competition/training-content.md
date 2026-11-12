@@ -13,7 +13,16 @@
 | تنزيل الصور | `manage.py training_content slides` | ملفات باسم بصمتها في `backend/.local/training/slides` |
 | القراءة الضوئية | `manage.py training_content ocr --python <بايثون بيئة القراءة>` | نص كل شريحة في `ocr_text` |
 | تفريغ لقاء | `manage.py training_content transcript <ملف> --key K --title T` | اللقاء ومقاطعه |
+| ملخص لقاء | `manage.py training_content digest <ملف JSON> --key K` | الخلاصة والأقسام والحقائق والمطلوب في صفحة اللقاء |
 | الحالة | `manage.py training_content status` | أعداد كل مرحلة |
+
+## العرض والملخص
+
+صفحات المشرف تحت `/training/`: الفهرس والبحث، والدرس بشرائحه ونصوصه، واللقاء بملخصه وتفريغه.
+ملخص اللقاء بيانات لا شيفرة: ملف JSON بنيته في `training.DIGEST_LISTS` (خلاصات، أقسام بزمنها،
+حقائق مصنَّفة، مطلوب، أسئلة، مواضع شك)، وكل توقيت فيه بالثواني يُربط آليًا بمقطعه في التفريغ.
+الملف يبقى في `.local/training/` خارج المستودع، ويُستورد بمرحلة `digest`، وإعادة استيراده تستبدل
+الملخص السابق.
 
 ## بيئة القراءة الضوئية
 
