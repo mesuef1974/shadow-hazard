@@ -37,6 +37,19 @@ NOISE = frozenset({
 LESSON_LABEL = re.compile(r"^الدرس\s+(\d+)\s+(.*)$")
 DURATION = re.compile(r"\s+(\d+\s+دقيقة|ساعة(?:\s+و\d+\s+دقيقة)?|ساعتان|\d+\s+ساعات)$")
 STAMP = re.compile(r"^\[(\d+):(\d\d):(\d\d)\]\s*(.*)$")
+# شرائح المنظّمين تعرض أحيانًا كلمات مرور ومفاتيح خدمات حقيقية في أمثلتها: لا نخزّنها.
+REDACTED = "[محجوب]"
+QUOTES = "\"'“”‘’"
+SECRET_NAME = r"\w*(?:pass(?:word|wd)?|pwd|psk|secret|token|api_?key|app_?id|auth|key)\w*"
+# قيمة حرفية بعد اسم سرّي: بين علامتي اقتباس، أو بلا اقتباس إن حوت رقمًا (القراءة الضوئية تُسقط
+# العلامات). اسم دالة أو متغير بلا أرقام بعد «=» يبقى كما هو.
+SECRET_ASSIGN = re.compile(
+    rf"(?i)(\b{SECRET_NAME}\s*(?:\[\s*\])?\s*[=:]\s*)"
+    rf"(?:([{QUOTES}])[^{QUOTES}\n]{{4,}}([{QUOTES}])|(?=[^\s;,()&{QUOTES}]*\d)[^\s;,()&{QUOTES}]{{6,}})")
+# سلسلة طويلة من حروف وأرقام بلا فاصل: مفتاح خدمة أو جزء من شهادة.
+SECRET_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9])(?=[A-Za-z]*\d)(?=\d*[A-Za-z])[A-Za-z0-9]{32,}(?![A-Za-z0-9])")
+PEM_BLOCK = re.compile(r"-{3,}\s*BEGIN[^-\n]*-{3,}.*?(?:-{3,}\s*END[^-\n]*-{3,}|\Z)", re.DOTALL)
 
 
 def slides_dir():
@@ -99,6 +112,30 @@ def import_crawl(courses, now=None):
     return counts
 
 
+def redact_secrets(text):
+    """يحجب كلمات المرور والمفاتيح والشهادات من نص شريحة؛ تكراره لا يغيّر الناتج."""
+    def hide(match):
+        if match.group(2):
+            return match.group(1) + match.group(2) + REDACTED + match.group(3)
+        return match.group(1) + REDACTED
+
+    text = PEM_BLOCK.sub(REDACTED, text)
+    return SECRET_TOKEN.sub(REDACTED, SECRET_ASSIGN.sub(hide, text))
+
+
+def redact_stored():
+    """ينظّف ما خُزِّن قبل وجود الحجب. يعيد عدد الشرائح التي تغيّرت."""
+    changed = 0
+    slides = TrainingSlide.objects.exclude(text="", ocr_text="").only("text", "ocr_text")
+    for slide in slides.iterator():
+        text, ocr_text = redact_secrets(slide.text), redact_secrets(slide.ocr_text)
+        if (text, ocr_text) != (slide.text, slide.ocr_text):
+            slide.text, slide.ocr_text = text, ocr_text
+            slide.save(update_fields=["text", "ocr_text"])
+            changed += 1
+    return changed
+
+
 def _save_slide(lesson, position, step):
     images = step.get("img") or [""]
     slide, created = TrainingSlide.objects.get_or_create(
@@ -109,7 +146,7 @@ def _save_slide(lesson, position, step):
         slide.image_bytes, slide.downloaded_at, slide.ocr_at = 0, None, None
     slide.image_url = images[0]
     slide.media_urls = list(images[1:]) + list(step.get("med", []))
-    slide.text = step.get("text", "")
+    slide.text = redact_secrets(step.get("text", ""))
     slide.save()
 
 
@@ -178,7 +215,8 @@ def import_ocr(lines, now=None):
         if row.get("error"):
             continue
         updated += TrainingSlide.objects.filter(image_sha256=row["sha256"]).update(
-            ocr_text=row.get("text", ""), ocr_engine=row.get("engine", "")[:80], ocr_at=now)
+            ocr_text=redact_secrets(row.get("text", "")),
+            ocr_engine=row.get("engine", "")[:80], ocr_at=now)
     return updated
 
 
