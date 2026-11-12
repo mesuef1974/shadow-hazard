@@ -1,0 +1,61 @@
+# المحتوى التدريبي: النسخ والتنزيل والقراءة الضوئية
+
+مسار آلي كامل بلا نموذج ذكاء: كل مرحلة شيفرة تُشغَّل بأمر، آمنة للتكرار، وتكمل من حيث توقفت.
+البيانات في جداول `competition` (الدورات والدروس والشرائح واللقاءات ومقاطع التفريغ)، وتُعرض
+في لوحة الإدارة وحدها.
+
+## المراحل
+
+| المرحلة | الأمر | الناتج |
+|---|---|---|
+| النسخ من الموقع | `tools/training_crawler.js` في المتصفح ثم `tools/training_crawl_receiver.py` | ملف `crawl.json` |
+| الاستيراد | `manage.py training_content crawl <crawl.json>` | الدورات والدروس والشرائح |
+| تنزيل الصور | `manage.py training_content slides` | ملفات باسم بصمتها في `backend/.local/training/slides` |
+| القراءة الضوئية | `manage.py training_content ocr --python <بايثون بيئة القراءة>` | نص كل شريحة في `ocr_text` |
+| تفريغ لقاء | `manage.py training_content transcript <ملف> --key K --title T` | اللقاء ومقاطعه |
+| الحالة | `manage.py training_content status` | أعداد كل مرحلة |
+
+## بيئة القراءة الضوئية
+
+المحرك PaddleOCR في بيئة بايثون معزولة عن المنصة، خارج المستودع. الأداة
+`tools/training_ocr.py` واحدة للمعالج والكرت؛ الاختيار باختيار البيئة الممرَّرة في `--python`.
+
+| البيئة | المسار | التثبيت | السرعة |
+|---|---|---|---|
+| الكرت (المعتمدة) | `.local/ocr-venv-gpu` | `paddlepaddle-gpu==3.2.2` من فهرس cu126 ثم `paddleocr==3.5.0 pillow` | ربع ثانية للشريحة |
+| المعالج (احتياط) | `.local/ocr-venv` | `paddlepaddle==3.2.2 paddleocr==3.5.0 pillow` | 17 ثانية للشريحة |
+
+القياس على RTX 4060 Laptop (8 غيغابايت) يوم 2026-11-12: 824 شريحة في 205 ثوانٍ على الكرت
+شاملة تحميل المحرك والاستيراد، باستهلاك نحو 2 غيغابايت من ذاكرة الكرت.
+
+إنشاء بيئة الكرت:
+
+```bash
+python -m venv .local/ocr-venv-gpu
+.local/ocr-venv-gpu/Scripts/python -m pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+.local/ocr-venv-gpu/Scripts/python -m pip install paddleocr==3.5.0 pillow
+.local/ocr-venv-gpu/Scripts/python -c "import paddle; paddle.utils.run_check()"
+```
+
+التشغيل من `backend`:
+
+```bash
+python manage.py training_content ocr --python "<جذر المشروع>/.local/ocr-venv-gpu/Scripts/python.exe"
+```
+
+## ما يُنتبه له
+
+- **الكرت قد لا يكون ظاهرًا للنظام.** في وضع توفير الطاقة يعمل الكرت المدمج وحده، فيفشل
+  `nvidia-smi` وتقول المكتبات إنه لا كرت. يُفعَّل الكرت من إعدادات الجهاز أولًا؛ التحقق:
+  `nvidia-smi` يطبع اسم الكرت.
+- **إصدار paddle مثبَّت على 3.2.2.** الإصدار 3.3.0 يتعطل على المعالج مع oneDNN
+  (`ConvertPirAttribute`)، وبلا oneDNN يهبط إلى 100 ثانية للشريحة. خيار `--no-mkldnn` في
+  الأداة للطوارئ فقط.
+- **تحذير cuDNN.** نسخة الكرت تطبع أن paddle مبني على cuDNN 9.9 والمثبت 9.5. لم يظهر له أثر
+  في دفعة 2026-11-12 (لا فشل ولا نص فارغ)؛ إن ظهرت أخطاء في دفعة لاحقة فهو أول ما يُفحص.
+- **الصور التي يرفض المحرك لاحقتها** (GIF مثلًا) تفكّها الأداة وتسلّمه إطارها الأول.
+- **الاستكمال.** الأداة تكتب سطرًا لكل صورة فور قراءتها في `ocr-results.jsonl`، وإيقافها
+  ثم تشغيلها ببيئة أخرى يكمل الباقي ولا يعيد المقروء. `--redo` يعيد قراءة الكل.
+- **النص المقروء آلي غير مراجَع.** الأعداد تُتحقق من `status`؛ جودة النص تحتاج مراجعة بشرية.
+- **روابط الصور** تحمل رموز وصول مؤقتة من موقع المسابقة، فلا تُعرض في لوحة الإدارة ولا
+  تُنسخ إلى مستند.

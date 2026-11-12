@@ -2,7 +2,12 @@
 
     python training_ocr.py <manifest.jsonl> <results.jsonl> [--lang ar] [--no-mkldnn]
 
-البيئة: pip install paddlepaddle==3.2.2 paddleocr==3.5.0 (في بيئة معزولة عن المنصة).
+البيئة معزولة عن المنصة، وتُختار ببايثونها؛ الأداة نفسها لا تتغير بين المعالج والكرت:
+    المعالج:  pip install paddlepaddle==3.2.2 paddleocr==3.5.0 pillow
+    الكرت:    pip install paddlepaddle-gpu==3.2.2 -i <فهرس paddle لـ cu126، في المستند أدناه>
+              pip install paddleocr==3.5.0 pillow
+نسخة الكرت تستعمله تلقائيًا. القياس على RTX 4060 (2026-11-12): ربع ثانية للشريحة على
+الكرت مقابل 17 ثانية على المعالج. التفصيل: docs/competition/training-content.md.
 
 كل سطر في manifest: {"sha256": ..., "path": ...}. يُكتب لكل صورة سطر في results فور
 قراءتها، والصور المقروءة سابقًا تُتخطى، فإعادة التشغيل تكمل من حيث توقف.
