@@ -1,6 +1,8 @@
 """قراءة ضوئية محلية لصور الشرائح بـ PaddleOCR؛ بلا Django وبلا أي خدمة خارجية.
 
-    python training_ocr.py <manifest.jsonl> <results.jsonl> [--lang ar]
+    python training_ocr.py <manifest.jsonl> <results.jsonl> [--lang ar] [--no-mkldnn]
+
+البيئة: pip install paddlepaddle==3.2.2 paddleocr==3.5.0 (في بيئة معزولة عن المنصة).
 
 كل سطر في manifest: {"sha256": ..., "path": ...}. يُكتب لكل صورة سطر في results فور
 قراءتها، والصور المقروءة سابقًا تُتخطى، فإعادة التشغيل تكمل من حيث توقف.
@@ -52,6 +54,9 @@ def main(argv=None):
     parser.add_argument("manifest", type=Path)
     parser.add_argument("results", type=Path)
     parser.add_argument("--lang", default="ar")
+    # oneDNN يسرّع المعالج نحو 14 ضعفًا (7 ثوانٍ للشريحة بدل 100)، لكنه يتعطل في
+    # paddlepaddle 3.3.0 (ConvertPirAttribute)؛ البيئة تُثبَّت على 3.2.2 أو يُعطَّل بهذا الخيار.
+    parser.add_argument("--no-mkldnn", action="store_true")
     args = parser.parse_args(argv)
     rows = [json.loads(line) for line in args.manifest.read_text(encoding="utf-8").splitlines()
             if line.strip()]
@@ -63,8 +68,7 @@ def main(argv=None):
     engine = f"paddleocr-{paddleocr.__version__}-{args.lang}"
     reader = paddleocr.PaddleOCR(
         lang=args.lang, use_doc_orientation_classify=False, use_doc_unwarping=False,
-        use_textline_orientation=False,
-        enable_mkldnn=False)  # oneDNN يتعطل في paddle 3.3 على المعالج (ConvertPirAttribute)
+        use_textline_orientation=False, enable_mkldnn=not args.no_mkldnn)
     failed = 0
     with args.results.open("a", encoding="utf-8") as out:
         for row in todo:
