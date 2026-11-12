@@ -1,8 +1,12 @@
+import json
 from datetime import UTC, datetime
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 
 from competition import training
@@ -132,3 +136,75 @@ class TrainingPagesTests(TestCase):
         self.assertLess(len(cut), 40)
         self.assertEqual(training.snippet("قصير", "غائب"), "قصير")
         self.assertEqual(training.clock(59), "0:00:59")
+
+
+DIGEST = {
+    "headline": "لقاء تعريفي بأربعة مشاريع",
+    "overview": "نظرة عامة",
+    "takeaways": [{"title": "التدريب اختياري", "text": "ليس جزءًا من التحكيم", "at": 65}],
+    "chapters": [
+        {"title": "الترحيب", "start": 0, "end": 60, "points": ["تقديم المدربين", " "]},
+        {"title": "الأسئلة", "start": 60, "end": 120, "points": ["سؤال المضخة"]},
+    ],
+    "facts": [{"kind": "موعد", "label": "اليوم الثاني", "value": "21 نوفمبر", "at": 15},
+              {"kind": "موعد", "label": "اليوم الثالث", "value": "19 ديسمبر", "at": None}],
+    "actions": [{"text": "قراءة دليل القواعد", "at": 100}],
+    "questions": [{"question": "هل يحاكي؟", "answer": "لا", "at": 110}],
+    "doubts": [{"text": "اسم الشركة غير مؤكد", "at": 5}],
+}
+
+
+class RecordingDigestTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(username="mesuef", role="supervisor")
+        self.recording = TrainingRecording.objects.create(
+            key="r", title="اللقاء الأول", duration_seconds=120,
+            imported_at=datetime(2026, 11, 12, 12, 30, tzinfo=UTC))
+        TranscriptSegment.objects.bulk_create([
+            TranscriptSegment(recording=self.recording, position=i, start_seconds=start, text="نص")
+            for i, start in enumerate((0, 50, 100), 1)])
+        self.url = f"/training/recordings/{self.recording.pk}/"
+        self.client.force_login(self.owner)
+
+    def test_page_without_digest_opens_raw_transcript(self):
+        page = self.client.get(self.url)
+        self.assertIsNone(page.context["digest"])
+        self.assertContains(page, "لا ملخص لهذا اللقاء بعد")
+        self.assertContains(page, 'id="transcript" open')
+
+    def test_digest_import_cleans_and_page_links_times_to_segments(self):
+        training.import_digest("r", DIGEST)
+        self.recording.refresh_from_db()
+        self.assertEqual(self.recording.digest["chapters"][0]["points"], ["تقديم المدربين"])
+        self.assertIsNotNone(self.recording.digest_at)
+        page = self.client.get(self.url)
+        digest = page.context["digest"]
+        # 65 ثانية تقع في المقطع الثاني (يبدأ عند 50)، و100 في الثالث
+        self.assertEqual(digest["takeaways"][0]["mark"], {"clock": "0:01:05", "segment": 2})
+        self.assertEqual(digest["actions"][0]["mark"]["segment"], 3)
+        self.assertIsNone(digest["facts"][1]["mark"])
+        self.assertEqual([c["share"] for c in digest["chapters"]], [50.0, 50.0])
+        self.assertEqual([kind for kind, _ in digest["fact_groups"]], ["موعد"])
+        self.assertContains(page, "لقاء تعريفي بأربعة مشاريع")
+        self.assertContains(page, 'href="#segment-2"')
+        self.assertContains(page, 'href="#chapter-2"')
+        self.assertNotContains(page, 'id="transcript" open')
+
+    def test_digest_rejects_bad_shapes(self):
+        for bad in ([], {"overview": "بلا عنوان"}, {**DIGEST, "extra": 1},
+                    {**DIGEST, "actions": "نص"}, {**DIGEST, "actions": [{"text": "x", "at": -1}]},
+                    {**DIGEST, "actions": [{"text": "x", "at": "12"}]},
+                    {**DIGEST, "actions": [{"text": "x", "who": "y"}]},
+                    {**DIGEST, "chapters": [{"title": "x", "start": 0, "end": 1, "points": "p"}]}):
+            with self.assertRaises(ValueError):
+                training.clean_digest(bad)
+
+    def test_digest_command_imports_file_and_reports_counts(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "digest.json"
+            path.write_text(json.dumps(DIGEST, ensure_ascii=False), encoding="utf-8")
+            out = StringIO()
+            call_command("training_content", "digest", str(path), "--key", "r", stdout=out)
+            self.assertEqual(json.loads(out.getvalue())["chapters"], 2)
+            with self.assertRaises(CommandError):
+                call_command("training_content", "digest", str(path), "--key", "missing")

@@ -4,6 +4,7 @@
     manage.py training_content slides [--limit N]
     manage.py training_content ocr --python <بايثون فيه paddleocr> [--redo]
     manage.py training_content transcript <ملف> --key K --title T [--category C --held-on D]
+    manage.py training_content digest <ملف JSON للملخص> --key K
     manage.py training_content status
 """
 import json
@@ -46,6 +47,9 @@ class Command(BaseCommand):
         transcript.add_argument("--category", default="")
         transcript.add_argument("--held-on")
         transcript.add_argument("--engine", default="")
+        digest = stages.add_parser("digest")
+        digest.add_argument("path")
+        digest.add_argument("--key", required=True)
         stages.add_parser("status")
 
     def handle(self, *args, **options):
@@ -88,6 +92,15 @@ class Command(BaseCommand):
             options["path"], options["key"], options["title"], options["category"],
             options["held_on"], options["engine"])
         self.stdout.write(json.dumps({"segments": segments}))
+
+    def _digest(self, options):
+        data = json.loads(Path(options["path"]).read_text(encoding="utf-8-sig"))
+        try:
+            recording = training.import_digest(options["key"], data)
+        except (ValueError, TrainingRecording.DoesNotExist) as error:
+            raise CommandError(str(error)) from error
+        self.stdout.write(json.dumps(
+            {name: len(recording.digest[name]) for name in training.DIGEST_LISTS}))
 
     def _status(self, options):
         slides = TrainingSlide.objects

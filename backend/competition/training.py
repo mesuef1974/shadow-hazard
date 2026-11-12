@@ -5,6 +5,7 @@
 import hashlib
 import json
 import re
+from bisect import bisect_right
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -200,6 +201,98 @@ def import_transcript(path, key, title, category="", held_on=None, engine="", no
         TranscriptSegment(recording=recording, position=i, start_seconds=start, text=text)
         for i, (start, text) in enumerate(rows, 1)])
     return recording, len(rows)
+
+
+# ---- ملخص اللقاء ----
+
+DIGEST_TEXTS = ("headline", "overview", "author")
+# القوائم وحقول كل عنصر فيها؛ "at" و"start" و"end" ثوانٍ من بداية التسجيل.
+DIGEST_LISTS = {
+    "takeaways": ("title", "text", "at"),
+    "chapters": ("title", "start", "end", "points"),
+    "facts": ("kind", "label", "value", "at"),
+    "actions": ("text", "at"),
+    "questions": ("question", "answer", "at"),
+    "doubts": ("text", "at"),
+}
+DIGEST_SECONDS = frozenset({"at", "start", "end"})
+
+
+def clean_digest(data):
+    """يتحقق من بنية الملخص ويعيدها منظَّفة؛ يرفض المفاتيح المجهولة والأنواع الخاطئة."""
+    if not isinstance(data, dict):
+        raise ValueError("digest must be an object")
+    unknown = set(data) - set(DIGEST_TEXTS) - set(DIGEST_LISTS)
+    if unknown:
+        raise ValueError(f"unknown digest keys: {sorted(unknown)}")
+    clean = {key: str(data.get(key) or "").strip() for key in DIGEST_TEXTS}
+    if not clean["headline"]:
+        raise ValueError("digest needs a headline")
+    for name, fields in DIGEST_LISTS.items():
+        rows = data.get(name) or []
+        if not isinstance(rows, list):
+            raise ValueError(f"{name} must be a list")
+        clean[name] = [_digest_row(name, row, fields) for row in rows]
+    return clean
+
+
+def _digest_row(name, row, fields):
+    if not isinstance(row, dict) or set(row) - set(fields):
+        raise ValueError(f"bad item in {name}: {row!r}"[:200])
+    item = {}
+    for field in fields:
+        value = row.get(field)
+        if field in DIGEST_SECONDS:
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int)
+                                      or value < 0):
+                raise ValueError(f"{name}.{field} must be seconds: {value!r}")
+            item[field] = value
+        elif field == "points":
+            if not isinstance(value, list) or not all(isinstance(p, str) for p in value):
+                raise ValueError(f"{name}.points must be a list of strings")
+            item[field] = [point.strip() for point in value if point.strip()]
+        else:
+            item[field] = str(value or "").strip()
+    return item
+
+
+def import_digest(key, data, now=None):
+    recording = TrainingRecording.objects.get(key=key)
+    recording.digest = clean_digest(data)
+    recording.digest_at = now or timezone.now()
+    recording.save(update_fields=["digest", "digest_at"])
+    return recording
+
+
+def digest_view(recording):
+    """الملخص مهيَّأً للعرض: لكل توقيت ساعته ورقم مقطع التفريغ الذي يقع فيه، ولكل محور
+    حصته من طول اللقاء (لخريطة اللقاء)."""
+    digest = recording.digest or {}
+    if not digest.get("headline"):
+        return None
+    starts = list(recording.segments.values_list("start_seconds", "position"))
+    seconds = [start for start, _ in starts]
+
+    def mark(value):
+        if value is None:
+            return None
+        at = bisect_right(seconds, value) - 1
+        return {"clock": clock(value), "segment": starts[max(at, 0)][1] if starts else None}
+
+    view = {key: digest.get(key, "") for key in DIGEST_TEXTS}
+    for name in DIGEST_LISTS:
+        view[name] = [{**row, "mark": mark(row.get("at", row.get("start")))}
+                      for row in digest.get(name, [])]
+    total = max(recording.duration_seconds, 1)
+    for index, chapter in enumerate(view["chapters"], 1):
+        length = max((chapter.get("end") or 0) - (chapter.get("start") or 0), 0)
+        chapter.update(number=index, minutes=round(length / 60),
+                       share=round(max(length / total * 100, 1.5), 2))
+    kinds = {}
+    for fact in view["facts"]:
+        kinds.setdefault(fact["kind"] or "أخرى", []).append(fact)
+    view["fact_groups"] = list(kinds.items())
+    return view
 
 
 # ---- قراءة للعرض (صفحات المشرف) ----

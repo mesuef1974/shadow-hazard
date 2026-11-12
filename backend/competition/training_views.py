@@ -60,7 +60,7 @@ def recording(request, pk):
         {"clock": training.clock(start), "position": position, "text": text}
         for position, start, text in item.segments.values_list("position", "start_seconds", "text")
     ]
-    context = {"recording": item, "segments": segments,
+    context = {"recording": item, "segments": segments, "digest": training.digest_view(item),
                "duration": training.clock(item.duration_seconds)}
     return render(request, "competition/training_recording.html", context)
 
