@@ -58,6 +58,8 @@ class TrainingCourse(models.Model):
     source_url = models.URLField(max_length=300)
     position = models.PositiveSmallIntegerField(default=0)
     scraped_at = models.DateTimeField()
+    # ملخص الدورة وما تفيد به المشروع؛ بنيته في training.COURSE_DIGEST.
+    digest = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["position", "id"]
@@ -74,6 +76,8 @@ class TrainingLesson(models.Model):
     duration_label = models.CharField(max_length=60, blank=True)
     outline = models.JSONField(default=list, blank=True)
     source_url = models.URLField(max_length=300)
+    # ملخص الدرس: نقاطه ومصطلحاته وما يفيد المشروع؛ بنيته في training.LESSON_LISTS.
+    digest = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["course_id", "position"]
@@ -128,6 +132,16 @@ class TrainingRecording(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class TrainingPlaybook(models.Model):
+    """خلاصة مصاغة: كيف يفيد المحتوى التدريبي المشروع، مرتبة حسب أجزائه ومسندة لمصادرها."""
+    key = models.CharField(max_length=40, unique=True)
+    data = models.JSONField(default=dict)
+    updated_at = models.DateTimeField()
+
+    def __str__(self):
+        return self.key
 
 
 class TranscriptSegment(models.Model):

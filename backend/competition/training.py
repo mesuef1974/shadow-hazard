@@ -14,11 +14,13 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
+from django.urls import reverse
 from django.utils import timezone
 
 from .models import (
     TrainingCourse,
     TrainingLesson,
+    TrainingPlaybook,
     TrainingRecording,
     TrainingSlide,
     TranscriptSegment,
@@ -214,25 +216,46 @@ DIGEST_LISTS = {
     "actions": ("text", "at"),
     "questions": ("question", "answer", "at"),
     "doubts": ("text", "at"),
+    "project": ("text", "at"),
 }
-DIGEST_SECONDS = frozenset({"at", "start", "end"})
+# ملخص الدورة: نصوص، ثم قائمة نصية بما تفيد به المشروع.
+COURSE_DIGEST = ("headline", "overview")
+COURSE_LISTS = {"project": None}
+# ملخص الدرس؛ "slide" رقم الشريحة التي وردت فيها النقطة.
+LESSON_DIGEST = ("headline", "overview")
+LESSON_LISTS = {
+    "points": ("text", "slide"),
+    "terms": ("term", "meaning"),
+    "project": ("text", "slide"),
+    "doubts": ("text", "slide"),
+}
+DIGEST_NUMBERS = frozenset({"at", "start", "end", "slide"})
 
 
-def clean_digest(data):
-    """يتحقق من بنية الملخص ويعيدها منظَّفة؛ يرفض المفاتيح المجهولة والأنواع الخاطئة."""
+def clean_digest(data, texts=DIGEST_TEXTS, lists=None, extra=()):
+    """يتحقق من بنية الملخص ويعيدها منظَّفة؛ يرفض المفاتيح المجهولة والأنواع الخاطئة.
+
+    lists: اسم القائمة ثم حقول عنصرها، أو None لقائمة نصوص. extra: مفاتيح مسموحة تُهمَل هنا.
+    """
+    lists = DIGEST_LISTS if lists is None else lists
     if not isinstance(data, dict):
         raise ValueError("digest must be an object")
-    unknown = set(data) - set(DIGEST_TEXTS) - set(DIGEST_LISTS)
+    unknown = set(data) - set(texts) - set(lists) - set(extra)
     if unknown:
         raise ValueError(f"unknown digest keys: {sorted(unknown)}")
-    clean = {key: str(data.get(key) or "").strip() for key in DIGEST_TEXTS}
+    clean = {key: str(data.get(key) or "").strip() for key in texts}
     if not clean["headline"]:
         raise ValueError("digest needs a headline")
-    for name, fields in DIGEST_LISTS.items():
+    for name, fields in lists.items():
         rows = data.get(name) or []
         if not isinstance(rows, list):
             raise ValueError(f"{name} must be a list")
-        clean[name] = [_digest_row(name, row, fields) for row in rows]
+        if fields is None:
+            if not all(isinstance(row, str) for row in rows):
+                raise ValueError(f"{name} must be a list of strings")
+            clean[name] = [row.strip() for row in rows if row.strip()]
+        else:
+            clean[name] = [_digest_row(name, row, fields) for row in rows]
     return clean
 
 
@@ -242,10 +265,10 @@ def _digest_row(name, row, fields):
     item = {}
     for field in fields:
         value = row.get(field)
-        if field in DIGEST_SECONDS:
+        if field in DIGEST_NUMBERS:
             if value is not None and (isinstance(value, bool) or not isinstance(value, int)
                                       or value < 0):
-                raise ValueError(f"{name}.{field} must be seconds: {value!r}")
+                raise ValueError(f"{name}.{field} must be a whole number: {value!r}")
             item[field] = value
         elif field == "points":
             if not isinstance(value, list) or not all(isinstance(p, str) for p in value):
@@ -262,6 +285,163 @@ def import_digest(key, data, now=None):
     recording.digest_at = now or timezone.now()
     recording.save(update_fields=["digest", "digest_at"])
     return recording
+
+
+@transaction.atomic
+def import_lesson_digests(data):
+    """ملف دورة واحدة: {"course": {...}, "lessons": [{...}]}؛ المفاتيح مفاتيح الدورة والدروس."""
+    if not isinstance(data, dict) or set(data) != {"course", "lessons"}:
+        raise ValueError("file needs exactly: course, lessons")
+    if not isinstance(data["lessons"], list):
+        raise ValueError("lessons must be a list")
+    head = data["course"] if isinstance(data["course"], dict) else {}
+    course = TrainingCourse.objects.filter(key=head.get("key")).first()
+    if course is None:
+        raise ValueError(f"unknown course key: {head.get('key')!r}")
+    course.digest = clean_digest(head, COURSE_DIGEST, COURSE_LISTS, extra=("key",))
+    course.save(update_fields=["digest"])
+    lessons = {lesson.key: lesson for lesson in course.lessons.all()}
+    seen = set()
+    for row in data["lessons"]:
+        key = row.get("key") if isinstance(row, dict) else None
+        if key not in lessons or key in seen:
+            raise ValueError(f"unknown or repeated lesson key: {key!r}")
+        seen.add(key)
+        lesson = lessons[key]
+        lesson.digest = clean_digest(row, LESSON_DIGEST, LESSON_LISTS, extra=("key",))
+        lesson.save(update_fields=["digest"])
+    return {"course": course.key, "lessons": len(seen), "missing": len(lessons) - len(seen)}
+
+
+PLAYBOOK_KEY = "shadow-hazard"
+SOURCE_FIELDS = frozenset({"label", "lesson", "slide", "recording", "at"})
+
+
+def clean_playbook(data):
+    """خلاصة الفائدة: مجالات من المشروع، لكل مجال خطوات، ولكل خطوة مصادرها في المحتوى."""
+    if not isinstance(data, dict) or set(data) - {"headline", "overview", "areas", "gaps"}:
+        raise ValueError("playbook keys: headline, overview, areas, gaps")
+    clean = clean_digest({key: data.get(key) for key in ("headline", "overview", "gaps")},
+                         ("headline", "overview"), {"gaps": None})
+    areas = data.get("areas") or []
+    if not isinstance(areas, list) or not areas:
+        raise ValueError("playbook needs areas")
+    clean["areas"] = []
+    for area in areas:
+        if not isinstance(area, dict) or set(area) - {"title", "why", "steps"}:
+            raise ValueError("area keys: title, why, steps")
+        steps = []
+        for step in area.get("steps") or []:
+            if not isinstance(step, dict) or set(step) - {"text", "sources"}:
+                raise ValueError("step keys: text, sources")
+            sources = step.get("sources") or []
+            if not isinstance(sources, list):
+                raise ValueError("sources must be a list")
+            steps.append({"text": str(step.get("text") or "").strip(),
+                          "sources": [_playbook_source(source) for source in sources]})
+        clean["areas"].append({"title": str(area.get("title") or "").strip(),
+                               "why": str(area.get("why") or "").strip(), "steps": steps})
+    return clean
+
+
+def _playbook_source(source):
+    if not isinstance(source, dict) or set(source) - SOURCE_FIELDS:
+        raise ValueError(f"bad source: {source!r}"[:200])
+    if bool(source.get("lesson")) == bool(source.get("recording")):
+        raise ValueError(f"source needs a lesson or a recording: {source!r}"[:200])
+    row = _digest_row("sources", {key: source.get(key) for key in ("slide", "at")},
+                      ("slide", "at"))
+    row.update({key: str(source.get(key) or "").strip()
+                for key in ("label", "lesson", "recording")})
+    return row
+
+
+def import_playbook(data, key=PLAYBOOK_KEY, now=None):
+    playbook, _ = TrainingPlaybook.objects.update_or_create(
+        key=key, defaults={"data": clean_playbook(data), "updated_at": now or timezone.now()})
+    return playbook
+
+
+def _segment_anchor(starts, seconds):
+    """رابط مقطع التفريغ الذي تقع فيه الثانية؛ فارغ إن لم تُعرف."""
+    if seconds is None or not starts:
+        return ""
+    at = bisect_right([start for start, _ in starts], seconds) - 1
+    return f"#segment-{starts[max(at, 0)][1]}"
+
+
+def playbook_view(key=PLAYBOOK_KEY):
+    """الخلاصة مهيَّأة للعرض: كل مصدر برابطه (الدرس عند شريحته أو اللقاء عند مقطعه)."""
+    playbook = TrainingPlaybook.objects.filter(key=key).first()
+    if playbook is None:
+        return None
+    lessons = {lesson.key: lesson for lesson in TrainingLesson.objects.all()}
+    recordings = {recording.key: recording for recording in TrainingRecording.objects.all()}
+    starts = {}
+
+    def link(source):
+        lesson = lessons.get(source["lesson"])
+        if lesson:
+            anchor = f"#slide-{source['slide']}" if source["slide"] else ""
+            return {"label": source["label"] or lesson.title, "kind": "lesson",
+                    "url": reverse("training-lesson", args=[lesson.pk]) + anchor,
+                    "detail": f"الشريحة {source['slide']}" if source["slide"] else ""}
+        recording = recordings.get(source["recording"])
+        if recording is None:
+            return {"label": source["label"] or "مصدر غير موجود", "kind": "missing",
+                    "url": "", "detail": ""}
+        if recording.pk not in starts:
+            starts[recording.pk] = list(
+                recording.segments.values_list("start_seconds", "position"))
+        return {"label": source["label"] or recording.title, "kind": "recording",
+                "url": reverse("training-recording", args=[recording.pk])
+                + _segment_anchor(starts[recording.pk], source["at"]),
+                "detail": clock(source["at"]) if source["at"] is not None else ""}
+
+    data = playbook.data
+    return {
+        "headline": data["headline"], "overview": data["overview"], "gaps": data["gaps"],
+        "updated_at": playbook.updated_at,
+        "areas": [{"title": area["title"], "why": area["why"], "number": number,
+                   "steps": [{"text": step["text"],
+                              "sources": [link(source) for source in step["sources"]]}
+                             for step in area["steps"]]}
+                  for number, area in enumerate(data["areas"], 1)],
+    }
+
+
+def project_items():
+    """كل بنود «ما يفيد المشروع» من ملخصات اللقاءات والدورات والدروس، مجموعة بمصدرها."""
+    groups = []
+    for recording in TrainingRecording.objects.all():
+        rows = (recording.digest or {}).get("project", [])
+        if not rows:
+            continue
+        base = reverse("training-recording", args=[recording.pk])
+        starts = list(recording.segments.values_list("start_seconds", "position"))
+        groups.append({"title": recording.title, "kind": "لقاء", "general": [], "rows": [
+            {"text": row["text"], "source": "", "url": base + _segment_anchor(starts, row["at"]),
+             "detail": clock(row["at"]) if row["at"] is not None else ""} for row in rows]})
+    for course in TrainingCourse.objects.prefetch_related("lessons"):
+        items = []
+        for lesson in course.lessons.all():
+            base = reverse("training-lesson", args=[lesson.pk])
+            for row in (lesson.digest or {}).get("project", []):
+                items.append({"text": row["text"], "source": lesson.title,
+                              "detail": f"الشريحة {row['slide']}" if row["slide"] else "",
+                              "url": base + (f"#slide-{row['slide']}" if row["slide"] else "")})
+        general = (course.digest or {}).get("project", [])
+        if items or general:
+            groups.append({"title": course.title, "kind": course.get_kind_display(),
+                           "general": general, "rows": items})
+    for group in groups:
+        group["count"] = len(group["rows"]) + len(group["general"])
+    return groups
+
+
+def lesson_digest_view(lesson):
+    digest = lesson.digest or {}
+    return digest if digest.get("headline") else None
 
 
 def digest_view(recording):

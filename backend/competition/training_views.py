@@ -41,11 +41,21 @@ def index(request):
 
 
 @supervisor_only
+def project(request):
+    """كيف يفيد المحتوى التدريبي المشروع: الخلاصة المصاغة ثم كل البنود بمصادرها."""
+    groups = training.project_items()
+    context = {"playbook": training.playbook_view(), "groups": groups,
+               "item_count": sum(group["count"] for group in groups)}
+    return render(request, "competition/training_project.html", context)
+
+
+@supervisor_only
 def lesson(request, pk):
     item = get_object_or_404(TrainingLesson.objects.select_related("course"), pk=pk)
     siblings = TrainingLesson.objects.filter(course=item.course)
     context = {
         "lesson": item,
+        "digest": training.lesson_digest_view(item),
         "slides": item.slides.all(),
         "previous": siblings.filter(position__lt=item.position).order_by("-position").first(),
         "next": siblings.filter(position__gt=item.position).order_by("position").first(),

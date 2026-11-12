@@ -18,14 +18,14 @@
 .training-course summary{cursor:pointer;font-weight:600;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
 
 .training-slide{margin-block:24px;padding:20px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:8px;scroll-margin-block-start:16px}
-.training-slide h2{margin:0 0 14px;font-size:1.05rem}
-.training-slide h2 a{color:inherit;text-decoration:none}
+.training-slide-title{margin:0 0 14px;font-size:1.05rem}
+.training-slide-title a{color:inherit;text-decoration:none}
 .training-slide:target{border-color:var(--brand-secondary);box-shadow:0 0 0 2px var(--brand-secondary)}
 .training-slide-body{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:20px;align-items:start}
 .training-slide figure{margin:0}
 .training-slide img{display:block;inline-size:100%;block-size:auto;border:1px solid var(--platform-border);border-radius:6px;background:var(--platform-page-background)}
-.training-slide-text h3{margin:0 0 6px;font-size:.85rem;color:var(--platform-muted);font-weight:600}
-.training-slide-text h3:not(:first-child){margin-block-start:16px}
+.training-slide-text h4{margin:0 0 6px;font-size:.85rem;color:var(--platform-muted);font-weight:600}
+.training-slide-text h4:not(:first-child){margin-block-start:16px}
 .training-text{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9}
 
 .training-pager{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-block:28px}
@@ -95,3 +95,35 @@ a.digest-clock:hover,a.digest-clock:focus-visible{border-color:var(--platform-li
   .digest-map a{flex-direction:row;align-items:center}
 }
 @media print{.digest-map,.training-search{display:none}.training-transcript-panel:not([open]){display:none}}
+
+/* ---- ملخص الدرس وصفحة ما يفيد المشروع ---- */
+.training-slides-title{margin-block:32px 0}
+.digest-points{margin:12px 0 0;padding-inline-start:24px}
+.digest-points li{padding-block:6px;line-height:1.9}
+.digest-terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:12px 0 0}
+.digest-terms>div{padding:12px 16px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:8px}
+.digest-terms dt{font-weight:700;color:var(--platform-link)}
+.digest-terms dd{margin:4px 0 0;line-height:1.8}
+
+.training-project-link{display:flex;flex-direction:column;gap:4px;margin-block:20px;padding:18px 22px;background:var(--platform-surface);border:1px solid var(--platform-border);border-inline-start:6px solid var(--brand-accent);border-radius:10px;color:inherit;text-decoration:none}
+.training-project-link strong{font-size:1.15rem}
+.training-project-link span{color:var(--platform-muted)}
+.training-project-link:hover,.training-project-link:focus-visible{border-color:var(--platform-link);outline:2px solid var(--platform-focus)}
+.training-course-headline{margin:10px 0 0;font-weight:600;line-height:1.8}
+.training-lesson-headline{margin:2px 0 0;color:var(--platform-muted);font-size:.9rem;line-height:1.7}
+
+.playbook-index ol{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:16px 0;padding:0}
+.playbook-index a{display:inline-flex;align-items:center;gap:8px;padding-block:6px;padding-inline:6px 14px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:999px;color:inherit;text-decoration:none}
+.playbook-index a:hover,.playbook-index a:focus-visible{border-color:var(--platform-link)}
+.playbook-area{margin-block:18px;padding:22px 24px;background:var(--platform-surface);border:1px solid var(--platform-border);border-inline-start:4px solid var(--brand-secondary);border-radius:10px;scroll-margin-block-start:16px}
+.playbook-area:nth-of-type(even){border-inline-start-color:var(--brand-accent)}
+.playbook-area:target{box-shadow:0 0 0 2px var(--brand-secondary)}
+.playbook-area header{display:flex;align-items:center;gap:10px}
+.playbook-area h2{margin:0;font-size:1.2rem}
+.playbook-why{margin:10px 0 0;color:var(--platform-muted);line-height:1.9;max-width:75ch}
+.playbook-steps{margin:12px 0 0;padding-inline-start:22px}
+.playbook-steps li{padding-block:8px;border-block-start:1px solid var(--platform-border)}
+.playbook-steps li:first-child{border-block-start:0}
+.playbook-steps p{margin:0;line-height:1.9}
+.playbook-sources{margin-block-start:6px !important;display:flex;flex-wrap:wrap;gap:6px}
+.playbook-item{margin:0 0 6px;color:var(--platform-text) !important;line-height:1.9}

@@ -5,6 +5,8 @@
     manage.py training_content ocr --python <بايثون فيه paddleocr> [--redo]
     manage.py training_content transcript <ملف> --key K --title T [--category C --held-on D]
     manage.py training_content digest <ملف JSON للملخص> --key K
+    manage.py training_content lesson-digests <ملف JSON لكل دورة> [...]
+    manage.py training_content playbook <ملف JSON لخلاصة الفائدة>
     manage.py training_content status
 """
 import json
@@ -50,10 +52,37 @@ class Command(BaseCommand):
         digest = stages.add_parser("digest")
         digest.add_argument("path")
         digest.add_argument("--key", required=True)
+        lessons = stages.add_parser("lesson-digests")
+        lessons.add_argument("paths", nargs="+")
+        playbook = stages.add_parser("playbook")
+        playbook.add_argument("path")
         stages.add_parser("status")
 
     def handle(self, *args, **options):
-        getattr(self, "_" + options["stage"])(options)
+        getattr(self, "_" + options["stage"].replace("-", "_"))(options)
+
+    @staticmethod
+    def _json(path):
+        return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+    def _lesson_digests(self, options):
+        # ملف لكل دورة؛ خطأ في ملف يوقف الأمر ولا يمس ما استُورد قبله من ملفات.
+        for path in options["paths"]:
+            try:
+                result = training.import_lesson_digests(self._json(path))
+            except ValueError as error:
+                raise CommandError(f"{path}: {error}") from error
+            self.stdout.write(json.dumps(result))
+
+    def _playbook(self, options):
+        try:
+            playbook = training.import_playbook(self._json(options["path"]))
+        except ValueError as error:
+            raise CommandError(str(error)) from error
+        self.stdout.write(json.dumps({
+            "areas": len(playbook.data["areas"]),
+            "steps": sum(len(area["steps"]) for area in playbook.data["areas"]),
+            "gaps": len(playbook.data["gaps"])}))
 
     def _crawl(self, options):
         data = json.loads(Path(options["path"]).read_text(encoding="utf-8-sig"))

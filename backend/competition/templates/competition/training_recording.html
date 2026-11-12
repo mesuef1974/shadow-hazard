@@ -1,4 +1,4 @@
-{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=2">
+{% extends 'registry/base.html' %}{% load static %}{% block content %}<link rel="stylesheet" href="{% static 'competition/training.css' %}?v=3">
 <div class="training-page">
 <nav class="training-crumbs" aria-label="مسار الصفحة"><a href="{% url 'training-index' %}">المحتوى التدريبي</a> <span aria-hidden="true">‹</span> <span>اللقاءات المسجَّلة</span></nav>
 {% include 'registry/_page_heading.html' with eyebrow='لقاء مسجَّل' title=recording.title description='ما قيل في اللقاء وما يلزمنا منه، ثم التفريغ الكامل بتوقيته.' metric=duration metric_label='مدة اللقاء' %}
@@ -23,6 +23,11 @@
 
 {% if digest.actions %}<section class="digest-actions" aria-labelledby="actions-title"><h2 id="actions-title">المطلوب منّا بعد اللقاء</h2>
   <ul>{% for item in digest.actions %}<li><span>{{ item.text }}</span> {% include 'competition/_clock.html' with mark=item.mark %}</li>{% endfor %}</ul>
+</section>{% endif %}
+
+{% if digest.project %}<section class="digest-actions" aria-labelledby="project-title"><h2 id="project-title">ما يفيد ظل الخطر</h2>
+  <ul>{% for item in digest.project %}<li><span>{{ item.text }}</span> {% include 'competition/_clock.html' with mark=item.mark %}</li>{% endfor %}</ul>
+  <p class="note"><a href="{% url 'training-project' %}">كل ما يفيد المشروع من التدريب</a></p>
 </section>{% endif %}
 
 {% if digest.fact_groups %}<section aria-labelledby="facts-title"><h2 id="facts-title">حقائق تُحفظ</h2>
