@@ -7,6 +7,7 @@
     manage.py training_content digest <ملف JSON للملخص> --key K
     manage.py training_content lesson-digests <ملف JSON لكل دورة> [...]
     manage.py training_content playbook <ملف JSON لخلاصة الفائدة>
+    manage.py training_content redact
     manage.py training_content status
 """
 import json
@@ -56,6 +57,7 @@ class Command(BaseCommand):
         lessons.add_argument("paths", nargs="+")
         playbook = stages.add_parser("playbook")
         playbook.add_argument("path")
+        stages.add_parser("redact")
         stages.add_parser("status")
 
     def handle(self, *args, **options):
@@ -130,6 +132,9 @@ class Command(BaseCommand):
             raise CommandError(str(error)) from error
         self.stdout.write(json.dumps(
             {name: len(recording.digest[name]) for name in training.DIGEST_LISTS}))
+
+    def _redact(self, options):
+        self.stdout.write(json.dumps({"slides_changed": training.redact_stored()}))
 
     def _status(self, options):
         slides = TrainingSlide.objects
