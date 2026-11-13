@@ -3,7 +3,7 @@ from dataclasses import replace
 from django.test import SimpleTestCase
 
 from shadow_hazard.application.simulation import Scenario, run, validate
-from shadow_hazard.domain.motion import ROUTES, assess, swept_overlap, travel_bounds
+from shadow_hazard.domain.motion import ROUTES, assess, swept_overlap, travel, travel_bounds
 
 # المشهد نفسه في test_speed_change: بسرعة ثابتة لا اصطدام، وبتسارع بعد الغياب عن العدسة اصطدام.
 BASE = Scenario(key='custom', horizon=3., duration=30, reaction_time=.5, car_speed=6.,
@@ -28,6 +28,12 @@ class TravelBoundsTests(SimpleTestCase):
         low, high = travel_bounds(6., 3., .5)
         self.assertAlmostEqual(low, 11.25)
         self.assertAlmostEqual(high, 24.75)
+
+    def test_each_speed_profile_lies_between_the_bounds(self):
+        self.assertEqual(travel(6., 3., 1.), 18.)
+        low, high = travel_bounds(6., 3., .5)
+        self.assertEqual((travel(6., 3., .5), travel(6., 3., 1.5)), (low, high))
+        self.assertTrue(low < travel(6., 3., .75) < 18. < travel(6., 3., 1.25) < high)
 
     def test_swept_overlap_covers_everything_between_the_two_positions(self):
         self.assertTrue(swept_overlap((1.75, -10.), (1.75, 5.), (1.75, 0.)))
@@ -56,6 +62,14 @@ class ArrivalWindowDecisionTests(SimpleTestCase):
         # المسار نفسه مكمَّلًا منذ 4 ثوانٍ: الموضع الاسمي واحد، والنافذة أوسع.
         coasted = {**fresh, 'car': {**fresh['car'], 'measured': 6., 'coasted': True}}
         self.assertEqual(assess(coasted, 10., 3., speed_envelope=.5)['state'], 'HAZARD_SUSPECTED')
+
+    def test_a_vanishing_window_is_the_constant_speed_prediction(self):
+        for progress in (5.5, 7., 9.5):
+            with self.subTest(progress=progress):
+                tracks = {'car': track('car', 20., 6.),
+                          'pedestrian': track('pedestrian', progress, 1.5)}
+                plain, narrow = (assess(tracks, 10., 3., speed_envelope=e) for e in (0., 1e-9))
+                self.assertEqual((plain['state'], plain['ttc']), (narrow['state'], narrow['ttc']))
 
     def test_shadow_gate_still_silences_a_child_the_driver_sees(self):
         # طفل واقف في مسار السيارة أمام الحافلة: ظاهر للسائق من كل موضع ممكن.
