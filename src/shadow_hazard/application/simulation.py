@@ -37,7 +37,8 @@ class Scenario:
     behavior_time: float = 2.
     pause_duration: float = 3.
     # overhead: كاميرا علوية ترى المشهد كله. bus: كاميرتا الحافلة (ADR 0007) مع إكمال المسار
-    # بعد الخروج من المجال. bus_no_coast: كاميرتا الحافلة بلا إكمال.
+    # بعد الخروج من المجال. bus_no_coast: كاميرتا الحافلة بلا إكمال. bus_mirror: bus مع كاميرا
+    # ثالثة للسيارة عند الزاوية الأمامية اليسرى (مقترحة، ADR 0009).
     sensing: str = 'overhead'
     # تغيّر سرعة السيارة قبل أي استجابة للتحذير: من لحظة car_acceleration_start تتجه إلى
     # car_target_speed بمعدل car_acceleration (م/ث²). الهدف السالب يعني لا تغيّر.
@@ -99,7 +100,7 @@ def validate(s):
                'driver_behavior': {'respond', 'ignore', 'slow', 'brake', 'accelerate', 'parked', 'premature'},
                'signals': {'off', 'auto'}, 'crossing_side': {'right', 'left'},
                'sensor_fault': {'', 'loss', 'missing', 'calibration', 'clock'},
-               'sensing': {'overhead', 'bus', 'bus_no_coast'}}
+               'sensing': {'overhead', 'bus', 'bus_no_coast', 'bus_mirror'}}
     if any(getattr(s, field) not in values for field, values in choices.items()):
         raise ValueError('اختيار سلوك أو إشارة غير صالح')
     if s.key == 'custom' and s.pedestrian_behavior == 'obey' and s.signals == 'off':
@@ -128,6 +129,7 @@ def run(s):
         return (min(s.car_target_speed, s.car_speed+change) if s.car_target_speed >= s.car_speed
                 else max(s.car_target_speed, s.car_speed-change))
     bus_sensing = s.sensing != 'overhead'
+    layout = 'bus_mirror' if s.sensing == 'bus_mirror' else 'bus'
     sensor_fault = s.sensor_fault if custom else s.fault
     pedestrian_behavior = s.pedestrian_behavior if custom else s.fault
     driver_behavior = s.driver_behavior if custom else ('respond' if s.fault == 'driver_response' else s.fault)
@@ -230,7 +232,7 @@ def run(s):
             if bus_sensing and not missing:
                 beats.append((actor, now+(.4 if actor == 'pedestrian' and sensor_fault == 'clock' else 0),
                               now+s.latency, sensor_fault != 'calibration' and s.confidence >= .6))
-            in_view = not bus_sensing or bus_cameras.sees(actor, pos)
+            in_view = not bus_sensing or bus_cameras.sees(actor, pos, layout)
             missing = missing or not in_view
             measured = (pos[0]+rng.gauss(0, s.noise), pos[1]+rng.gauss(0, s.noise))
             if camera:
@@ -240,7 +242,7 @@ def run(s):
             if missing or measured is None:
                 continue
             captured = now+(.4 if actor == 'pedestrian' and sensor_fault == 'clock' else 0)
-            sensor_id = (bus_cameras.CAMERAS[actor].sensor_id if bus_sensing
+            sensor_id = (bus_cameras.viewer(actor, pos, layout).sensor_id if bus_sensing
                          else 'left-camera' if actor == 'car' else 'right-camera')
             obs = Observation(actor, sensor_id, captured,
                               now+s.latency, measured, s.confidence,
@@ -266,13 +268,13 @@ def run(s):
             if received <= now+1e-8 and healthy:
                 sensors[actor] = stamp
         beats = [beat for beat in beats if beat[2] > now+1e-8]
-        if s.sensing == 'bus':
+        if s.sensing in ('bus', 'bus_mirror'):
             # ADR 0007 بند 7: غياب الرصد الذي يفسّره خروج الجسم من مجال الكاميرا لا يُسقط
             # المسار، بل يُكمَل بآخر سرعة مقيسة مع حفظ عمره. والغياب داخل المجال عطل يشيخ به.
             arrived = {obs.actor for obs in ready}
             for actor, track in tracks.items():
                 expected = point(track['route'], track['progress']+track['speed']*(now-track['time']))
-                if actor not in arrived and not bus_cameras.sees(actor, expected):
+                if actor not in arrived and not bus_cameras.sees(actor, expected, layout):
                     tracks[actor] = {**track, 'measured': track.get('measured', track['time']),
                                      'progress': track['progress']+track['speed']*.1,
                                      'time': min(now, round(track['time']+.1, 6)), 'coasted': True}
@@ -379,7 +381,7 @@ def run(s):
                        'hazards_lit': hazards_active and int(round((now-response_alert)*10)) % 10 < 5,
                        'true_car_speed': speeds['car']})
         if bus_sensing:
-            frames[-1]['in_view'] = {actor: bus_cameras.sees(actor, pos) for actor, pos in truth.items()}
+            frames[-1]['in_view'] = {actor: bus_cameras.sees(actor, pos, layout) for actor, pos in truth.items()}
         if custom:
             frames[-1].update(pedestrian_signal=signal, crossing_request=request_active,
                               car_motion_detected=reliable and tracks['car']['direct_motion'],

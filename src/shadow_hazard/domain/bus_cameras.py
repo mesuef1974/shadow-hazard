@@ -8,7 +8,7 @@ from math import atan2, degrees, radians, tan
 
 from shadow_hazard.domain.motion import BUS
 
-VERSION = 'bus-cameras-v2'
+VERSION = 'bus-cameras-v3'
 
 
 @dataclass(frozen=True)
@@ -37,9 +37,26 @@ def bearing(camera, position):
     return degrees(atan2(abs(across), along))
 
 
-def sees(actor, position):
-    angle = bearing(CAMERAS[actor], position)
-    return angle is not None and angle <= CAMERAS[actor].fov_degrees/2+1e-9
+# كاميرا المرآة (مقترحة، ADR 0009): أعلى الزاوية الأمامية اليسرى، إلى الخلف بمحاذاة جانب
+# الحافلة، عدسة 90 درجة. تغطي السيارة من حيث تفقدها الكاميرا الخلفية إلى ما قبل الممر.
+MIRROR = Camera('bus-front-left-mirror-camera', (BUS[0], BUS[3]), (0., -1.), 90.)
+LAYOUTS = {
+    'bus': {actor: (camera,) for actor, camera in CAMERAS.items()},
+    'bus_mirror': {'car': (CAMERAS['car'], MIRROR), 'pedestrian': (CAMERAS['pedestrian'],)},
+}
+
+
+def viewer(actor, position, layout='bus'):
+    """أول كاميرا في التخطيط ترى النقطة، أو None."""
+    for camera in LAYOUTS[layout][actor]:
+        angle = bearing(camera, position)
+        if angle is not None and angle <= camera.fov_degrees/2+1e-9:
+            return camera
+    return None
+
+
+def sees(actor, position, layout='bus'):
+    return viewer(actor, position, layout) is not None
 
 
 def exit_distance(actor, lateral):
