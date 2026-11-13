@@ -53,7 +53,7 @@ class BusSensingRunTests(SimpleTestCase):
 
     def test_bus_cameras_observe_only_inside_their_fields(self):
         result = run(replace(SLOW, sensing='bus'))
-        self.assertIn('bus-cameras-v2-bus', result['version'])
+        self.assertIn('bus-cameras-v3-bus', result['version'])
         self.assertEqual({o['sensor_id'] for o in result['observations']},
                          {'bus-rear-left-camera', 'bus-front-camera'})
         for o in result['observations']:
@@ -152,3 +152,46 @@ class NothingInViewTests(SimpleTestCase):
     def test_overhead_mode_never_reports_nothing_in_view(self):
         result = run(replace(SLOW, sensor_fault='missing', duration=20))
         self.assertEqual({f['prediction']['state'] for f in result['frames']}, {'UNKNOWN'})
+
+
+class MirrorCameraTests(SimpleTestCase):
+    """كاميرا ثالثة مقترحة للسيارة (ADR 0009): تسدّ غيابها عن العدسة الخلفية قبل الممر."""
+
+    def test_mirror_camera_covers_the_car_from_the_rear_exit_to_the_crossing(self):
+        from shadow_hazard.domain.bus_cameras import MIRROR, viewer
+        self.assertEqual((MIRROR.position, MIRROR.heading, MIRROR.fov_degrees),
+                         ((BUS[0], BUS[3]), (0., -1.), 90.))
+        # لا فجوة: كل موضع للسيارة من بداية الطريق إلى 4.8 م قبل الممر تراه كاميرا.
+        for tenth in range(-360, -48):
+            self.assertTrue(sees('car', (1.75, tenth/10), 'bus_mirror'), tenth/10)
+        self.assertFalse(sees('car', (1.75, -4.7), 'bus_mirror'))
+        self.assertFalse(sees('car', (1.75, -18.6)))
+        self.assertEqual(viewer('car', (1.75, -30.), 'bus_mirror').sensor_id,
+                         'bus-rear-left-camera')
+        self.assertEqual(viewer('car', (1.75, -10.), 'bus_mirror').sensor_id,
+                         'bus-front-left-mirror-camera')
+        # كاميرا الطفل لا تتغير.
+        self.assertFalse(sees('pedestrian', (8., -4.), 'bus_mirror'))
+
+    def test_run_tracks_the_car_with_real_observations_until_just_before_the_crossing(self):
+        result = run(replace(SLOW, sensing='bus_mirror'))
+        self.assertIn('bus-cameras-v3-bus_mirror', result['version'])
+        self.assertEqual({o['sensor_id'] for o in result['observations'] if o['actor'] == 'car'},
+                         {'bus-rear-left-camera', 'bus-front-left-mirror-camera'})
+        alert = at(result, result['metrics']['first_prediction_alert'])
+        self.assertTrue(alert['in_view']['car'])
+        self.assertNotIn('coasted', alert['tracks']['car'])
+        # الإكمال باقٍ للأمتار الأخيرة قبل الممر.
+        self.assertTrue(any(f['tracks'].get('car', {}).get('coasted') for f in result['frames']))
+
+    def test_mirror_recovers_a_car_that_changes_speed_out_of_the_rear_field(self):
+        # المشهد الخطر الذي يفوت كاميرتي الحافلة: سيارة 6 م/ث تنزل إلى 3 بعد غيابها عن الخلفية.
+        scene = replace(SLOW, car_speed=6., pedestrian_speed=1.5, pedestrian_delay=2.,
+                        car_target_speed=3., car_acceleration=1., car_acceleration_start=2.9)
+        missed = run(replace(scene, sensing='bus'))['metrics']
+        self.assertIsNotNone(missed['first_collision'])
+        self.assertIsNone(missed['first_prediction_alert'])
+        seen = run(replace(scene, sensing='bus_mirror'))['metrics']
+        self.assertLess(seen['first_prediction_alert'], seen['first_collision'])
+        responded = run(replace(scene, sensing='bus_mirror', driver_behavior='respond'))
+        self.assertIsNone(responded['metrics']['first_collision'])
