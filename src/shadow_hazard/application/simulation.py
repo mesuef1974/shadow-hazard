@@ -7,6 +7,7 @@ import platform
 from importlib.metadata import version
 from shadow_hazard.domain.motion import (BUS, ROUTES, VERSION, GEOMETRY, CROSSWALK_HALF_WIDTH, STOP_LINE_Y, Observation, assess,
                                         hidden, overlap, point, project)
+from shadow_hazard.domain import bus_cameras
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,9 @@ class Scenario:
     crossing_side: str = 'right'
     behavior_time: float = 2.
     pause_duration: float = 3.
+    # overhead: كاميرا علوية ترى المشهد كله. bus: كاميرتا الحافلة (ADR 0007) مع إكمال المسار
+    # بعد الخروج من المجال. bus_no_coast: كاميرتا الحافلة بلا إكمال.
+    sensing: str = 'overhead'
 
 
 def catalogue():
@@ -85,7 +89,8 @@ def validate(s):
     choices = {'pedestrian_behavior': {'cross', 'obey', 'standing', 'stop', 'pause_crossing', 'reverse', 'run', 'away'},
                'driver_behavior': {'respond', 'ignore', 'slow', 'brake', 'accelerate', 'parked', 'premature'},
                'signals': {'off', 'auto'}, 'crossing_side': {'right', 'left'},
-               'sensor_fault': {'', 'loss', 'missing', 'calibration', 'clock'}}
+               'sensor_fault': {'', 'loss', 'missing', 'calibration', 'clock'},
+               'sensing': {'overhead', 'bus', 'bus_no_coast'}}
     if any(getattr(s, field) not in values for field, values in choices.items()):
         raise ValueError('اختيار سلوك أو إشارة غير صالح')
     if s.key == 'custom' and s.pedestrian_behavior == 'obey' and s.signals == 'off':
@@ -105,6 +110,7 @@ def run(s):
         camera = MarkerCamera()
     rng = random.Random(s.seed)
     custom = s.key == 'custom'
+    bus_sensing = s.sensing != 'overhead'
     sensor_fault = s.sensor_fault if custom else s.fault
     pedestrian_behavior = s.pedestrian_behavior if custom else s.fault
     driver_behavior = s.driver_behavior if custom else ('respond' if s.fault == 'driver_response' else s.fault)
@@ -199,6 +205,9 @@ def run(s):
         for actor, pos in truth.items():
             missing = (actor == 'pedestrian' and (sensor_fault == 'missing' or sensor_fault == 'loss' and 1 <= now <= 8))
             missing = missing or rng.random() < s.dropout
+            # كاميرا الحافلة لا ترى إلا ما في مجالها؛ بعد سحب العشوائية ليبقى تسلسلها ثابتًا.
+            in_view = not bus_sensing or bus_cameras.sees(actor, pos)
+            missing = missing or not in_view
             measured = (pos[0]+rng.gauss(0, s.noise), pos[1]+rng.gauss(0, s.noise))
             if camera:
                 measured, png = camera.capture(actor, measured, not missing, preview=index % 10 == 0)
@@ -207,7 +216,9 @@ def run(s):
             if missing or measured is None:
                 continue
             captured = now+(.4 if actor == 'pedestrian' and sensor_fault == 'clock' else 0)
-            obs = Observation(actor, 'left-camera' if actor == 'car' else 'right-camera', captured,
+            sensor_id = (bus_cameras.CAMERAS[actor].sensor_id if bus_sensing
+                         else 'left-camera' if actor == 'car' else 'right-camera')
+            obs = Observation(actor, sensor_id, captured,
                               now+s.latency, measured, s.confidence,
                               'invalid' if sensor_fault == 'calibration' else 'scene-metres-v1',
                               camera.version if camera else 'synthetic-v1')
@@ -227,6 +238,15 @@ def run(s):
                                     'direct_displacement': distance-h[-2][1],
                                     'time': obs.captured, 'confidence': obs.confidence, 'frame': obs.frame,
                                     'route': routes[obs.actor]}
+        if s.sensing == 'bus':
+            # ADR 0007 بند 7: غياب الرصد الذي يفسّره خروج الجسم من مجال الكاميرا لا يُسقط
+            # المسار، بل يُكمَل بآخر سرعة مقيسة مع حفظ عمره. والغياب داخل المجال عطل يشيخ به.
+            arrived = {obs.actor for obs in ready}
+            for actor, track in tracks.items():
+                expected = point(track['route'], track['progress']+track['speed']*(now-track['time']))
+                if actor not in arrived and not bus_cameras.sees(actor, expected):
+                    tracks[actor] = {**track, 'progress': track['progress']+track['speed']*.1,
+                                     'time': min(now, round(track['time']+.1, 6)), 'coasted': True}
         # وضع إشارة المشاة مجمّد كما هو (ADR 0002)؛ شرط الحجب للنواة فقط.
         prediction = assess(tracks, now, s.horizon, s.margin,
                             occlusion_gate=not (custom and s.signals == 'auto'))
@@ -323,6 +343,8 @@ def run(s):
                        'hazards_active': hazards_active,
                        'hazards_lit': hazards_active and int(round((now-response_alert)*10)) % 10 < 5,
                        'true_car_speed': speeds['car']})
+        if bus_sensing:
+            frames[-1]['in_view'] = {actor: bus_cameras.sees(actor, pos) for actor, pos in truth.items()}
         if custom:
             frames[-1].update(pedestrian_signal=signal, crossing_request=request_active,
                               car_motion_detected=reliable and tracks['car']['direct_motion'],
@@ -386,7 +408,8 @@ def run(s):
             if time is not None:
                 events.append({'time': time, 'event': event})
         events.sort(key=lambda e: e['time'])
-    return {'version': VERSION+'-direct-motion-v2' if custom else VERSION+'-driver-response-v2' if comparison else VERSION,
+    sensing_version = f'-{bus_cameras.VERSION}-{s.sensing}' if bus_sensing else ''
+    return {'version': (VERSION+'-direct-motion-v2' if custom else VERSION+'-driver-response-v2' if comparison else VERSION)+sensing_version,
             'events': events,
             'response_cycles': response_cycles,
             'driver_policy': {'resume_acceleration': 1.5, 'resume_after': 'fresh pedestrian observation beyond far road edge', 'hazards_until': 'resume'},
