@@ -65,15 +65,19 @@ def hidden(driver, pedestrian):
 ENVELOPE_RATE = 2.
 
 
+def travel(speed, elapsed, factor):
+    """مسافة تقطعها السيارة في elapsed إن اتجهت سرعتها إلى factor من المقيسة ثم ثبتت."""
+    if speed <= 0 or elapsed <= 0:
+        return speed*elapsed
+    target = speed*factor
+    ramp = min(elapsed, abs(target-speed)/ENVELOPE_RATE)
+    rate = ENVELOPE_RATE if target >= speed else -ENVELOPE_RATE
+    return speed*ramp+.5*rate*ramp**2+target*(elapsed-ramp)
+
+
 def travel_bounds(speed, elapsed, envelope):
     """أقل وأكثر مسافة تقطعها السيارة في elapsed إن بقيت سرعتها ضمن ±envelope من المقيسة."""
-    if speed <= 0 or envelope <= 0 or elapsed <= 0:
-        return speed*elapsed, speed*elapsed
-    bounds = []
-    for target, rate in ((speed*(1-envelope), -ENVELOPE_RATE), (speed*(1+envelope), ENVELOPE_RATE)):
-        ramp = min(elapsed, abs(target-speed)/ENVELOPE_RATE)
-        bounds.append(speed*ramp+.5*rate*ramp**2+target*(elapsed-ramp))
-    return tuple(bounds)
+    return travel(speed, elapsed, 1-envelope), travel(speed, elapsed, 1+envelope)
 
 
 def swept_overlap(first, last, pedestrian, margin=0.):
@@ -84,28 +88,47 @@ def swept_overlap(first, last, pedestrian, margin=0.):
 
 
 def window_hazard(tracks, now, horizon, margin, occlusion_gate, envelope):
-    """كالتنبؤ الثابت، لكن السيارة تشغل كل موضع بين أبطأ وأسرع وصول ممكن."""
+    """كالتنبؤ الثابت، لكن على كل مسار سرعة ممكن للسيارة ضمن النافذة.
+
+    التحذير يحتاج مسارًا واحدًا يجمع الأمرين معًا: يبلغ الطفل ضمن الأفق، والطفل محجوب عن
+    موضع السائق على هذا المسار نفسه الآن. فلا يُخلط خطر مسار بحجب مسار آخر.
+    """
     car, walker = tracks['car'], tracks['pedestrian']
     # measured: لحظة آخر قياس حقيقي؛ المسار المكمَّل يتقدم وقته ولا يتجدد قياسه.
     measured = car.get('measured', car['time'])
     origin = car['progress']-car['speed']*(car['time']-measured)
+    elapsed = now-measured
+    steps = [step*.05 for step in range(int(horizon/.05)+1)]
+    walk = [point(walker['route'], walker['progress']+walker['speed']*(now-walker['time']+future))
+            for future in steps]
 
-    def pedestrian_at(future):
-        return point(walker['route'], walker['progress']+walker['speed']*(now-walker['time']+future))
+    def swept(index):
+        low, high = travel_bounds(car['speed'], elapsed+steps[index], envelope)
+        return swept_overlap(point(car['route'], origin+low), point(car['route'], origin+high),
+                             walk[index], margin)
 
-    for step in range(int(horizon/.05)+1):
-        future = step*.05
-        low, high = travel_bounds(car['speed'], now-measured+future, envelope)
-        if swept_overlap(point(car['route'], origin+low), point(car['route'], origin+high),
-                         pedestrian_at(future), margin):
-            low, high = travel_bounds(car['speed'], now-measured, envelope)
-            count = int(high-low)+1
-            eyes = [point(car['route'], origin+low+(high-low)*i/count) for i in range(count+1)]
-            # شرط الظل على النافذة: يكفي أن يُحجب الطفل عن موضع واحد ممكن للسائق.
-            if occlusion_gate and not any(hidden((eye[0], eye[1]+DRIVER_EYE_OFFSET), pedestrian_at(0.))
-                                          for eye in eyes):
-                return {'state': 'CLEAR_WITHIN_SCOPE', 'reason': 'السائق يراه: الطفل خارج ظل الحافلة', 'ttc': None}
-            return {'state': 'HAZARD_SUSPECTED', 'reason': 'تداخل ممكن ضمن نافذة وصول السيارة', 'ttc': round(future, 2)}
+    # فحص رخيص أولًا: هل يبلغ أي مسار ممكن الطفل أصلًا؟
+    first = next((index for index in range(len(steps)) if swept(index)), None)
+    if first is None:
+        return {'state': 'CLEAR_WITHIN_SCOPE', 'reason': 'لا تداخل متوقع ضمن أفق الحساب', 'ttc': None}
+    low, high = travel_bounds(car['speed'], elapsed+horizon, envelope)
+    # مسارات متباعدة مترين على الأكثر عند نهاية الأفق، والسيارة طولها أربعة.
+    count = int((high-low)/2)+1
+    reached, soonest = False, None
+    for sample in range(count+1):
+        factor = 1-envelope+2*envelope*sample/count
+        for index in range(first, len(steps)):
+            position = point(car['route'], origin+travel(car['speed'], elapsed+steps[index], factor))
+            if overlap(position, walk[index], margin):
+                reached = True
+                eye = point(car['route'], origin+travel(car['speed'], elapsed, factor))
+                if not occlusion_gate or hidden((eye[0], eye[1]+DRIVER_EYE_OFFSET), walk[0]):
+                    soonest = steps[index] if soonest is None else min(soonest, steps[index])
+                break
+    if soonest is not None:
+        return {'state': 'HAZARD_SUSPECTED', 'reason': 'تداخل ممكن ضمن نافذة وصول السيارة', 'ttc': round(soonest, 2)}
+    if reached:
+        return {'state': 'CLEAR_WITHIN_SCOPE', 'reason': 'السائق يراه: الطفل خارج ظل الحافلة', 'ttc': None}
     return {'state': 'CLEAR_WITHIN_SCOPE', 'reason': 'لا تداخل متوقع ضمن أفق الحساب', 'ttc': None}
 
 
