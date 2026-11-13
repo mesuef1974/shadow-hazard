@@ -61,6 +61,54 @@ def hidden(driver, pedestrian):
     return high > 0 and low < 1
 
 
+# أقصى معدل نفترضه لتغيّر سرعة السيارة داخل نافذة الوصول (م/ث²).
+ENVELOPE_RATE = 2.
+
+
+def travel_bounds(speed, elapsed, envelope):
+    """أقل وأكثر مسافة تقطعها السيارة في elapsed إن بقيت سرعتها ضمن ±envelope من المقيسة."""
+    if speed <= 0 or envelope <= 0 or elapsed <= 0:
+        return speed*elapsed, speed*elapsed
+    bounds = []
+    for target, rate in ((speed*(1-envelope), -ENVELOPE_RATE), (speed*(1+envelope), ENVELOPE_RATE)):
+        ramp = min(elapsed, abs(target-speed)/ENVELOPE_RATE)
+        bounds.append(speed*ramp+.5*rate*ramp**2+target*(elapsed-ramp))
+    return tuple(bounds)
+
+
+def swept_overlap(first, last, pedestrian, margin=0.):
+    """تداخل الطفل مع كل ما تمسحه السيارة بين موضعين على مسار مستقيم."""
+    return all(min(a, b)-(size+SIZES['pedestrian'][axis])/2-margin <= p <=
+               max(a, b)+(size+SIZES['pedestrian'][axis])/2+margin
+               for axis, (a, b, p, size) in enumerate(zip(first, last, pedestrian, SIZES['car'])))
+
+
+def window_hazard(tracks, now, horizon, margin, occlusion_gate, envelope):
+    """كالتنبؤ الثابت، لكن السيارة تشغل كل موضع بين أبطأ وأسرع وصول ممكن."""
+    car, walker = tracks['car'], tracks['pedestrian']
+    # measured: لحظة آخر قياس حقيقي؛ المسار المكمَّل يتقدم وقته ولا يتجدد قياسه.
+    measured = car.get('measured', car['time'])
+    origin = car['progress']-car['speed']*(car['time']-measured)
+
+    def pedestrian_at(future):
+        return point(walker['route'], walker['progress']+walker['speed']*(now-walker['time']+future))
+
+    for step in range(int(horizon/.05)+1):
+        future = step*.05
+        low, high = travel_bounds(car['speed'], now-measured+future, envelope)
+        if swept_overlap(point(car['route'], origin+low), point(car['route'], origin+high),
+                         pedestrian_at(future), margin):
+            low, high = travel_bounds(car['speed'], now-measured, envelope)
+            count = int(high-low)+1
+            eyes = [point(car['route'], origin+low+(high-low)*i/count) for i in range(count+1)]
+            # شرط الظل على النافذة: يكفي أن يُحجب الطفل عن موضع واحد ممكن للسائق.
+            if occlusion_gate and not any(hidden((eye[0], eye[1]+DRIVER_EYE_OFFSET), pedestrian_at(0.))
+                                          for eye in eyes):
+                return {'state': 'CLEAR_WITHIN_SCOPE', 'reason': 'السائق يراه: الطفل خارج ظل الحافلة', 'ttc': None}
+            return {'state': 'HAZARD_SUSPECTED', 'reason': 'تداخل ممكن ضمن نافذة وصول السيارة', 'ttc': round(future, 2)}
+    return {'state': 'CLEAR_WITHIN_SCOPE', 'reason': 'لا تداخل متوقع ضمن أفق الحساب', 'ttc': None}
+
+
 @dataclass(frozen=True)
 class Observation:
     actor: str
@@ -77,7 +125,8 @@ ABSENT = {('car',): 'لا سيارة في مجال الكاميرا', ('pedestri
           ('car', 'pedestrian'): 'لا سيارة ولا طفل في مجال الكاميرتين'}
 
 
-def assess(tracks, now, horizon=6., margin=.2, occlusion_gate=True, sensors=None):
+def assess(tracks, now, horizon=6., margin=.2, occlusion_gate=True, sensors=None,
+           speed_envelope=0.):
     """sensors: وقت آخر إطار سليم من كاميرا كل جسم؛ None يعني لا نبض (السلوك القديم)."""
     absent = tuple(actor for actor in ('car', 'pedestrian') if actor not in tracks)
     # جسم بلا مسار عطل، إلا إن كانت كاميرته تنبض الآن: فهي سليمة ولا ترى شيئًا.
@@ -90,6 +139,8 @@ def assess(tracks, now, horizon=6., margin=.2, occlusion_gate=True, sensors=None
             return {'state': 'DEGRADED', 'reason': 'رصد قديم أو ضعيف أو غير معاير', 'ttc': None}
     if absent:
         return {'state': 'NOTHING_IN_VIEW', 'reason': ABSENT[absent], 'ttc': None}
+    if speed_envelope > 0:
+        return window_hazard(tracks, now, horizon, margin, occlusion_gate, speed_envelope)
     if abs(tracks['car']['time']-tracks['pedestrian']['time']) > .25:
         return {'state': 'DEGRADED', 'reason': 'الرصد غير متزامن', 'ttc': None}
     for step in range(int(horizon/.05)+1):

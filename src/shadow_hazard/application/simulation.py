@@ -44,6 +44,8 @@ class Scenario:
     car_target_speed: float = -1.
     car_acceleration: float = 1.
     car_acceleration_start: float = 0.
+    # نافذة الوصول: نفترض أن سرعة السيارة قد تتغير حتى ±هذه النسبة من المقيسة. صفر = بلا نافذة.
+    speed_envelope: float = 0.
 
 
 def catalogue():
@@ -81,6 +83,7 @@ def validate(s):
               'dropout': (0, 1), 'confidence': (0, 1), 'horizon': (.5, 10), 'margin': (0, 1),
               'reaction_time': (0, 10), 'braking_deceleration': (.1, 10)}
     bounds.update(behavior_time=(0, 15), pause_duration=(.5, 10))
+    bounds.update(speed_envelope=(0, .9))
     bounds.update(car_target_speed=(-1, 15), car_acceleration=(.1, 5), car_acceleration_start=(0, 30))
     for name, (low, high) in bounds.items():
         value = getattr(s, name)
@@ -270,7 +273,8 @@ def run(s):
             for actor, track in tracks.items():
                 expected = point(track['route'], track['progress']+track['speed']*(now-track['time']))
                 if actor not in arrived and not bus_cameras.sees(actor, expected):
-                    tracks[actor] = {**track, 'progress': track['progress']+track['speed']*.1,
+                    tracks[actor] = {**track, 'measured': track.get('measured', track['time']),
+                                     'progress': track['progress']+track['speed']*.1,
                                      'time': min(now, round(track['time']+.1, 6)), 'coasted': True}
         # جسم رُصد للتو ولم يكتمل مساره ليس غائبًا عن المجال: يبقى «غير معروف» حتى يكتمل.
         empty = {actor: stamp for actor, stamp in sensors.items() if actor in tracks
@@ -278,7 +282,8 @@ def run(s):
         # وضع إشارة المشاة مجمّد كما هو (ADR 0002)؛ شرط الحجب للنواة فقط.
         prediction = assess(tracks, now, s.horizon, s.margin,
                             occlusion_gate=not (custom and s.signals == 'auto'),
-                            sensors=empty if bus_sensing else None)
+                            sensors=empty if bus_sensing else None,
+                            speed_envelope=s.speed_envelope)
         # «لا شيء في المجال» حالة سليمة، لكن ما يقرأ المسارين ينتظر وجودهما معًا.
         reliable = prediction['state'] not in ('UNKNOWN', 'DEGRADED', 'NOTHING_IN_VIEW')
         car_passed = (reliable and point(tracks['car']['route'], tracks['car']['progress'])[1]-2 > CROSSWALK_HALF_WIDTH+s.margin
@@ -439,6 +444,8 @@ def run(s):
                 events.append({'time': time, 'event': event})
         events.sort(key=lambda e: e['time'])
     sensing_version = f'-{bus_cameras.VERSION}-{s.sensing}' if bus_sensing else ''
+    if s.speed_envelope:
+        sensing_version += '-arrival-window-v1'
     return {'version': (VERSION+'-direct-motion-v2' if custom else VERSION+'-driver-response-v2' if comparison else VERSION)+sensing_version,
             'events': events,
             'response_cycles': response_cycles,
