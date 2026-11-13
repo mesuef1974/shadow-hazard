@@ -39,6 +39,11 @@ class Scenario:
     # overhead: كاميرا علوية ترى المشهد كله. bus: كاميرتا الحافلة (ADR 0007) مع إكمال المسار
     # بعد الخروج من المجال. bus_no_coast: كاميرتا الحافلة بلا إكمال.
     sensing: str = 'overhead'
+    # تغيّر سرعة السيارة قبل أي استجابة للتحذير: من لحظة car_acceleration_start تتجه إلى
+    # car_target_speed بمعدل car_acceleration (م/ث²). الهدف السالب يعني لا تغيّر.
+    car_target_speed: float = -1.
+    car_acceleration: float = 1.
+    car_acceleration_start: float = 0.
 
 
 def catalogue():
@@ -76,6 +81,7 @@ def validate(s):
               'dropout': (0, 1), 'confidence': (0, 1), 'horizon': (.5, 10), 'margin': (0, 1),
               'reaction_time': (0, 10), 'braking_deceleration': (.1, 10)}
     bounds.update(behavior_time=(0, 15), pause_duration=(.5, 10))
+    bounds.update(car_target_speed=(-1, 15), car_acceleration=(.1, 5), car_acceleration_start=(0, 30))
     for name, (low, high) in bounds.items():
         value = getattr(s, name)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
@@ -110,6 +116,14 @@ def run(s):
         camera = MarkerCamera()
     rng = random.Random(s.seed)
     custom = s.key == 'custom'
+
+    def free_speed(t):
+        # سرعة السيارة ما لم يستجب سائقها: ثابتة، ثم تتجه خطيًا إلى السرعة المستهدفة وتثبت.
+        if s.car_target_speed < 0:
+            return s.car_speed
+        change = s.car_acceleration*max(0., t-s.car_acceleration_start)
+        return (min(s.car_target_speed, s.car_speed+change) if s.car_target_speed >= s.car_speed
+                else max(s.car_target_speed, s.car_speed-change))
     bus_sensing = s.sensing != 'overhead'
     sensor_fault = s.sensor_fault if custom else s.fault
     pedestrian_behavior = s.pedestrian_behavior if custom else s.fault
@@ -145,7 +159,7 @@ def run(s):
     previous_warning = False
     for index in range(int(s.duration*10)+1):
         now = round(index*.1, 2)
-        speeds = {'car': s.car_speed, 'pedestrian': s.pedestrian_speed if now >= s.pedestrian_delay else 0.}
+        speeds = {'car': free_speed(now), 'pedestrian': s.pedestrian_speed if now >= s.pedestrian_delay else 0.}
         event_time = s.behavior_time if custom else 2
         if pedestrian_behavior == 'stop' and now >= event_time:
             speeds['pedestrian'] = 0.
@@ -174,6 +188,8 @@ def run(s):
         if index:
             for actor in routes:
                 movement = speeds[actor]*.1
+                if actor == 'car' and s.car_target_speed >= 0:
+                    movement = (free_speed(now)+free_speed(now-.1))/2*.1
                 if actor == 'car' and driver_behavior in ('brake', 'accelerate'):
                     def free_travel(t):
                         if driver_behavior == 'accelerate':
