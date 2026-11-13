@@ -8,7 +8,7 @@ from math import atan2, degrees, radians, tan
 
 from shadow_hazard.domain.motion import BUS
 
-VERSION = 'bus-cameras-v1'
+VERSION = 'bus-cameras-v2'
 
 
 @dataclass(frozen=True)

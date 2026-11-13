@@ -4,7 +4,7 @@ from django.test import SimpleTestCase
 
 from shadow_hazard.application.simulation import Scenario, run, validate
 from shadow_hazard.domain.bus_cameras import CAMERAS, bearing, exit_distance, sees
-from shadow_hazard.domain.motion import BUS
+from shadow_hazard.domain.motion import BUS, ROUTES, assess
 
 # خلية خطرة من شبكة بروتوكول 731: سيارة بطيئة وطفل بطيء، يعتمد تحذيرها على إكمال المسار.
 SLOW = Scenario(key='custom', horizon=3., duration=30, reaction_time=.5, car_speed=3.,
@@ -53,14 +53,17 @@ class BusSensingRunTests(SimpleTestCase):
 
     def test_bus_cameras_observe_only_inside_their_fields(self):
         result = run(replace(SLOW, sensing='bus'))
-        self.assertIn('bus-cameras-v1-bus', result['version'])
+        self.assertIn('bus-cameras-v2-bus', result['version'])
         self.assertEqual({o['sensor_id'] for o in result['observations']},
                          {'bus-rear-left-camera', 'bus-front-camera'})
         for o in result['observations']:
             self.assertTrue(sees(o['actor'], o['position']))
         self.assertEqual(result['frames'][0]['in_view'], {'car': True, 'pedestrian': False})
-        # الطفل غير مرئي حتى يتقدم أمام المقدمة: لا مسار له، فالحالة «غير معروف».
-        self.assertEqual(result['frames'][10]['prediction']['state'], 'UNKNOWN')
+        # الطفل بجانب الحافلة خارج مجال كاميرا المقدمة وهي سليمة: حالة سليمة لا عطل.
+        early = result['frames'][10]['prediction']
+        self.assertEqual((early['state'], early['reason']),
+                         ('NOTHING_IN_VIEW', 'لا طفل في مجال الكاميرا'))
+        self.assertEqual(result['frames'][10]['evaluation'], 'tn')
 
     def test_coasting_keeps_the_warning_after_the_car_leaves_the_field(self):
         overhead = run(SLOW)['metrics']
@@ -93,3 +96,59 @@ class BusSensingRunTests(SimpleTestCase):
         self.assertTrue(frame['in_view']['pedestrian'])
         self.assertEqual(frame['prediction']['state'], 'DEGRADED')
         self.assertNotIn('coasted', frame['tracks']['pedestrian'])
+
+
+def car_track(time=10.):
+    return {'progress': 5., 'speed': 3., 'time': time, 'confidence': 1.,
+            'frame': 'scene-metres-v1', 'route': ROUTES['car']}
+
+
+class NothingInViewTests(SimpleTestCase):
+    def test_healthy_camera_without_a_target_is_not_a_fault(self):
+        both = {'car': 10., 'pedestrian': 10.}
+        result = assess({'car': car_track()}, 10., sensors=both)
+        self.assertEqual((result['state'], result['reason']),
+                         ('NOTHING_IN_VIEW', 'لا طفل في مجال الكاميرا'))
+        self.assertEqual(assess({}, 10., sensors=both)['reason'],
+                         'لا سيارة ولا طفل في مجال الكاميرتين')
+
+    def test_silent_or_late_camera_stays_unknown(self):
+        tracks = {'car': car_track()}
+        self.assertEqual(assess(tracks, 10.)['state'], 'UNKNOWN')
+        self.assertEqual(assess(tracks, 10., sensors={'car': 10.})['state'], 'UNKNOWN')
+        for stamp in (9.4, 10.1):
+            with self.subTest(stamp=stamp):
+                self.assertEqual(assess(tracks, 10., sensors={'pedestrian': stamp})['state'],
+                                 'UNKNOWN')
+
+    def test_stale_track_still_degrades_when_the_other_target_is_absent(self):
+        result = assess({'car': car_track(time=9.)}, 10., sensors={'pedestrian': 10.})
+        self.assertEqual(result['state'], 'DEGRADED')
+
+    def test_real_camera_faults_are_still_declared_in_the_run(self):
+        # كاميرا الطفل غائبة من البداية، أو مقطوعة والطفل لم يدخل مجالها بعد، أو معايرتها باطلة.
+        for fault, time in (('missing', 1.), ('loss', 3.), ('calibration', 1.), ('clock', 1.)):
+            with self.subTest(fault=fault):
+                result = run(replace(SLOW, sensing='bus', sensor_fault=fault))
+                frame = at(result, time)
+                self.assertFalse(frame['in_view']['pedestrian'])
+                self.assertEqual(frame['prediction']['state'], 'UNKNOWN')
+        for changes in ({'latency': .8}, {'confidence': .3}, {'dropout': 1.}):
+            with self.subTest(changes=changes):
+                result = run(replace(SLOW, sensing='bus', **changes))
+                self.assertEqual(at(result, 1.)['prediction']['state'], 'UNKNOWN')
+
+    def test_unavailable_frames_drop_to_first_sightings(self):
+        # يبقى «غير معروف» إطاران فقط: أول رصد للسيارة وأول رصد للطفل، قبل اكتمال مساريهما.
+        result = run(replace(SLOW, sensing='bus'))
+        unknown = [f['time'] for f in result['frames']
+                   if f['prediction']['state'] in ('UNKNOWN', 'DEGRADED')]
+        self.assertEqual(unknown, [0., 3.7])
+        self.assertFalse(at(result, 3.6)['in_view']['pedestrian'])
+        self.assertTrue(at(result, 3.7)['in_view']['pedestrian'])
+        self.assertEqual(result['metrics']['first_prediction_alert'],
+                         run(SLOW)['metrics']['first_prediction_alert'])
+
+    def test_overhead_mode_never_reports_nothing_in_view(self):
+        result = run(replace(SLOW, sensor_fault='missing', duration=20))
+        self.assertEqual({f['prediction']['state'] for f in result['frames']}, {'UNKNOWN'})

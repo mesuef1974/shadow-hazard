@@ -73,13 +73,23 @@ class Observation:
     algorithm: str = 'synthetic-v1'
 
 
-def assess(tracks, now, horizon=6., margin=.2, occlusion_gate=True):
-    if len(tracks) != 2:
+ABSENT = {('car',): 'لا سيارة في مجال الكاميرا', ('pedestrian',): 'لا طفل في مجال الكاميرا',
+          ('car', 'pedestrian'): 'لا سيارة ولا طفل في مجال الكاميرتين'}
+
+
+def assess(tracks, now, horizon=6., margin=.2, occlusion_gate=True, sensors=None):
+    """sensors: وقت آخر إطار سليم من كاميرا كل جسم؛ None يعني لا نبض (السلوك القديم)."""
+    absent = tuple(actor for actor in ('car', 'pedestrian') if actor not in tracks)
+    # جسم بلا مسار عطل، إلا إن كانت كاميرته تنبض الآن: فهي سليمة ولا ترى شيئًا.
+    if absent and (sensors is None or any(
+            not 0 <= now-sensors.get(actor, float('-inf')) <= .5 for actor in absent)):
         return {'state': 'UNKNOWN', 'reason': 'الرصد غير مكتمل', 'ttc': None}
     for track in tracks.values():
         if (now-track['time'] > .5 or track['time'] > now or
                 track['confidence'] < .6 or track['frame'] != 'scene-metres-v1'):
             return {'state': 'DEGRADED', 'reason': 'رصد قديم أو ضعيف أو غير معاير', 'ttc': None}
+    if absent:
+        return {'state': 'NOTHING_IN_VIEW', 'reason': ABSENT[absent], 'ttc': None}
     if abs(tracks['car']['time']-tracks['pedestrian']['time']) > .25:
         return {'state': 'DEGRADED', 'reason': 'الرصد غير متزامن', 'ttc': None}
     for step in range(int(horizon/.05)+1):
