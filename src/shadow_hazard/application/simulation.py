@@ -124,6 +124,8 @@ def run(s):
     route_lengths = {actor: sum(math.dist(a, b) for a, b in zip(route, route[1:])) for actor, route in routes.items()}
     histories = {actor: [] for actor in routes}
     tracks, queue, frames = {}, [], []
+    # نبض الكاميرتين (وضع الحافلة): وقت آخر إطار سليم وصل من كل كاميرا، ولو بلا جسم فيه.
+    sensors, beats = {}, []
     epoch = datetime(2026, 1, 1, tzinfo=timezone.utc)
     observation_log = []
     response_alert = None
@@ -206,6 +208,9 @@ def run(s):
             missing = (actor == 'pedestrian' and (sensor_fault == 'missing' or sensor_fault == 'loss' and 1 <= now <= 8))
             missing = missing or rng.random() < s.dropout
             # كاميرا الحافلة لا ترى إلا ما في مجالها؛ بعد سحب العشوائية ليبقى تسلسلها ثابتًا.
+            if bus_sensing and not missing:
+                beats.append((actor, now+(.4 if actor == 'pedestrian' and sensor_fault == 'clock' else 0),
+                              now+s.latency, sensor_fault != 'calibration' and s.confidence >= .6))
             in_view = not bus_sensing or bus_cameras.sees(actor, pos)
             missing = missing or not in_view
             measured = (pos[0]+rng.gauss(0, s.noise), pos[1]+rng.gauss(0, s.noise))
@@ -238,6 +243,10 @@ def run(s):
                                     'direct_displacement': distance-h[-2][1],
                                     'time': obs.captured, 'confidence': obs.confidence, 'frame': obs.frame,
                                     'route': routes[obs.actor]}
+        for actor, stamp, received, healthy in beats:
+            if received <= now+1e-8 and healthy:
+                sensors[actor] = stamp
+        beats = [beat for beat in beats if beat[2] > now+1e-8]
         if s.sensing == 'bus':
             # ADR 0007 بند 7: غياب الرصد الذي يفسّره خروج الجسم من مجال الكاميرا لا يُسقط
             # المسار، بل يُكمَل بآخر سرعة مقيسة مع حفظ عمره. والغياب داخل المجال عطل يشيخ به.
@@ -247,10 +256,15 @@ def run(s):
                 if actor not in arrived and not bus_cameras.sees(actor, expected):
                     tracks[actor] = {**track, 'progress': track['progress']+track['speed']*.1,
                                      'time': min(now, round(track['time']+.1, 6)), 'coasted': True}
+        # جسم رُصد للتو ولم يكتمل مساره ليس غائبًا عن المجال: يبقى «غير معروف» حتى يكتمل.
+        empty = {actor: stamp for actor, stamp in sensors.items() if actor in tracks
+                 or not (histories[actor] and now-histories[actor][-1][0] <= .5)}
         # وضع إشارة المشاة مجمّد كما هو (ADR 0002)؛ شرط الحجب للنواة فقط.
         prediction = assess(tracks, now, s.horizon, s.margin,
-                            occlusion_gate=not (custom and s.signals == 'auto'))
-        reliable = prediction['state'] not in ('UNKNOWN', 'DEGRADED')
+                            occlusion_gate=not (custom and s.signals == 'auto'),
+                            sensors=empty if bus_sensing else None)
+        # «لا شيء في المجال» حالة سليمة، لكن ما يقرأ المسارين ينتظر وجودهما معًا.
+        reliable = prediction['state'] not in ('UNKNOWN', 'DEGRADED', 'NOTHING_IN_VIEW')
         car_passed = (reliable and point(tracks['car']['route'], tracks['car']['progress'])[1]-2 > CROSSWALK_HALF_WIDTH+s.margin
                       and tracks['car']['speed'] >= 0)
         if custom and s.signals == 'auto':
