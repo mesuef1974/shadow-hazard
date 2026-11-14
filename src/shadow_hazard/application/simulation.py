@@ -46,7 +46,19 @@ class Scenario:
     car_acceleration: float = 1.
     car_acceleration_start: float = 0.
     # نافذة الوصول: نفترض أن سرعة السيارة قد تتغير حتى ±هذه النسبة من المقيسة. صفر = بلا نافذة.
-    speed_envelope: float = 0.
+    # None = افتراضي وضع الرصد: ±50% مع كاميرا المرآة (قرار المالك في 14 نوفمبر، ADR 0009)،
+    # وبلا نافذة في غيره لأن كاميرتي الحافلة وحدهما لا تجتازان بها بروتوكول 731.
+    speed_envelope: float | None = None
+
+
+MIRROR_ENVELOPE = .5
+
+
+def arrival_envelope(s):
+    """النافذة النافذة فعلًا: القيمة الصريحة إن وُجدت، وإلا افتراضي وضع الرصد."""
+    if s.speed_envelope is not None:
+        return s.speed_envelope
+    return MIRROR_ENVELOPE if s.sensing == 'bus_mirror' else 0.
 
 
 def catalogue():
@@ -88,6 +100,8 @@ def validate(s):
     bounds.update(car_target_speed=(-1, 15), car_acceleration=(.1, 5), car_acceleration_start=(0, 30))
     for name, (low, high) in bounds.items():
         value = getattr(s, name)
+        if name == 'speed_envelope' and value is None:
+            continue
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
             raise ValueError(f'قيمة غير صالحة: {name}')
     if s.duration not in (20, 30) or isinstance(s.duration, bool):
@@ -129,6 +143,7 @@ def run(s):
         return (min(s.car_target_speed, s.car_speed+change) if s.car_target_speed >= s.car_speed
                 else max(s.car_target_speed, s.car_speed-change))
     bus_sensing = s.sensing != 'overhead'
+    envelope = arrival_envelope(s)
     layout = 'bus_mirror' if s.sensing == 'bus_mirror' else 'bus'
     sensor_fault = s.sensor_fault if custom else s.fault
     pedestrian_behavior = s.pedestrian_behavior if custom else s.fault
@@ -285,7 +300,7 @@ def run(s):
         prediction = assess(tracks, now, s.horizon, s.margin,
                             occlusion_gate=not (custom and s.signals == 'auto'),
                             sensors=empty if bus_sensing else None,
-                            speed_envelope=s.speed_envelope)
+                            speed_envelope=envelope)
         # «لا شيء في المجال» حالة سليمة، لكن ما يقرأ المسارين ينتظر وجودهما معًا.
         reliable = prediction['state'] not in ('UNKNOWN', 'DEGRADED', 'NOTHING_IN_VIEW')
         car_passed = (reliable and point(tracks['car']['route'], tracks['car']['progress'])[1]-2 > CROSSWALK_HALF_WIDTH+s.margin
@@ -446,7 +461,7 @@ def run(s):
                 events.append({'time': time, 'event': event})
         events.sort(key=lambda e: e['time'])
     sensing_version = f'-{bus_cameras.VERSION}-{s.sensing}' if bus_sensing else ''
-    if s.speed_envelope:
+    if envelope:
         sensing_version += '-arrival-window-v1'
     return {'version': (VERSION+'-direct-motion-v2' if custom else VERSION+'-driver-response-v2' if comparison else VERSION)+sensing_version,
             'events': events,
