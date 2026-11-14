@@ -2,7 +2,7 @@ from dataclasses import replace
 
 from django.test import SimpleTestCase
 
-from shadow_hazard.application.simulation import Scenario, run, validate
+from shadow_hazard.application.simulation import Scenario, arrival_envelope, run, validate
 from shadow_hazard.domain.motion import ROUTES, assess, swept_overlap, travel, travel_bounds
 
 # المشهد نفسه في test_speed_change: بسرعة ثابتة لا اصطدام، وبتسارع بعد الغياب عن العدسة اصطدام.
@@ -82,10 +82,23 @@ class ArrivalWindowDecisionTests(SimpleTestCase):
 
 class ArrivalWindowRunTests(SimpleTestCase):
     def test_default_is_no_window_and_bad_values_are_rejected(self):
-        self.assertEqual(Scenario().speed_envelope, 0.)
+        self.assertIsNone(Scenario().speed_envelope)
+        for sensing in ('overhead', 'bus', 'bus_no_coast'):
+            self.assertEqual(arrival_envelope(replace(BASE, sensing=sensing)), 0.)
         self.assertNotIn('arrival-window', run(replace(BASE, duration=20))['version'])
-        with self.assertRaises(ValueError):
-            validate(replace(BASE, speed_envelope=1.))
+        for bad in (1., -.1, '0.5', True):
+            with self.assertRaises(ValueError):
+                validate(replace(BASE, speed_envelope=bad))
+
+    def test_mirror_camera_turns_the_half_window_on_by_default(self):
+        # قرار المالك في 14 نوفمبر: ±50% مع كاميرا المرآة. القيمة الصريحة تغلب، والصفر يطفئها.
+        mirror = replace(BASE, sensing='bus_mirror')
+        self.assertEqual(arrival_envelope(mirror), .5)
+        self.assertEqual(arrival_envelope(replace(mirror, speed_envelope=0.)), 0.)
+        self.assertEqual(arrival_envelope(replace(mirror, speed_envelope=.3)), .3)
+        self.assertIn('bus_mirror-arrival-window-v1', run(mirror)['version'])
+        self.assertNotIn('arrival-window', run(replace(mirror, speed_envelope=0.))['version'])
+        self.assertEqual(run(mirror)['frames'], run(replace(mirror, speed_envelope=.5))['frames'])
 
     def test_window_recovers_the_car_that_speeds_up_out_of_view(self):
         windowed = replace(SPEEDING, speed_envelope=.5)
