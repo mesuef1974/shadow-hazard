@@ -51,6 +51,7 @@ python --version
 - [سجل القرارات](docs/decisions/0001-initial-architecture.md)
 - [جلسات العمل ومواثيقها](docs/sessions/README.md)
 - [خطة المركز الأول — فئة المحترفين](docs/competition/first-place-plan-senior-ar.html)
+- [دليل الفريق لمراجعة الفكرة](docs/competition/idea-review-team-guide-ar.html)
 
 ## الترخيص
 
