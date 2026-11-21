@@ -121,7 +121,17 @@ class TrainingPagesTests(TestCase):
         self.assertEqual(self.client.get(f"/training/slides/{self.bare.pk}/image").status_code, 404)
         outside = Path(self.temp.name) / "secret.png"
         outside.write_bytes(b"outside")
-        TrainingSlide.objects.filter(pk=self.slide.pk).update(image_path="../../secret.png")
+        TrainingSlide.objects.filter(pk=self.slide.pk).update(
+            image_path="../../secret.png", image_url="https://example.com/x.png")
+        self.assertEqual(
+            self.client.get(f"/training/slides/{self.slide.pk}/image").status_code, 404)
+
+    def test_slide_image_without_local_file_redirects_to_its_allowed_source(self):
+        self.client.force_login(self.student)
+        TrainingSlide.objects.filter(pk=self.slide.pk).update(image_path="absent.png")
+        response = self.client.get(f"/training/slides/{self.slide.pk}/image")
+        self.assertRedirects(response, self.slide.image_url, fetch_redirect_response=False)
+        TrainingSlide.objects.filter(pk=self.slide.pk).update(image_url="http://firebasestorage.googleapis.com/x")
         self.assertEqual(
             self.client.get(f"/training/slides/{self.slide.pk}/image").status_code, 404)
 

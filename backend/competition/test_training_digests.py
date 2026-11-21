@@ -172,7 +172,7 @@ class LessonDigestTests(TestCase):
             with self.assertRaises(CommandError):
                 call_command("training_content", "lesson-digests", str(lessons))
 
-    def test_student_cannot_open_project_page(self):
+    def test_student_opens_project_page(self):
         student = get_user_model().objects.create_user(username="saud", role="student")
         self.client.force_login(student)
-        self.assertEqual(self.client.get("/training/project/").status_code, 403)
+        self.assertEqual(self.client.get("/training/project/").status_code, 200)
