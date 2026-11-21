@@ -150,9 +150,13 @@ def _save_slide(lesson, position, step):
     slide.save()
 
 
-def _read_image(url, timeout=60):
+def image_url_allowed(url):
     parts = urlsplit(url)
-    if parts.scheme != "https" or parts.hostname not in ALLOWED_IMAGE_HOSTS:
+    return parts.scheme == "https" and parts.hostname in ALLOWED_IMAGE_HOSTS
+
+
+def _read_image(url, timeout=60):
+    if not image_url_allowed(url):
         raise ValueError("image host not allowed")
     request = Request(url, headers={"User-Agent": "shadow-hazard-training/1"})
     with urlopen(request, timeout=timeout) as response:  # noqa: S310 - المضيف مقيَّد أعلاه

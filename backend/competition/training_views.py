@@ -5,7 +5,7 @@ from pathlib import Path
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.http import FileResponse, Http404
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from . import training
 from .models import TrainingCourse, TrainingLesson, TrainingRecording, TrainingSlide
@@ -67,12 +67,17 @@ def recording(request, pk):
 
 @team_only
 def slide_image(request, pk):
-    """صورة الشريحة من مجلد العمل المحلي؛ الاسم من القاعدة ويُقصَر على اسم ملف داخل المجلد."""
+    """صورة الشريحة من مجلد العمل المحلي؛ الاسم من القاعدة ويُقصَر على اسم ملف داخل المجلد.
+
+    النسخة السحابية لا تحمل الملفات (ADR 0011)، فتُحال الصورة إلى مصدرها في منصة المسابقة.
+    """
     slide = get_object_or_404(TrainingSlide, pk=pk)
     if not slide.image_path:
         raise Http404
     path = training.slides_dir() / Path(slide.image_path).name
     if not path.is_file():
+        if training.image_url_allowed(slide.image_url):
+            return redirect(slide.image_url)
         raise Http404
     kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     response = FileResponse(path.open("rb"), content_type=kind)
