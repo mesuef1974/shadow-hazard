@@ -19,3 +19,15 @@ class User(AbstractUser):
             self._meta.constraints[0].validate(type(self), self)
         except ValidationError:
             raise ValidationError('الحسابات المسموحة: mesuef مشرفًا، وsaud وmubarak طالبين بلا صلاحية إدارة.')
+
+
+class LoginThrottle(models.Model):
+    """عدّاد محاولات الدخول الفاشلة؛ القواعد في accounts/throttle.py."""
+    key = models.CharField("المفتاح المجزَّأ", max_length=64, unique=True)
+    failures = models.PositiveSmallIntegerField("المحاولات الفاشلة", default=0)
+    window_started = models.DateTimeField("بداية النافذة")
+    locked_until = models.DateTimeField("مقفول حتى", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "قفل محاولات الدخول"
+        verbose_name_plural = "أقفال محاولات الدخول"

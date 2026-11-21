@@ -55,6 +55,17 @@ SESSION_COOKIE_SECURE = PRODUCTION
 CSRF_COOKIE_SECURE = PRODUCTION
 SECURE_SSL_REDIRECT = PRODUCTION
 SECURE_CONTENT_TYPE_NOSNIFF = True
+# النسخة السحابية (ADR 0010) خلف وسيط TLS. الثقة بترويساته تُفعَّل صراحةً، فلا تُصدَّق من عميل مباشر.
+BEHIND_PROXY = os.getenv("DJANGO_BEHIND_PROXY") == "1"
+if BEHIND_PROXY:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+CSRF_TRUSTED_ORIGINS = [
+    v.strip() for v in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if v.strip()]
+SECURE_REDIRECT_EXEMPT = [r"^healthz/$"]  # فحص الصحة يصل بـHTTP من داخل شبكة المنصة السحابية.
+AUTHENTICATION_BACKENDS = ["accounts.backends.ThrottledModelBackend"]
+if PRODUCTION:
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+    SECURE_HSTS_SECONDS = 31536000
 X_FRAME_OPTIONS = "DENY"
 
 # Read-only local skill roots; deployment may override these explicitly.
