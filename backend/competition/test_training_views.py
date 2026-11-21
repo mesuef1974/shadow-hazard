@@ -59,21 +59,18 @@ class TrainingPagesTests(TestCase):
         response.close()  # يغلق ملف الصورة المفتوح للبث؛ ويندوز لا يحذف ملفًا مفتوحًا
         return response.status_code
 
-    def test_pages_are_for_the_supervisor_only(self):
+    def test_pages_are_for_the_team_only(self):
         for page in self.pages:
             self.assertEqual(self.status(page), 302, page)  # إلى الدخول
-        self.client.force_login(self.student)
-        for page in self.pages:
-            self.assertEqual(self.status(page), 403, page)
-        self.client.force_login(self.owner)
-        for page in self.pages:
-            self.assertEqual(self.status(page), 200, page)
+        for user in (self.student, self.owner):
+            self.client.force_login(user)
+            for page in self.pages:
+                self.assertEqual(self.status(page), 200, page)
 
-    def test_menu_link_shows_for_supervisor_only(self):
-        self.client.force_login(self.student)
-        self.assertNotContains(self.client.get("/"), "/training/")
-        self.client.force_login(self.owner)
-        self.assertContains(self.client.get("/"), 'href="/training/"')
+    def test_menu_link_shows_for_the_team(self):
+        for user in (self.student, self.owner):
+            self.client.force_login(user)
+            self.assertContains(self.client.get("/"), 'href="/training/"')
 
     def test_index_lists_courses_lessons_and_recordings(self):
         self.client.force_login(self.owner)

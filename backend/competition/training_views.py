@@ -1,31 +1,21 @@
-"""صفحات عرض المحتوى التدريبي للمشرف: الدورات، الدرس بشرائحه ونصوصها، وتفريغ اللقاء."""
+"""صفحات عرض المحتوى التدريبي للفريق (المشرف والطالبان): الدورات، الدرس بشرائحه ونصوصها، وتفريغ اللقاء."""
 import mimetypes
-from functools import wraps
 from pathlib import Path
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
-from django.http import FileResponse, Http404, HttpResponseForbidden
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, render
 
 from . import training
 from .models import TrainingCourse, TrainingLesson, TrainingRecording, TrainingSlide
 
-FORBIDDEN = "المحتوى التدريبي للمشرف"
 QUERY_LIMIT = 100
+# الحسابات ثلاثة بقيد القاعدة (المشرف والطالبان)، فالدخول وحده يكفي حدًّا للفريق.
+team_only = login_required(login_url="/login/")
 
 
-def supervisor_only(view):
-    @login_required(login_url="/login/")
-    @wraps(view)
-    def guarded(request, *args, **kwargs):
-        if getattr(request.user, "role", None) != "supervisor":
-            return HttpResponseForbidden(FORBIDDEN)
-        return view(request, *args, **kwargs)
-    return guarded
-
-
-@supervisor_only
+@team_only
 def index(request):
     query = (request.GET.get("q") or "").strip()[:QUERY_LIMIT]
     courses = TrainingCourse.objects.prefetch_related(
@@ -40,7 +30,7 @@ def index(request):
     return render(request, "competition/training_index.html", context)
 
 
-@supervisor_only
+@team_only
 def project(request):
     """كيف يفيد المحتوى التدريبي المشروع: الخلاصة المصاغة ثم كل البنود بمصادرها."""
     groups = training.project_items()
@@ -49,7 +39,7 @@ def project(request):
     return render(request, "competition/training_project.html", context)
 
 
-@supervisor_only
+@team_only
 def lesson(request, pk):
     item = get_object_or_404(TrainingLesson.objects.select_related("course"), pk=pk)
     siblings = TrainingLesson.objects.filter(course=item.course)
@@ -63,7 +53,7 @@ def lesson(request, pk):
     return render(request, "competition/training_lesson.html", context)
 
 
-@supervisor_only
+@team_only
 def recording(request, pk):
     item = get_object_or_404(TrainingRecording, pk=pk)
     segments = [
@@ -75,7 +65,7 @@ def recording(request, pk):
     return render(request, "competition/training_recording.html", context)
 
 
-@supervisor_only
+@team_only
 def slide_image(request, pk):
     """صورة الشريحة من مجلد العمل المحلي؛ الاسم من القاعدة ويُقصَر على اسم ملف داخل المجلد."""
     slide = get_object_or_404(TrainingSlide, pk=pk)
@@ -86,7 +76,7 @@ def slide_image(request, pk):
         raise Http404
     kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     response = FileResponse(path.open("rb"), content_type=kind)
-    # الملف مسمّى ببصمة محتواه فلا يتغير؛ الذاكرة خاصة بمتصفح المشرف.
+    # الملف مسمّى ببصمة محتواه فلا يتغير؛ الذاكرة خاصة بمتصفح صاحب الحساب.
     response["Cache-Control"] = "private, max-age=86400, immutable"
     response["X-Content-Type-Options"] = "nosniff"
     return response

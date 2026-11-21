@@ -29,8 +29,6 @@ def index(request):
 @login_required(login_url="/login/")
 @require_POST
 def execute(request, persist=True):
-    if request.user.role != 'supervisor':
-        return JsonResponse({'error': 'تشغيل التجارب وحفظها متاح للمشرف'}, status=403)
     if len(request.body) > 4096:
         return JsonResponse({'error': 'طلب أكبر من المسموح'}, status=400)
     try:

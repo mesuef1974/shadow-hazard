@@ -67,7 +67,8 @@ class WorkspacePermissionsTests(TestCase):
         self.assertEqual(self.client.get(f'/tasks/{self.task.pk}/').status_code,200)
         self.assertEqual(self.client.post(f'/tasks/{self.task.pk}/',{'body':'تعديل','state':'doing'}).status_code,403)
         self.assertEqual(self.client.get('/tasks/new/').status_code,403)
-        self.assertEqual(self.client.get('/exhibition/').status_code,403)
+        self.assertContains(self.client.get('/'),'href="/exhibition/"')
+        self.assertNotContains(self.client.get('/exhibition/'),'/exhibition/archive/')
 
     def test_assignee_can_submit_but_not_accept(self):
         self.client.force_login(self.saud)
