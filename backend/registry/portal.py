@@ -12,6 +12,8 @@ import json
 from token_usage.capacity import verified_document
 ROOT = settings.BASE_DIR.parent / "docs"
 EXTENSIONS = {".md", ".html", ".pdf", ".mmd"}
+# نموذج صفحة المحاكاة: الصفحة مفتوحة للطالبين (ADR 0011) فيُفتح معها، ولا ينتظر صفًّا في قاعدة كل نسخة.
+TEAM_OPEN = frozenset({"exercises/bus-shadow-explorer.html"})
 from workspace.prior_design import PRIOR_NAMES
 
 def resolve_document(name):
@@ -24,7 +26,7 @@ def resolve_document(name):
 def home(request):
     query = request.GET.get("q", "").strip()
     documents = []
-    permitted = set(DocumentAccess.objects.filter(team_visible=True).values_list('path', flat=True))
+    permitted = TEAM_OPEN | set(DocumentAccess.objects.filter(team_visible=True).values_list('path', flat=True))
     registered = {(a.path, a.sha256): a for a in Artifact.objects.filter(path__startswith="docs/")}
     for path in sorted(ROOT.rglob("*")):
         if path.is_file() and path.suffix.lower() in EXTENSIONS and path.resolve().is_relative_to(ROOT.resolve()):
@@ -55,7 +57,8 @@ def home(request):
 
 @login_required(login_url="/login/")
 def document(request, name):
-    if request.user.role != 'supervisor' and not DocumentAccess.objects.filter(path=name, team_visible=True).exists():
+    if (request.user.role != 'supervisor' and name not in TEAM_OPEN
+            and not DocumentAccess.objects.filter(path=name, team_visible=True).exists()):
         raise Http404
     if name.startswith('__receipts__/'):
         if request.user.role != 'supervisor':
