@@ -40,3 +40,6 @@
 توثيق استعمال مكتبة مع الهوية والمهمة والسبب:
 `python backend/manage.py inventory_python_packages --use django --actor codex-assistant --task arabic-admin-presentation --reason "بناء واجهة إدارة السجل"`
 هذه هوية مصرّح بها في أمر محلي موثوق، وليست إثباتًا مستقلًا للشخص الذي نفذ تثبيت pip. الاستعمال يوثق منفصلًا عن التثبيت، ولا توجد مراقبة لكل import. يمكن تمرير actor/task/reason مع الجرد لتوثيق تغييرات لم يرصدها المراقب بعد. راجع هوية المنفذ الفعلية قبل استعمال المثال.
+
+## النسخة السحابية (ADR 0010)
+نسخة ثانية للفريق على Railway تُبنى من `Dockerfile` في جذر المستودع بحسب `railway.json`، بوضع الإنتاج وقاعدة PostgreSQL مستقلة عن قاعدة المضيف. اعتمادياتها الزائدة في `requirements-cloud.txt` ولا يثبّتها المضيف. المتغيرات المطلوبة وما يعمل هناك وما لا يعمل في [ADR 0010](../docs/decisions/0010-cloud-copy-on-railway.md). تجربة محلية: `docker build -t shadow-cloud .` ثم تشغيلها مع حاوية PostgreSQL والمتغيرات نفسها.

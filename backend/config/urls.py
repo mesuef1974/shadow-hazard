@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
+from django.http import HttpResponse
 from django.urls import path, include
 from registry import portal
+from accounts.forms import ThrottledAuthenticationForm
 from workspace import views as workspace
 from automation_log import views as automation_log
 from token_usage import views as token_usage
@@ -11,6 +13,7 @@ from releases.pages import dashboard as release_dashboard
 from knowledge.views import (search_view as knowledge_search, search_page as knowledge_page,
     documentation_detail as knowledge_documentation_detail)
 urlpatterns = [
+ path('healthz/', lambda request: HttpResponse('ok'), name='healthz'),
  path('simulation/', include('simulation.urls')),
  path('training/', include('competition.urls')),
  path('knowledge/', knowledge_page, name='knowledge-page'),
@@ -45,7 +48,7 @@ urlpatterns = [
  path('exhibition/archive/', workspace.exhibition_archive, name='project-exhibition-archive'),
  path('archive/', workspace.prior_design_archive, name='project-archive'),
  path('logout/', auth_views.LogoutView.as_view(next_page='/login/'), name='logout'),
- path('login/', auth_views.LoginView.as_view(template_name='registry/login.html'), name='login'),
+ path('login/', auth_views.LoginView.as_view(template_name='registry/login.html', authentication_form=ThrottledAuthenticationForm), name='login'),
  path('documents/<path:name>', portal.document, name='project-document'),
  path('admin/', admin.site.urls),
 ]
