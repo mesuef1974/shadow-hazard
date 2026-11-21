@@ -412,10 +412,12 @@ class LabTests(TestCase):
         self.assertEqual(response.status_code,302)
         self.assertTrue(response.url.startswith('/login/'))
 
-    def test_student_reads_but_cannot_run(self):
+    def test_student_reads_and_runs(self):
         self.client.force_login(self.student)
-        self.assertEqual(self.client.get('/simulation/').status_code,200)
-        self.assertEqual(self.client.post('/simulation/run/',{'key':'crossing'},content_type='application/json').status_code,403)
+        self.assertContains(self.client.get('/simulation/'),'id="run"')
+        response=self.client.post('/simulation/run/',{'key':'crossing'},content_type='application/json')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(SimulationRun.objects.get(pk=response.json()['id']).created_by,self.student)
 
     def test_save_and_replay(self):
         self.client.force_login(self.supervisor)
@@ -441,10 +443,11 @@ class LabTests(TestCase):
         self.assertEqual(SimulationRun.objects.count(),0)
 
     def test_preview_retains_auth_and_validation(self):
+        self.assertEqual(self.client.post('/simulation/preview/',{'key':'crossing'},content_type='application/json').status_code,302)
         self.client.force_login(self.student)
-        self.assertEqual(self.client.post('/simulation/preview/',{'key':'crossing'},content_type='application/json').status_code,403)
-        self.client.force_login(self.supervisor)
+        self.assertEqual(self.client.post('/simulation/preview/',{'key':'crossing'},content_type='application/json').status_code,200)
         self.assertEqual(self.client.post('/simulation/preview/',{'key':'unknown'},content_type='application/json').status_code,400)
+        self.assertEqual(SimulationRun.objects.count(),0)
 
     def test_named_motion_scenarios_behave_differently(self):
         scenarios={s.key:s for s in catalogue()}

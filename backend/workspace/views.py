@@ -166,7 +166,6 @@ def decisions(request):
 
 @login_required(login_url='/login/')
 def exhibition(request):
-    if not supervisor(request.user):return HttpResponseForbidden('وضع العرض للمشرف فقط')
     from .models import SessionRenewal
     from token_usage.capacity import verified_document
     current_project=project()
