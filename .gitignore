@@ -46,3 +46,6 @@ desktop.ini
 
 # أرشيف الهوية المضغوط: خارج التتبع بعد تحويل المستودع إلى عام
 docs/brand/*.zip
+
+# حزمة Railway لمعاينة .railway/railway.ts وتطبيقه؛ تُثبَّت بـnpm ci
+.railway/node_modules/
