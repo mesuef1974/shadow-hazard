@@ -302,6 +302,19 @@ class OperationsTests(TransactionTestCase):
                 self.assertTrue(second["path"].exists())
                 self.assertTrue(outside.exists())
 
+    def test_retention_keeps_the_newest_copies_when_policy_retains_several(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with override_settings(OPERATIONS_BACKUP_DIR=root / "backups",
+                                   OPERATIONS_RESTORE_DIR=root / "restores"):
+                source_path = self.sqlite_backup_source(root / "source.sqlite3")
+                BackupPolicy.objects.filter(key="default").update(retained_successful=2)
+                with patch("operations.services._sqlite_source_path", return_value=source_path):
+                    results = [backup_database() for _ in range(4)]
+                self.assertEqual([result["pruned"] for result in results], [0, 0, 1, 1])
+                self.assertEqual([result["path"].exists() for result in results],
+                                 [False, False, True, True])
+
     def test_due_backup_runs_once_per_policy_interval(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
