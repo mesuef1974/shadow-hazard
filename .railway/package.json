@@ -1,0 +1,8 @@
+{
+  "name": "shadow-hazard-railway-config",
+  "private": true,
+  "description": "Railway IaC SDK for .railway/railway.ts (plan/apply by CLI only; not part of the image)",
+  "dependencies": {
+    "railway": "3.17.0"
+  }
+}
