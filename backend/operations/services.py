@@ -498,9 +498,8 @@ def _prune_backups(current_run, policy):
     root = _backup_root().resolve()
     successful = list(BackupRun.objects.filter(state="success", relative_path__startswith="backups/")
                       .order_by("-finished_at", "-pk"))
-    keep_ids = {current_run.pk, *(row.pk for row in successful[:max(0, policy.retained_successful - 1)])}
-    if len([row for row in successful if row.pk in keep_ids]) < min(policy.retained_successful, len(successful)):
-        return 0
+    # النسخة الحالية أحدث الناجحات، فهي ضمن الأحدث N؛ طرح واحد منها كان يُبقي N-1 فيوقف الحذف كله.
+    keep_ids = {current_run.pk, *(row.pk for row in successful[:policy.retained_successful])}
     removed = 0
     for row in successful:
         if row.pk in keep_ids:
