@@ -77,6 +77,7 @@ SKILL_INVENTORY_ROOTS = {
 }
 
 STATICFILES_DIRS = [('brand', BASE_DIR.parent / 'docs' / 'brand')]
+LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 INSTALLED_APPS += ['workspace.apps.WorkspaceConfig']
 INSTALLED_APPS += ['token_usage.apps.TokenUsageConfig']
