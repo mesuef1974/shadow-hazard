@@ -269,7 +269,7 @@ nav.library-pagination{justify-content:space-between;gap:12px;margin:14px 0 0;pa
 .library-pagination a{border:1px solid var(--brand-link);border-radius:6px;color:var(--brand-link);text-decoration:none}
 .library-pagination a:hover{background:var(--brand-secondary);color:var(--brand-on-accent)}
 .pagination-current{font-size:14px;color:var(--brand-muted)}
-.pagination-disabled{color:#718398}
+.pagination-disabled{color:var(--platform-muted)}
 @media(max-width:700px){.page-heading{align-items:flex-start;padding:14px}.page-heading-metric strong{font-size:24px}.page-heading-description{max-width:52ch}.usage-toolbar{align-items:stretch;flex-direction:column}.usage-toolbar form,.usage-toolbar button{width:100%}.library-search .search{align-items:stretch}.library-search .search input{min-width:100%;flex-basis:100%}.library-search button,.library-search .search>a{flex:1}.documents article{align-items:flex-start;padding:12px 10px}.documents .download{align-self:center}.library-results-meta{margin-block:8px}.library-pagination{position:static}}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .page-heading-description,:root:not([data-theme="light"]) .library-results-meta,:root:not([data-theme="light"]) .library-doc-details>small,:root:not([data-theme="light"]) .pagination-current{color:#becbd8}:root:not([data-theme="light"]) .pagination-disabled{color:#a8b8c8}}
 :root[data-theme="dark"] .page-heading-description,:root[data-theme="dark"] .library-results-meta,:root[data-theme="dark"] .library-doc-details>small,:root[data-theme="dark"] .pagination-current{color:#becbd8}
