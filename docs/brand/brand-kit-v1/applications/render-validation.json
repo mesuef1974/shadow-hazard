@@ -1,0 +1,79 @@
+[
+  {
+    "file": "platform-header-light.png",
+    "pixels": [
+      2880,
+      1440
+    ],
+    "renderer": "Inkscape 1.4",
+    "font": "IBM Plex Sans Arabic",
+    "font_source": "typography/fonts/",
+    "source": "templates/platform-header-light.svg"
+  },
+  {
+    "file": "platform-header-dark.png",
+    "pixels": [
+      2880,
+      1440
+    ],
+    "renderer": "Inkscape 1.4",
+    "font": "IBM Plex Sans Arabic",
+    "font_source": "typography/fonts/",
+    "source": "templates/platform-header-dark.svg"
+  },
+  {
+    "file": "competition-cover-16x9.png",
+    "pixels": [
+      1920,
+      1080
+    ],
+    "renderer": "Inkscape 1.4",
+    "font": "IBM Plex Sans Arabic",
+    "font_source": "typography/fonts/",
+    "source": "templates/competition-cover-16x9.svg"
+  },
+  {
+    "file": "project-card.png",
+    "pixels": [
+      1600,
+      1132
+    ],
+    "renderer": "Inkscape 1.4",
+    "font": "IBM Plex Sans Arabic",
+    "font_source": "typography/fonts/",
+    "source": "templates/project-card.svg"
+  },
+  {
+    "file": "report-cover-a4.png",
+    "pixels": [
+      2480,
+      3508
+    ],
+    "renderer": "Inkscape 1.4",
+    "font": "IBM Plex Sans Arabic",
+    "font_source": "typography/fonts/",
+    "source": "templates/report-cover-a4.svg"
+  },
+  {
+    "file": "device-label-mono.png",
+    "pixels": [
+      1200,
+      800
+    ],
+    "renderer": "Inkscape 1.4",
+    "font": "IBM Plex Sans Arabic",
+    "font_source": "typography/fonts/",
+    "source": "templates/device-label-mono.svg"
+  },
+  {
+    "file": "instagram-square.png",
+    "pixels": [
+      1080,
+      1080
+    ],
+    "renderer": "Inkscape 1.4",
+    "font": "IBM Plex Sans Arabic",
+    "font_source": "typography/fonts/",
+    "source": "templates/instagram-square.svg"
+  }
+]

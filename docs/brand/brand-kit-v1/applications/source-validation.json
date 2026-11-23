@@ -1,0 +1,148 @@
+{
+  "checks": [
+    {
+      "source": "project-card.svg",
+      "all_assets_exist": true,
+      "references": [
+        {
+          "reference": "../../logo/logo-horizontal-color.svg",
+          "exists": true
+        },
+        {
+          "reference": "../../mascot/rasid-original.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "source": "platform-header-light.svg",
+      "all_assets_exist": true,
+      "references": [
+        {
+          "reference": "../../logo/logo-horizontal-color.svg",
+          "exists": true
+        },
+        {
+          "reference": "../../mascot/rasid-original.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "source": "device-label-mono.svg",
+      "all_assets_exist": true,
+      "references": [
+        {
+          "reference": "../../logo/logo-mono-navy.svg",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "source": "platform-header-dark.svg",
+      "all_assets_exist": true,
+      "references": [
+        {
+          "reference": "../../logo/logo-horizontal-reversed.svg",
+          "exists": true
+        },
+        {
+          "reference": "../../mascot/rasid-original.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "source": "instagram-square.svg",
+      "all_assets_exist": true,
+      "references": [
+        {
+          "reference": "../../logo/logo-horizontal-color.svg",
+          "exists": true
+        },
+        {
+          "reference": "../../mascot/rasid-original.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "source": "competition-cover-16x9.svg",
+      "all_assets_exist": true,
+      "references": [
+        {
+          "reference": "../../logo/logo-horizontal-color.svg",
+          "exists": true
+        },
+        {
+          "reference": "../../mascot/rasid-original.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "source": "report-cover-a4.svg",
+      "all_assets_exist": true,
+      "references": [
+        {
+          "reference": "../../logo/logo-horizontal-color.svg",
+          "exists": true
+        },
+        {
+          "reference": "../../mascot/rasid-original.png",
+          "exists": true
+        }
+      ]
+    }
+  ],
+  "font_family": "IBM Plex Sans Arabic",
+  "rtl_rendering": "visually reviewed",
+  "diagram": {
+    "observer": [
+      80,
+      130
+    ],
+    "obstacle_bounds": [
+      220,
+      95,
+      280,
+      165
+    ],
+    "upper_ray_end": [
+      535,
+      16.25
+    ],
+    "lower_ray_end": [
+      535,
+      243.75
+    ],
+    "corner_tangent_error": 0.0,
+    "shadow_fill_starts_at_rear_x": 280,
+    "shadow_polygon": [
+      [
+        280,
+        80
+      ],
+      [
+        535,
+        16.25
+      ],
+      [
+        535,
+        243.75
+      ],
+      [
+        280,
+        180
+      ]
+    ]
+  },
+  "review": [
+    "Arabic shaping and line layout inspected",
+    "Logo reused as SVG without path changes",
+    "Rasid reused as original PNG without edits",
+    "No content overlaps or clipped text seen in rendered layouts",
+    "Device label is navy on white; no mascot used in the monochrome label",
+    "Shadow fill starts only at the obstacle rear boundary; the observer-to-obstacle region is unfilled. Boundary lines are tangent to near corners and do not cross the obstacle interior."
+  ]
+}

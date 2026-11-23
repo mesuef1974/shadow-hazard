@@ -1,0 +1,27 @@
+{
+  "project": "ظل الخطر",
+  "latin": "Shadow Hazard",
+  "release": "1.0",
+  "approved_source": "original logo and original Rasid mascot supplied by owner",
+  "logo_sha256": "47fc25bfccf7251f5ba6dabf2b608dd49443a4c79345f28d08594d515b7b22f1",
+  "rasid_sha256": "2d940546545dc5c2cda84102ee89c695120d89943a6fc0742c8c2ed450f369da",
+  "colors": {
+    "navy": "#142D4E",
+    "petrol": "#007F82",
+    "amber": "#F4B544",
+    "background": "#F4F7FB"
+  },
+  "font": "IBM Plex Sans Arabic",
+  "source_files": {
+    "logo": "source/approved-logo-original.png",
+    "rasid": "mascot/rasid-original.png"
+  },
+  "decisions": [
+    "Original logo is the sole approved master; subsequent sketch rounds and bus-front variants are excluded.",
+    "Rasid is included unchanged and is a supporting character, not a replacement logo.",
+    "Solid navy and white reversed copies are requested production variants, not primary palette changes.",
+    "Horizontal lockup is a rearrangement of traced original parts with uniform scaling only."
+  ],
+  "font_source": "https://github.com/IBM/plex/tree/master/packages/plex-sans-arabic",
+  "font_license": "typography/fonts/LICENSE.txt"
+}

@@ -1,0 +1,72 @@
+/* Shadow Hazard color tokens v1.0 | sRGB | 2026-11-23
+   Brand colors are fixed. Semantic UI colors do not replace logo colors.
+   Amber is emphasis/background only; pair with navy text.
+   Never encode road safety using green, color alone, or a successful save state. */
+:root {
+  --sh-brand-navy: #142D4E;
+  --sh-brand-petrol: #007F82;
+  --sh-brand-amber: #F4B544;
+  --sh-brand-background: #F4F7FB;
+}
+
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --sh-background: #F4F7FB;
+  --sh-surface: #FFFFFF;
+  --sh-surface-raised: #FFFFFF;
+  --sh-text-primary: #142D4E;
+  --sh-text-secondary: #52657D;
+  --sh-text-inverse: #FFFFFF;
+  --sh-link: #00696C;
+  --sh-action-bg: #007F82;
+  --sh-action-text: #FFFFFF;
+  --sh-action-hover: #00696C;
+  --sh-border-subtle: #CBD5E1;
+  --sh-control-border: #76879E;
+  --sh-focus-ring: #007F82;
+  --sh-accent: #F4B544;
+  --sh-on-accent: #142D4E;
+  --sh-warning-bg: #F4B544;
+  --sh-warning-text: #142D4E;
+  --sh-visible-bg: #E6F3F3;
+  --sh-visible-text: #00696C;
+  --sh-unavailable-bg: #E8EDF3;
+  --sh-unavailable-text: #52657D;
+  --sh-error-bg: #FFF0F2;
+  --sh-error-text: #9B2333;
+  --sh-saved-bg: #E6F3F3;
+  --sh-saved-text: #00696C;
+  --sh-disabled-bg: #E4EBF3;
+  --sh-disabled-text: #52657D;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --sh-background: #0B1729;
+  --sh-surface: #102138;
+  --sh-surface-raised: #172D49;
+  --sh-text-primary: #F4F7FB;
+  --sh-text-secondary: #C1CBD8;
+  --sh-text-inverse: #142D4E;
+  --sh-link: #60CFD0;
+  --sh-action-bg: #60CFD0;
+  --sh-action-text: #142D4E;
+  --sh-action-hover: #8ADBDC;
+  --sh-border-subtle: #425874;
+  --sh-control-border: #8598B1;
+  --sh-focus-ring: #60CFD0;
+  --sh-accent: #F4B544;
+  --sh-on-accent: #142D4E;
+  --sh-warning-bg: #F4B544;
+  --sh-warning-text: #142D4E;
+  --sh-visible-bg: #153F46;
+  --sh-visible-text: #9DE3E2;
+  --sh-unavailable-bg: #263B54;
+  --sh-unavailable-text: #DDE5EF;
+  --sh-error-bg: #4A2330;
+  --sh-error-text: #FFB2B8;
+  --sh-saved-bg: #153F46;
+  --sh-saved-text: #9DE3E2;
+  --sh-disabled-bg: #263B54;
+  --sh-disabled-text: #C1CBD8;
+}

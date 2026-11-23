@@ -1,0 +1,258 @@
+{
+  "source_file": "source/approved-logo-original.png",
+  "source_sha256": "47fc25bfccf7251f5ba6dabf2b608dd49443a4c79345f28d08594d515b7b22f1",
+  "source_dimensions": [
+    1536,
+    1024
+  ],
+  "source_background_removed": "#D3D3D3",
+  "production_colors": [
+    "#142D4E",
+    "#007F82",
+    "#F4B544"
+  ],
+  "method": "Per-color foreground/background alpha-unmixing and conservative libpotrace Bézier contour fitting. No generative redraw, no font substitution.",
+  "potrace": {
+    "turdsize": 0,
+    "alphamax": 1.0,
+    "opticurve": 1,
+    "opttolerance": 0.15
+  },
+  "total_curve_segments": 576,
+  "bounds_source_coordinates": {
+    "all": [
+      145,
+      51,
+      1386,
+      989
+    ],
+    "symbol": [
+      445,
+      51,
+      1379,
+      567
+    ],
+    "wordmark": [
+      145,
+      592,
+      1386,
+      892
+    ],
+    "tagline": [
+      327,
+      891,
+      1203,
+      989
+    ],
+    "type": [
+      145,
+      592,
+      1386,
+      989
+    ]
+  },
+  "source_comparison_at_1536x1024": {
+    "silhouette_iou": 0.99225875680233,
+    "color_masks": {
+      "#142D4E": {
+        "iou": 0.9944082681667982,
+        "source_pixels": 236590,
+        "vector_pixels": 235999,
+        "boundary_distance_mean_source_px": 0.19489696990960872,
+        "boundary_distance_p95_source_px": 1.0,
+        "boundary_distance_max_source_px": 1.4142135623730951
+      },
+      "#007F82": {
+        "iou": 0.9819532044760936,
+        "source_pixels": 48841,
+        "vector_pixels": 48572,
+        "boundary_distance_mean_source_px": 0.14807064535029715,
+        "boundary_distance_p95_source_px": 1.0,
+        "boundary_distance_max_source_px": 1.0
+      },
+      "#F4B544": {
+        "iou": 0.9921542503978387,
+        "source_pixels": 26980,
+        "vector_pixels": 26850,
+        "boundary_distance_mean_source_px": 0.18003412969283278,
+        "boundary_distance_p95_source_px": 1.0,
+        "boundary_distance_max_source_px": 1.0
+      }
+    }
+  },
+  "variants": {
+    "logo-original-color": {
+      "svg_viewBox": "0 0 1536 1024",
+      "svg_path_count": 5,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        1536,
+        1024
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 1253486
+    },
+    "logo-vertical-color": {
+      "svg_viewBox": "113 19 1305 1002",
+      "svg_path_count": 5,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        1800,
+        1382
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 1883495
+    },
+    "symbol-color": {
+      "svg_viewBox": "413 19 998 580",
+      "svg_path_count": 3,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        1536,
+        893
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 1035186
+    },
+    "logo-horizontal-color": {
+      "svg_viewBox": "0 0 1931.97 440",
+      "svg_path_count": 5,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        2400,
+        547
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 981083
+    },
+    "logo-mono-navy": {
+      "svg_viewBox": "113 19 1305 1002",
+      "svg_path_count": 5,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        1800,
+        1382
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 1883495
+    },
+    "logo-reversed": {
+      "svg_viewBox": "113 19 1305 1002",
+      "svg_path_count": 5,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        1800,
+        1382
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 1883495
+    },
+    "symbol-mono-navy": {
+      "svg_viewBox": "413 19 998 580",
+      "svg_path_count": 3,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        1536,
+        893
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 1035186
+    },
+    "symbol-reversed": {
+      "svg_viewBox": "413 19 998 580",
+      "svg_path_count": 3,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        1536,
+        893
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 1035186
+    },
+    "logo-horizontal-reversed": {
+      "svg_viewBox": "0 0 1931.97 440",
+      "svg_path_count": 5,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        2400,
+        547
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 981083
+    },
+    "app-icon-512": {
+      "svg_viewBox": "0 0 512 512",
+      "svg_path_count": 3,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        512,
+        512
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 228515
+    },
+    "favicon-16": {
+      "svg_viewBox": "0 0 16 16",
+      "svg_path_count": 3,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        16,
+        16
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 193
+    },
+    "favicon-32": {
+      "svg_viewBox": "0 0 32 32",
+      "svg_path_count": 3,
+      "live_text": 0,
+      "embedded_images": 0,
+      "gradients": 0,
+      "filters": 0,
+      "png_size": [
+        32,
+        32
+      ],
+      "png_has_alpha": true,
+      "png_transparent_pixels": 821
+    }
+  },
+  "limitations": [
+    "The source is a raster image; contour metrics describe raster-mask agreement, not mathematically identical unknown original vector curves.",
+    "At 16px the original wide symbol loses fine details. No geometry was modified to force small-size readability.",
+    "The white reversed logo is transparent and is intended for navy backgrounds."
+  ]
+}
