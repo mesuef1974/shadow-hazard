@@ -249,7 +249,8 @@ def import_transcript(path, key, title, category="", held_on=None, engine="", no
 
 # ---- ملخص اللقاء ----
 
-DIGEST_TEXTS = ("headline", "overview", "author")
+# "supervisor_doc": مسار وثيقة داخل docs تُعرض رابطًا للمشرف وحده في صفحة اللقاء.
+DIGEST_TEXTS = ("headline", "overview", "author", "supervisor_doc")
 # القوائم وحقول كل عنصر فيها؛ "at" و"start" و"end" ثوانٍ من بداية التسجيل.
 DIGEST_LISTS = {
     "takeaways": ("title", "text", "at"),
