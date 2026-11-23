@@ -399,3 +399,5 @@ textarea {
 #user-tools .theme-toggle:focus-visible {
     outline-color: var(--focus-ring-color);
 }
+
+#user-tools a,a.addlink,a.changelink,a.viewlink,a.deletelink{display:inline-flex;align-items:center;min-height:26px}
