@@ -2,7 +2,7 @@
 {% load static %}
 {% block content %}
 {% include 'registry/_page_heading.html' with eyebrow='سجل موثق لا يُعدَّل' title='مسار البطاقة' description='كل بطاقة من الدفع إلى النشر، وكل حدث مسجل في قاعدة المنصة. انقر مرحلة أو يومًا أو بطاقة لاستكشاف تاريخها.' %}
-<link rel="stylesheet" href="{% static 'automation_log/flow.css' %}?v=5">
+<link rel="stylesheet" href="{% static 'automation_log/flow.css' %}?v=6">
 <script src="{% static 'automation_log/flow.js' %}?v=2" defer></script>
 <div class="flow" id="flow" data-url="{% url 'automation-flow-data' %}" data-export="{% url 'automation-flow-export' %}">
   <p class="flow-sync" id="flow-sync" role="status">يُحمَّل السجل…</p>
@@ -19,7 +19,7 @@
   </section>
   <section aria-labelledby="flow-day-title">
     <h2 id="flow-day-title">آخر 30 يومًا</h2>
-    <div class="flow-chart" id="flow-chart" role="group" aria-label="الأحداث يوميًا بحسب النتيجة"></div>
+    <div class="flow-chart" id="flow-chart" tabindex="0" role="group" aria-label="الأحداث يوميًا بحسب النتيجة"></div>
     <p class="flow-legend"><span data-r="pass">نجح</span><span data-r="fail">فشل</span><span data-r="info">معلومة</span></p>
   </section>
   <section aria-labelledby="flow-filter-title">
