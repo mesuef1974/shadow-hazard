@@ -2,7 +2,7 @@
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .cu-charts{--cu-in:#139c97;--cu-out:#c98500;--cu-grid:#2a4157;--cu-axis:#becbd8;--cu-surface:#17283a}}
 :root[data-theme="dark"] .cu-charts{--cu-in:#139c97;--cu-out:#c98500;--cu-grid:#2a4157;--cu-axis:#becbd8;--cu-surface:#17283a}
 .cu-chart{position:relative;padding:20px 22px 14px;background:var(--cu-surface);border-radius:8px}
-.cu-chart h3{margin:0 0 2px;font-size:17px}
+.cu-chart h2{margin:0 0 2px;font-size:17px}
 .cu-chart .cu-sub{margin:0 0 10px;color:var(--cu-axis);font-size:13px}
 .cu-legend{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 6px;padding:0;list-style:none;font-size:13px;color:var(--cu-axis)}
 .cu-legend span{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:6px;vertical-align:-1px}
