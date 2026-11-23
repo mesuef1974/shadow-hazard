@@ -118,7 +118,7 @@ a.digest-clock:hover,a.digest-clock:focus-visible{border-color:var(--platform-li
 .playbook-area{margin-block:18px;padding:22px 24px;background:var(--platform-surface);border:1px solid var(--platform-border);border-inline-start:4px solid var(--brand-secondary);border-radius:10px;scroll-margin-block-start:16px}
 .playbook-area:nth-of-type(even){border-inline-start-color:var(--brand-accent)}
 .playbook-area:target{box-shadow:0 0 0 2px var(--brand-secondary)}
-.playbook-area header{display:flex;align-items:center;gap:10px}
+.playbook-area header{display:flex;align-items:center;gap:10px;background:transparent;padding:0}
 .playbook-area h2{margin:0;font-size:1.2rem}
 .playbook-why{margin:10px 0 0;color:var(--platform-muted);line-height:1.9;max-width:75ch}
 .playbook-steps{margin:12px 0 0;padding-inline-start:22px}
