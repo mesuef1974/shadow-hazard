@@ -12,6 +12,11 @@
   <p class="note">ملخص مستخلَص من تفريغ آلي غير مراجَع{% if recording.digest_at %} · كُتب {{ recording.digest_at|date:"Y-m-d" }}{% endif %}{% if digest.author %} · {{ digest.author }}{% endif %}. كل توقيت يفتح موضعه في التفريغ للتحقق.</p>
 </section>
 
+{% if digest.supervisor_doc and user.role == 'supervisor' %}<section class="work-panel" aria-labelledby="supervisor-title"><h2 id="supervisor-title">ملخص المشرف</h2>
+  <p>ما يمس المشروع وما يحتاج قرارًا وما بقي بلا جواب، في وثيقة للمشرف وحده.</p>
+  <p><a href="{% url 'project-document' name=digest.supervisor_doc %}">افتح ملخص المشرف</a></p>
+</section>{% endif %}
+
 {% if digest.chapters %}<section aria-labelledby="map-title"><h2 id="map-title">خريطة اللقاء</h2>
   <p class="note">عرض كل قسم بقدر زمنه من اللقاء.</p>
   <ol class="digest-map">{% for chapter in digest.chapters %}<li style="flex-grow:{{ chapter.share|stringformat:'s' }}"><a href="#chapter-{{ chapter.number }}" title="{{ chapter.title }} · {{ chapter.minutes }} د"><span class="digest-map-number">{{ chapter.number }}</span><span class="digest-map-title">{{ chapter.title }}</span></a></li>{% endfor %}</ol>

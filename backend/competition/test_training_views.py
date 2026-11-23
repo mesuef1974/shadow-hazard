@@ -112,6 +112,19 @@ class TrainingPagesTests(TestCase):
         self.assertContains(page, "مرحبا بالفرق")
         self.assertContains(page, "تفريغ آلي غير مراجَع")
 
+    def test_supervisor_summary_link_is_for_the_supervisor_only(self):
+        path = "competition/training-meeting-2-supervisor-ar.md"
+        self.recording.digest = {"headline": "خلاصة", "supervisor_doc": path}
+        self.recording.save(update_fields=["digest"])
+        page = f"/training/recordings/{self.recording.pk}/"
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get(page), f"/documents/{path}")
+        self.client.force_login(self.student)
+        student_page = self.client.get(page)
+        self.assertContains(student_page, "خلاصة")
+        self.assertNotContains(student_page, "ملخص المشرف")
+        self.assertNotContains(student_page, path)
+
     def test_slide_image_serves_only_files_inside_the_slides_folder(self):
         self.client.force_login(self.owner)
         image = self.client.get(f"/training/slides/{self.slide.pk}/image")
