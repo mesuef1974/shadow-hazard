@@ -12,6 +12,8 @@
 | الاستيراد | `manage.py training_content crawl <crawl.json>` | الدورات والدروس والشرائح |
 | تنزيل الصور | `manage.py training_content slides` | ملفات باسم بصمتها في `backend/.local/training/slides` |
 | القراءة الضوئية | `manage.py training_content ocr --python <بايثون بيئة القراءة>` | نص كل شريحة في `ocr_text` |
+| صوت اللقاء | `ffmpeg -i <رابط التسجيل> -vn -c:a aac -b:a 64k -ac 1 -ar 16000 <صوت>.m4a` | صوت أحادي نحو 64 م.ب لساعتين |
+| نص اللقاء | `python tools/transcribe_recording.py <صوت> <نص>.txt "<وصف اللقاء>"` | تفريغ بتوقيت، نحو 4 دقائق لساعتين على الكرت |
 | تفريغ لقاء | `manage.py training_content transcript <ملف> --key K --title T` | اللقاء ومقاطعه |
 | ملخص لقاء | `manage.py training_content digest <ملف JSON> --key K` | الخلاصة والأقسام والحقائق والمطلوب في صفحة اللقاء |
 | ملخصات الدروس | `manage.py training_content lesson-digests <ملف لكل دورة>...` | خلاصة الدورة ودروسها وما يفيد المشروع من كل درس |
