@@ -1,0 +1,337 @@
+{
+  "required_core_files": 27,
+  "logo_svg": [
+    {
+      "file": "logo/logo-horizontal-reversed.svg",
+      "path_count": 5,
+      "viewBox": "0 0 1931.97 440",
+      "fills": [
+        "#FFFFFF"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/logo-horizontal-color.svg",
+      "path_count": 5,
+      "viewBox": "0 0 1931.97 440",
+      "fills": [
+        "#007F82",
+        "#142D4E",
+        "#F4B544"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/favicon-16.svg",
+      "path_count": 3,
+      "viewBox": "0 0 16 16",
+      "fills": [
+        "#007F82",
+        "#142D4E",
+        "#F4B544"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/favicon-32.svg",
+      "path_count": 3,
+      "viewBox": "0 0 32 32",
+      "fills": [
+        "#007F82",
+        "#142D4E",
+        "#F4B544"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/logo-mono-navy.svg",
+      "path_count": 5,
+      "viewBox": "113 19 1305 1002",
+      "fills": [
+        "#142D4E"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/symbol-mono-navy.svg",
+      "path_count": 3,
+      "viewBox": "413 19 998 580",
+      "fills": [
+        "#142D4E"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/symbol-color.svg",
+      "path_count": 3,
+      "viewBox": "413 19 998 580",
+      "fills": [
+        "#007F82",
+        "#142D4E",
+        "#F4B544"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/app-icon-512.svg",
+      "path_count": 3,
+      "viewBox": "0 0 512 512",
+      "fills": [
+        "#007F82",
+        "#142D4E",
+        "#F4B544"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/logo-vertical-color.svg",
+      "path_count": 5,
+      "viewBox": "113 19 1305 1002",
+      "fills": [
+        "#007F82",
+        "#142D4E",
+        "#F4B544"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/symbol-reversed.svg",
+      "path_count": 3,
+      "viewBox": "413 19 998 580",
+      "fills": [
+        "#FFFFFF"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/logo-reversed.svg",
+      "path_count": 5,
+      "viewBox": "113 19 1305 1002",
+      "fills": [
+        "#FFFFFF"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    },
+    {
+      "file": "logo/logo-original-color.svg",
+      "path_count": 5,
+      "viewBox": "0 0 1536 1024",
+      "fills": [
+        "#007F82",
+        "#142D4E",
+        "#F4B544"
+      ],
+      "forbidden_elements": [],
+      "open_paths": []
+    }
+  ],
+  "logo_png": [
+    {
+      "file": "logo/symbol-color.png",
+      "size": [
+        1536,
+        893
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/logo-vertical-color.png",
+      "size": [
+        1800,
+        1382
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/favicon-16.png",
+      "size": [
+        16,
+        16
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/logo-reversed.png",
+      "size": [
+        1800,
+        1382
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/symbol-mono-navy.png",
+      "size": [
+        1536,
+        893
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/logo-horizontal-reversed.png",
+      "size": [
+        2400,
+        547
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/logo-mono-navy.png",
+      "size": [
+        1800,
+        1382
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/logo-original-color.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/favicon-32.png",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/logo-horizontal-color.png",
+      "size": [
+        2400,
+        547
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/symbol-reversed.png",
+      "size": [
+        1536,
+        893
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "logo/app-icon-512.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ]
+    }
+  ],
+  "icon_count": 10,
+  "application_sizes": {
+    "platform-header-light": [
+      2880,
+      1440
+    ],
+    "platform-header-dark": [
+      2880,
+      1440
+    ],
+    "competition-cover-16x9": [
+      1920,
+      1080
+    ],
+    "project-card": [
+      1600,
+      1132
+    ],
+    "report-cover-a4": [
+      2480,
+      3508
+    ],
+    "device-label-mono": [
+      1200,
+      800
+    ],
+    "instagram-square": [
+      1080,
+      1080
+    ]
+  },
+  "local_references_checked": 63,
+  "contrast_pairs_recomputed": 35,
+  "font_weights": {
+    "Regular": 400,
+    "Medium": 500,
+    "SemiBold": 600,
+    "Bold": 700
+  },
+  "source_sha256": {
+    "mascot/rasid-original.png": "2d940546545dc5c2cda84102ee89c695120d89943a6fc0742c8c2ed450f369da",
+    "source/approved-logo-original.png": "47fc25bfccf7251f5ba6dabf2b608dd49443a4c79345f28d08594d515b7b22f1"
+  },
+  "pdf_page_count": 26,
+  "pdf_embedded_fonts": [
+    "NCRHFL+Plex-Bold",
+    "OGVEBB+Plex-Medium",
+    "PUOZLO+Plex-Semi-Bold",
+    "QCVLWM+Plex"
+  ],
+  "errors": [],
+  "passed": true
+}

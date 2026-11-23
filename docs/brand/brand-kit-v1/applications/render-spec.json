@@ -1,0 +1,44 @@
+[
+  {
+    "name": "platform-header-light",
+    "width": 1440,
+    "height": 720,
+    "scale": 2
+  },
+  {
+    "name": "platform-header-dark",
+    "width": 1440,
+    "height": 720,
+    "scale": 2
+  },
+  {
+    "name": "competition-cover-16x9",
+    "width": 1920,
+    "height": 1080,
+    "scale": 1
+  },
+  {
+    "name": "project-card",
+    "width": 1600,
+    "height": 1132,
+    "scale": 1
+  },
+  {
+    "name": "report-cover-a4",
+    "width": 1240,
+    "height": 1754,
+    "scale": 2
+  },
+  {
+    "name": "device-label-mono",
+    "width": 1200,
+    "height": 800,
+    "scale": 1
+  },
+  {
+    "name": "instagram-square",
+    "width": 1080,
+    "height": 1080,
+    "scale": 1
+  }
+]

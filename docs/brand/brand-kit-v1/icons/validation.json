@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-23",
+  "icon_count": 10,
+  "viewbox": "0 0 24 24",
+  "stroke_width": 2,
+  "svg_parse": "pass",
+  "forbidden_elements": [
+    "text",
+    "image",
+    "filter",
+    "linearGradient",
+    "radialGradient"
+  ],
+  "forbidden_element_count": 0,
+  "background": "transparent",
+  "rendering": "Inkscape headless export inspected at 24px and 48px on light and dark surfaces; child and warning panel detail additionally inspected after adjustment.",
+  "scope": "Visual and structural checks, not whole-product accessibility certification."
+}

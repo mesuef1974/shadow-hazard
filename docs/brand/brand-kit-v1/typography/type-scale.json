@@ -1,0 +1,111 @@
+{
+  "metadata": {
+    "family": "IBM Plex Sans Arabic",
+    "direction": "rtl",
+    "version": "1.0",
+    "scale_unit": "CSS px",
+    "scope": "Interface and document text only; approved logo lettering is vector artwork, never retyped."
+  },
+  "weights": {
+    "regular": 400,
+    "medium": 500,
+    "semibold": 600,
+    "bold": 700
+  },
+  "scale": {
+    "display": {
+      "size_px": 48,
+      "weight": 600,
+      "line_height_px": 64,
+      "mobile_size_px": 36,
+      "mobile_line_height_px": 50,
+      "use_ar": "عنوان الغلاف أو الصفحة الرئيسية فقط"
+    },
+    "h1": {
+      "size_px": 36,
+      "weight": 600,
+      "line_height_px": 50,
+      "mobile_size_px": 30,
+      "mobile_line_height_px": 44,
+      "use_ar": "عنوان الصفحة"
+    },
+    "h2": {
+      "size_px": 28,
+      "weight": 600,
+      "line_height_px": 42,
+      "mobile_size_px": 24,
+      "mobile_line_height_px": 36,
+      "use_ar": "عنوان قسم رئيسي"
+    },
+    "h3": {
+      "size_px": 22,
+      "weight": 600,
+      "line_height_px": 34,
+      "mobile_size_px": 20,
+      "mobile_line_height_px": 32,
+      "use_ar": "عنوان وحدة أو بطاقة محتوى"
+    },
+    "body-lg": {
+      "size_px": 20,
+      "weight": 400,
+      "line_height_px": 34,
+      "mobile_size_px": 18,
+      "mobile_line_height_px": 30,
+      "use_ar": "مقدمة أو شرح قصير"
+    },
+    "body": {
+      "size_px": 18,
+      "weight": 400,
+      "line_height_px": 30,
+      "mobile_size_px": 18,
+      "mobile_line_height_px": 30,
+      "use_ar": "النص العربي الأساسي"
+    },
+    "body-sm": {
+      "size_px": 16,
+      "weight": 400,
+      "line_height_px": 26,
+      "mobile_size_px": 16,
+      "mobile_line_height_px": 26,
+      "use_ar": "الشرح الثانوي ومحتوى الجداول"
+    },
+    "label": {
+      "size_px": 16,
+      "weight": 500,
+      "line_height_px": 24,
+      "mobile_size_px": 16,
+      "mobile_line_height_px": 24,
+      "use_ar": "الأزرار وتسميات الحقول والتنقل"
+    },
+    "caption": {
+      "size_px": 14,
+      "weight": 400,
+      "line_height_px": 22,
+      "mobile_size_px": 14,
+      "mobile_line_height_px": 22,
+      "use_ar": "تعليقات الأشكال والمصدر والتوقيت"
+    },
+    "metric": {
+      "size_px": 32,
+      "weight": 600,
+      "line_height_px": 44,
+      "mobile_size_px": 28,
+      "mobile_line_height_px": 40,
+      "use_ar": "قيمة قياس مع وحدة مكتوبة منفصلة"
+    }
+  },
+  "rules": {
+    "letter_spacing_em": 0,
+    "minimum_informative_text_px": 14,
+    "default_body_px": 18,
+    "paragraph_max_width_ch": 68,
+    "body_line_height": 1.666667,
+    "numbers": "Use tabular-nums for comparable measurements; isolate mixed Latin/time units with bdi or dir=ltr.",
+    "print_body_pt": 11.5,
+    "print_body_line_height_pt": 19
+  },
+  "sources": [
+    "https://www.ibm.com/design/language/typography/typeface/",
+    "https://github.com/IBM/plex/tree/master/packages/plex-sans-arabic"
+  ]
+}
