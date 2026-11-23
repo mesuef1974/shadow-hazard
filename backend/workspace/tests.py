@@ -51,7 +51,7 @@ class WorkspacePermissionsTests(TestCase):
     def test_static_does_not_expose_documents(self):
         from django.contrib.staticfiles import finders
         self.assertIsNone(finders.find('brand/approved-v1/README.md'))
-        self.assertIsNotNone(finders.find('brand/approved-v2/icon-small.svg'))
+        self.assertIsNotNone(finders.find('brand/brand-kit-v1/logo/favicon-32.svg'))
 
     def setUp(self):
         User = get_user_model()
