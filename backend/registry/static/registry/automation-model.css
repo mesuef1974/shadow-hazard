@@ -31,8 +31,8 @@
 .automation-model .wires{position:absolute;inset:0;width:100%;height:100%}
 .automation-model .node{position:absolute;left:calc(var(--x)/1080*100%);top:calc(var(--y)/1120*100%);transform:translate(-50%,-50%);width:21%;height:10%;padding:6px 10px;border:1px solid var(--brand-secondary);border-radius:8px;background:var(--platform-surface);color:var(--platform-text);text-align:right;direction:rtl;display:flex;flex-direction:column;justify-content:center;line-height:1.5;overflow-wrap:anywhere}
 .automation-model .node strong{font-size:13px}
-.automation-model .node small{font-size:10px;color:var(--platform-muted);display:block;margin-top:5px}
-.automation-model .number{position:absolute;left:9px;top:5px;font:11px var(--brand-font-en);color:var(--platform-link)}
+.automation-model .node small{font-size:12px;color:var(--platform-muted);display:block;margin-top:5px}
+.automation-model .number{position:absolute;left:9px;top:5px;font:12px var(--brand-font-en);color:var(--platform-link)}
 .automation-model .gate{border-top:4px solid var(--brand-accent)}
 .automation-model .finish{background:var(--brand-primary);color:#fff}
 .automation-model .finish small{color:#e7eef4}
@@ -42,7 +42,7 @@
 .automation-model .node[aria-pressed=true]{outline:3px solid var(--platform-focus);outline-offset:3px}
 .automation-model .node.dim{opacity:.3}
 .automation-model .wires .dim{opacity:.15}
-.automation-model .lane-label{position:absolute;top:34.5%;font-size:11px;color:var(--platform-link);direction:rtl}
+.automation-model .lane-label{position:absolute;top:34.5%;font-size:12px;color:var(--platform-link);direction:rtl}
 .automation-model .lane-label.left{left:9%}
 .automation-model .lane-label.right{right:7%}
 .automation-model .retry-label{position:absolute;top:46.5%;left:7%;max-width:28%;direction:rtl;font-size:9px;background:var(--platform-surface);padding:2px 5px}
@@ -50,7 +50,7 @@
 .automation-model .inspector p,.automation-model .inspector dd{font-size:14px}
 .automation-model .inspector dt{font-size:12px;color:var(--platform-link)}
 .automation-model .inspector dd{margin:5px 0 20px}
-.automation-model .code,.automation-model code{font:11px/1.8 var(--brand-font-en);overflow-wrap:anywhere}
+.automation-model .code,.automation-model code{font:12px/1.8 var(--brand-font-en);overflow-wrap:anywhere}
 .automation-model .selection-hint{color:var(--platform-muted)}
 .automation-model .context-section,.automation-model .renewal,.automation-model .services{margin:40px 0;scroll-margin-top:20px}
 .automation-model .context-flow,.automation-model .service-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
