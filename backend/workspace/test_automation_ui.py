@@ -37,7 +37,7 @@ class AutomationUiTests(TestCase):
         self.assertEqual(response['X-Frame-Options'],'DENY')
         self.assertContains(response,'/static/registry/automation-model.css')
         self.assertContains(response,urls[2])
-        self.assertContains(response,'/static/brand/approved-v2/navigation-white.svg')
+        self.assertContains(response,'/static/brand/brand-kit-v1/logo/logo-horizontal-reversed.svg')
         self.assertContains(response,'aria-label="التنقل الرئيسي"')
         self.assertContains(response,'id="theme-toggle"')
         self.assertContains(response,'href="/sessions/automation-model/" aria-current="page"')

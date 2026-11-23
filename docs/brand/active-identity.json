@@ -6,5 +6,7 @@
   "approval_event": "brand-identity-v1-approved",
   "logo_release": "2.0",
   "logo_manifest": "approved-v2/manifest.json",
-  "favicon": "approved-v2/icon-small.svg"
+  "favicon": "approved-v2/icon-small.svg",
+  "brand_kit": "brand-kit-v1/README.md",
+  "brand_kit_logo": "brand-kit-v1/logo/logo-horizontal-reversed.svg"
 }
