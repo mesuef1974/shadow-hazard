@@ -4,7 +4,7 @@
     python scripts/sync_to_railway.py            # معاينة: الأعداد فقط ولا كتابة
     python scripts/sync_to_railway.py --apply    # تطبيق النسخ
 
-يُصدِّر `dumpdata` من قاعدة المضيف النماذج في MODELS، ويرسلها مضغوطة عبر `railway ssh` إلى
+يُصدِّر من قاعدة المضيف النماذج في MODELS مع آبائها في REFERENCED، ويرسلها مضغوطة عبر `railway ssh` إلى
 `manage.py shell` في الخدمة، فيُحمَّلها `loaddata` ويُعاد ضبط تسلسل المفاتيح. الصفوف تُطابَق
 بالمفتاح الأساسي: ما يوجد في الطرفين بالرقم نفسه تغلبه نسخة المضيف. لذلك يُرفض التطبيق إذا وُجدت
 في Railway صفوف غير موجودة في المضيف (أُنشئت هناك)، إلا مع --force. المستخدمون لا يُنسخون: يجب
@@ -24,7 +24,21 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MODELS = ['workspace.task', 'workspace.taskupdate', 'workspace.decision', 'registry.registrytask']
+# تُنسخ كاملة (المطابقة بالمفتاح الأساسي).
+MODELS = [
+    'workspace.task', 'workspace.taskupdate', 'workspace.decision', 'registry.registrytask',
+    'knowledge.knowledgesource', 'knowledge.knowledgechunk',
+    'workspace.projectdocumentation', 'workspace.projectmemory',
+    'releases.release', 'releases.event', 'releases.evidence',
+    'registry.branddirection', 'registry.brandcolor', 'registry.brandasset',
+    'registry.brandtypography',
+]
+# تُنسخ منها الصفوف التي تشير إليها صفوف MODELS وحدها (أصول الهوية وإصدارات الخطوط).
+REFERENCED = ['registry.artifact', 'registry.service', 'registry.serviceversion']
+# موجودة في السحابة بالأرقام نفسها ولا تُنسخ (المستخدمون والمشروع ومراحله).
+ASSUMED = ['accounts.user', 'workspace.project', 'workspace.phase']
+# لا تُنسخ عمدًا: simulation.simulationrun (406 م.ب، نتيجة كل تشغيل نحو 750 ك.ب) وسجلات الأتمتة
+# والاستهلاك الداخلية. أي مفتاح أجنبي يشير إلى ما سواها يُفرَّغ إن قبل null وإلا يفشل التصدير.
 SERVICE = '89aa63da-c7d2-4b68-a141-7d83942a532b'
 REMOTE_BACKEND = '/app/backend'
 
@@ -91,16 +105,72 @@ def default_backend(root=ROOT):
             return main
     sys.exit('لم أجد قاعدة المضيف (backend/.local/registry.sqlite3)؛ حدّد --backend.')
 
+LOCAL_PROGRAM = '''
+import json, sys
+from django.apps import apps
+from django.core import serializers
 
-def dump_local(backend, models=MODELS):
-    """نصّ JSON لتصدير النماذج من القاعدة التي يستعملها `manage.py` في backend."""
+FULL = __FULL__
+REFERENCED = __REFERENCED__
+ASSUMED = __ASSUMED__
+copied = {}
+for label in FULL:
+    model = apps.get_model(label)
+    copied[model] = {obj.pk: obj for obj in model.objects.all()}
+ref_models = {apps.get_model(label) for label in REFERENCED}
+for model in ref_models:
+    copied[model] = {}
+assumed = {apps.get_model(label) for label in ASSUMED}
+nulled = {}
+queue = [obj for objs in list(copied.values()) for obj in objs.values()]
+while queue:
+    obj = queue.pop()
+    for field in obj._meta.concrete_fields:
+        if not field.is_relation or getattr(obj, field.attname) is None:
+            continue
+        target = field.related_model
+        if target in assumed:
+            continue
+        if target in copied:
+            if target in ref_models and getattr(obj, field.attname) not in copied[target]:
+                parent = target.objects.get(pk=getattr(obj, field.attname))
+                copied[target][parent.pk] = parent
+                queue.append(parent)
+        elif field.null:
+            key = obj._meta.label_lower + '.' + field.name
+            nulled[key] = nulled.get(key, 0) + 1
+            setattr(obj, field.attname, None)
+        else:
+            name = obj._meta.label_lower + '.' + field.name
+            sys.exit('FKERR ' + name + ' -> ' + target._meta.label_lower)
+rows = [obj for objs in copied.values() for obj in objs.values()]
+for key, count in sorted(nulled.items()):
+    print('NULLED', key, count)
+print('FIXTURE' + serializers.serialize('json', rows))
+'''
+
+
+def local_program():
+    program = LOCAL_PROGRAM.replace('__FULL__', repr(MODELS))
+    program = program.replace('__REFERENCED__', repr(REFERENCED))
+    return program.replace('__ASSUMED__', repr(ASSUMED))
+
+
+def dump_local(backend):
+    """نصّ JSON لتصدير النماذج (وآبائها المشار إليهم) من القاعدة التي يستعملها `manage.py`."""
     env = {**os.environ, 'PYTHONUTF8': '1'}
-    result = subprocess.run([sys.executable, 'manage.py', 'dumpdata', *models, '--indent', '0'],
+    result = subprocess.run([sys.executable, 'manage.py', 'shell', '-c', local_program()],
                             cwd=backend, env=env, capture_output=True)
-    if result.returncode != 0:
-        tail = result.stderr.decode('utf-8', 'replace').splitlines()[-10:]
+    out = result.stdout.decode('utf-8', 'replace').splitlines()
+    for line in out:
+        if line.startswith('NULLED '):
+            print('فُرِّغ (مفتاح أجنبي إلى جدول غير منسوخ):', line[7:])
+    fixture = [line[len('FIXTURE'):] for line in out if line.startswith('FIXTURE')]
+    if result.returncode != 0 or not fixture:
+        tail = (result.stderr.decode('utf-8', 'replace').splitlines()[-10:]
+                + [line for line in out if line.startswith('FKERR')])
         sys.exit('فشل التصدير المحلي:\n' + '\n'.join(tail))
-    return result.stdout.decode('utf-8')
+    return fixture[0]
 
 
 def local_counts(data):
