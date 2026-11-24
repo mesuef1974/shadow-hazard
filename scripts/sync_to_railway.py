@@ -37,8 +37,10 @@ MODELS = [
 REFERENCED = ['registry.artifact', 'registry.service', 'registry.serviceversion']
 # موجودة في السحابة بالأرقام نفسها ولا تُنسخ (المستخدمون والمشروع ومراحله).
 ASSUMED = ['accounts.user', 'workspace.project', 'workspace.phase']
-# لا تُنسخ عمدًا: simulation.simulationrun (406 م.ب، نتيجة كل تشغيل نحو 750 ك.ب) وسجلات الأتمتة
-# والاستهلاك الداخلية. أي مفتاح أجنبي يشير إلى ما سواها يُفرَّغ إن قبل null وإلا يفشل التصدير.
+# تُنسخ آخر N صفًّا بالمفتاح الأساسي فقط (نافذة منزلقة): تشغيلات المحاكاة كلها 406 م.ب لأن نتيجة
+# التشغيل الواحد نحو 750 ك.ب. لا يُرفض النسخ بسبب صفوف أقدم في السحابة خرجت من النافذة.
+LATEST = {'simulation.simulationrun': 20}
+# لا تُنسخ عمدًا: سجلات الأتمتة والاستهلاك الداخلية. أي مفتاح أجنبي يشير إلى ما سواها يُفرَّغ إن قبل null وإلا يفشل التصدير.
 SERVICE = '89aa63da-c7d2-4b68-a141-7d83942a532b'
 REMOTE_BACKEND = '/app/backend'
 
@@ -51,6 +53,7 @@ from django.core.management.color import no_style
 from django.db import connection
 
 PAYLOAD = __PAYLOAD__
+SLIDING = __SLIDING__
 APPLY = __APPLY__
 FORCE = __FORCE__
 
@@ -66,7 +69,8 @@ for label, model in models.items():
     remote_only[label] = sorted(have - incoming[label], key=str)
     print('PLAN', label, 'export', len(incoming[label]), 'remote', len(have),
           'remote_only', len(remote_only[label]))
-if any(remote_only.values()) and not FORCE:
+blocking = {label: ids for label, ids in remote_only.items() if label not in SLIDING and ids}
+if blocking and not FORCE:
     print('RESULT blocked')
 elif not APPLY:
     print('RESULT dry')
@@ -111,12 +115,16 @@ from django.apps import apps
 from django.core import serializers
 
 FULL = __FULL__
+LATEST = __LATEST__
 REFERENCED = __REFERENCED__
 ASSUMED = __ASSUMED__
 copied = {}
 for label in FULL:
     model = apps.get_model(label)
     copied[model] = {obj.pk: obj for obj in model.objects.all()}
+for label, count in LATEST.items():
+    model = apps.get_model(label)
+    copied[model] = {obj.pk: obj for obj in model.objects.order_by('-pk')[:count]}
 ref_models = {apps.get_model(label) for label in REFERENCED}
 for model in ref_models:
     copied[model] = {}
@@ -152,6 +160,7 @@ print('FIXTURE' + serializers.serialize('json', rows))
 
 def local_program():
     program = LOCAL_PROGRAM.replace('__FULL__', repr(MODELS))
+    program = program.replace('__LATEST__', repr(LATEST))
     program = program.replace('__REFERENCED__', repr(REFERENCED))
     return program.replace('__ASSUMED__', repr(ASSUMED))
 
@@ -182,8 +191,10 @@ def local_counts(data):
 
 def build_program(data, apply=False, force=False):
     payload = base64.b64encode(gzip.compress(data.encode('utf-8'))).decode('ascii')
-    return (REMOTE_PROGRAM.replace('__PAYLOAD__', repr(payload))
-            .replace('__APPLY__', repr(bool(apply))).replace('__FORCE__', repr(bool(force))))
+    program = REMOTE_PROGRAM.replace('__PAYLOAD__', repr(payload))
+    program = program.replace('__SLIDING__', repr(sorted(LATEST)))
+    program = program.replace('__APPLY__', repr(bool(apply)))
+    return program.replace('__FORCE__', repr(bool(force)))
 
 
 def parse_result(output):
