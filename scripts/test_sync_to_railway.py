@@ -47,5 +47,17 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(sync.local_counts(DATA), {'workspace.task': 2, 'workspace.decision': 1})
 
 
+class BackendDiscoveryTests(unittest.TestCase):
+    def test_empty_worktree_db_is_not_a_host_db(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp) / '.local'
+            local.mkdir()
+            (local / 'registry.sqlite3').write_bytes(b'0' * 4096)
+            self.assertFalse(sync.has_host_db(tmp))
+            (local / 'registry.sqlite3').write_bytes(b'0' * 1_000_001)
+            self.assertTrue(sync.has_host_db(tmp))
+
+
 if __name__ == '__main__':
     unittest.main()

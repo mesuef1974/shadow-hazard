@@ -1,6 +1,6 @@
 """نسخ المهام والقرارات من قاعدة المضيف إلى قاعدة النسخة السحابية على Railway (ADR 0010).
 
-الاستعمال من النسخة الرئيسية (فيها قاعدة المضيف):
+الاستعمال (من النسخة الرئيسية أو من شجرة عمل؛ القاعدة تُكتشف في النسخة الرئيسية):
     python scripts/sync_to_railway.py            # معاينة: الأعداد فقط ولا كتابة
     python scripts/sync_to_railway.py --apply    # تطبيق النسخ
 
@@ -72,6 +72,26 @@ else:
 '''
 
 
+def has_host_db(backend):
+    db = Path(backend) / '.local' / 'registry.sqlite3'
+    return db.is_file() and db.stat().st_size > 1_000_000
+
+
+def default_backend(root=ROOT):
+    """backend الذي فيه قاعدة المضيف: هذه النسخة، وإلا النسخة الرئيسية (شجرة العمل بلا قاعدة)."""
+    own = Path(root) / 'backend'
+    if has_host_db(own):
+        return own
+    common = subprocess.run(['git', 'rev-parse', '--git-common-dir'], cwd=root,
+                            capture_output=True)
+    if common.returncode == 0:
+        git_dir = common.stdout.decode('utf-8').strip()
+        main = (Path(root) / git_dir).resolve().parent / 'backend'
+        if has_host_db(main):
+            return main
+    sys.exit('لم أجد قاعدة المضيف (backend/.local/registry.sqlite3)؛ حدّد --backend.')
+
+
 def dump_local(backend, models=MODELS):
     """نصّ JSON لتصدير النماذج من القاعدة التي يستعملها `manage.py` في backend."""
     env = {**os.environ, 'PYTHONUTF8': '1'}
@@ -130,11 +150,13 @@ def main(argv=None):
     parser.add_argument('--apply', action='store_true', help='نفّذ النسخ (الافتراضي معاينة)')
     parser.add_argument('--force', action='store_true',
                         help='اسمح بوجود صفوف في Railway غير موجودة في المضيف')
-    parser.add_argument('--backend', default=str(ROOT / 'backend'),
-                        help='مجلد backend الذي فيه قاعدة المضيف (.local/registry.sqlite3)')
+    parser.add_argument('--backend',
+                        help='مجلد backend الذي فيه قاعدة المضيف؛ الافتراضي يُكتشف تلقائيًّا')
     args = parser.parse_args(argv)
 
-    data = dump_local(args.backend)
+    backend = args.backend or default_backend()
+    print('قاعدة المضيف من:', backend)
+    data = dump_local(backend)
     print('المضيف:', ', '.join(f'{k} {v}' for k, v in sorted(local_counts(data).items())))
     code, output = run_remote(build_program(data, args.apply, args.force),
                               os.environ.get('RAILWAY_SERVICE', SERVICE))
