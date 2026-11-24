@@ -28,7 +28,7 @@ class BuildProgramTests(unittest.TestCase):
 
     def test_no_placeholder_left(self):
         program = sync.build_program(DATA)
-        for marker in ('__PAYLOAD__', '__APPLY__', '__FORCE__'):
+        for marker in ('__PAYLOAD__', '__APPLY__', '__FORCE__', '__SLIDING__'):
             self.assertNotIn(marker, program)
 
 
@@ -59,6 +59,8 @@ class LocalProgramTests(unittest.TestCase):
     def test_referenced_parents_are_not_also_full(self):
         self.assertFalse(set(sync.MODELS) & set(sync.REFERENCED))
         self.assertNotIn('simulation.simulationrun', sync.MODELS)
+        self.assertEqual(sync.LATEST, {'simulation.simulationrun': 20})
+        self.assertNotIn('__LATEST__', sync.local_program())
 
 
 class BackendDiscoveryTests(unittest.TestCase):
