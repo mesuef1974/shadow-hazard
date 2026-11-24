@@ -47,6 +47,20 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(sync.local_counts(DATA), {'workspace.task': 2, 'workspace.decision': 1})
 
 
+class LocalProgramTests(unittest.TestCase):
+    def test_program_compiles_and_lists_models(self):
+        program = sync.local_program()
+        compile(program, 'local', 'exec')
+        self.assertIn("'workspace.task'", program)
+        self.assertIn("'registry.artifact'", program)
+        self.assertNotIn('__FULL__', program)
+        self.assertTrue(program.isascii())
+
+    def test_referenced_parents_are_not_also_full(self):
+        self.assertFalse(set(sync.MODELS) & set(sync.REFERENCED))
+        self.assertNotIn('simulation.simulationrun', sync.MODELS)
+
+
 class BackendDiscoveryTests(unittest.TestCase):
     def test_empty_worktree_db_is_not_a_host_db(self):
         import tempfile
