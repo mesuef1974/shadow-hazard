@@ -1,4 +1,4 @@
-{% extends 'registry/base.html' %}{% block title %}استهلاك Claude — ظل الخطر{% endblock %}{% load static claude_usage_tags %}{% block content %}<link rel="stylesheet" href="{% static 'claude_usage/charts.css' %}?v=1">
+{% extends 'registry/base.html' %}{% block title %}استهلاك Claude — ظل الخطر{% endblock %}{% load static claude_usage_tags %}{% block content %}<link rel="stylesheet" href="{% static 'claude_usage/charts.css' %}?v=2">
 <div class="usage-dashboard">
 {% include 'registry/_page_heading.html' with eyebrow='موارد المشروع · Claude' title='استهلاك Claude' description='الجلسة، وآخر 7 أيام، وآخر 30 يومًا، والنماذج؛ من سجلات Claude نفسها بلا أي نص من المحادثات.' %}
 <p class="note">«الطازج» = الإدخال + كتابة الذاكرة المؤقتة + الخرج، وهو الأقرب إلى الكلفة. «قراءة الذاكرة المؤقتة» أرخص بكثير وتُعرض وحدها. الأوقات بتوقيت قطر.</p>

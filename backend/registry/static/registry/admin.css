@@ -1,6 +1,6 @@
 /* Neutral admin presentation; no proposed project identity is adopted. */
-.registry-swatch { display:inline-block; width:2.5rem; height:1.5rem; border:1px solid var(--body-quiet-color); border-radius:4px; vertical-align:middle; margin-inline-end:.5rem; }
-.registry-preview { display:block; max-width:200px; max-height:130px; object-fit:contain; border:1px solid var(--hairline-color); background:var(--body-bg); border-radius:4px; }
+.registry-swatch { display:inline-block; width:2.5rem; height:1.5rem; border:1px solid var(--body-quiet-color); border-radius:2px; vertical-align:middle; margin-inline-end:.5rem; }
+.registry-preview { display:block; max-width:200px; max-height:130px; object-fit:contain; border:1px solid var(--hairline-color); background:var(--body-bg); border-radius:2px; }
 .form-row .registry-preview { max-width:min(100%, 720px); max-height:480px; }
 #result_list td { max-width:28rem; overflow-wrap:anywhere; }
 .field-path, .field-relative_path, .field-sha256, .field-hex_value { unicode-bidi:plaintext; }

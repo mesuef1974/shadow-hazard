@@ -2,12 +2,12 @@
 .page-column main{display:flex;flex-direction:column;gap:20px;max-inline-size:1100px;margin-inline:auto;padding:24px 28px 40px}
 .page-column main>*{margin-block:0}
 .page-column main>.work-panel,.page-column main>.status,.page-column main>.page-heading,.page-column main>.search{margin-block:0}
-.page-column main .work-panel{padding:6px 22px;border-radius:10px}
+.page-column main .work-panel{padding:6px 22px;border-radius:2px}
 .page-column main .work-panel>:is(h2,h3,p,form){margin-block:16px}
 .page-column main .work-row{padding:14px 0;gap:16px}
 .page-column main .work-row:last-child{border-block-end:0}
 .page-column main .work-row>div{min-inline-size:0}
-.page-column main .work-row>span{flex:none;padding:2px 12px;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:999px;font-size:.85rem;line-height:1.7;white-space:nowrap}
+.page-column main .work-row>span{flex:none;padding:2px 12px;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:2px;font-size:.85rem;line-height:1.7;white-space:nowrap}
 .page-column main .status{padding:14px 18px}
 .page-column main .section-title{margin-block:0}
 .page-column main h1{margin-block:0}

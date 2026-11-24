@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'registry/capacity.css' %}?v=1">
+<link rel="stylesheet" href="{% static 'registry/capacity.css' %}?v=2">
 <section class="capacity-panel" aria-label="{% if capacity_snapshot.source_kind == 'runtime_context' %}مراقبة تقدير السياق{% else %}مراقبة حجم آخر طلب{% endif %}">
   <details class="capacity-fold" data-refresh-key="capacity-snapshot">
     {% if capacity_snapshot.source_kind == 'runtime_context' %}

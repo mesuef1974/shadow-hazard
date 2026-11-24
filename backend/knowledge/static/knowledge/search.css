@@ -1,7 +1,7 @@
 .knowledge-page{max-width:900px;margin-inline:auto;color:var(--platform-text)}
 .knowledge-heading h1{margin:0 0 8px}
 .knowledge-heading p{margin:0 0 24px;max-width:65ch}
-.knowledge-form{padding:24px;background:var(--platform-surface);border:1px solid var(--platform-border);border-inline-start:4px solid var(--brand-secondary);border-radius:8px}
+.knowledge-form{padding:24px;background:var(--platform-surface);border:1px solid var(--platform-border);border-inline-start:4px solid var(--brand-secondary);border-radius:2px}
 .knowledge-form label{display:block;font-weight:600;margin-bottom:10px}
 .knowledge-controls{display:flex;gap:12px;align-items:stretch}
 .knowledge-controls input{flex:1;min-width:0;width:100%;background:var(--platform-page-background);color:var(--platform-text)}
@@ -17,7 +17,7 @@
 .knowledge-meta dt{color:var(--platform-muted-strong)}
 .knowledge-meta dd{margin:0}
 .knowledge-excerpt{white-space:pre-wrap;line-height:1.9;max-width:78ch;margin:0;font-size:17px;color:var(--platform-text)}
-.knowledge-empty{margin-top:28px;padding:24px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:8px;overflow-wrap:anywhere}
+.knowledge-empty{margin-top:28px;padding:24px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:2px;overflow-wrap:anywhere}
 .knowledge-empty p{margin:8px 0}
 .knowledge-full-source{display:inline-block;margin-top:14px;font-weight:600}
 .knowledge-protocol{max-width:78ch;line-height:1.9}
@@ -31,5 +31,5 @@
 .knowledge-note{max-width:78ch;color:var(--platform-muted-strong);font-size:14px}
 .knowledge-raw{max-width:78ch;margin-block-start:12px}
 .knowledge-raw summary{cursor:pointer;color:var(--platform-muted-strong)}
-.knowledge-evidence{box-sizing:border-box;max-width:78ch;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;text-align:start;padding:20px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:8px;color:var(--platform-text);font:inherit;line-height:1.8}
+.knowledge-evidence{box-sizing:border-box;max-width:78ch;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;text-align:start;padding:20px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:2px;color:var(--platform-text);font:inherit;line-height:1.8}
 @media(max-width:600px){.knowledge-form,.knowledge-empty{padding:18px}.knowledge-controls{flex-direction:column}.knowledge-meta{flex-direction:column;gap:8px}.knowledge-controls button{width:100%}}

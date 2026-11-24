@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'registry/runtime-context.css' %}?v=1">
+<link rel="stylesheet" href="{% static 'registry/runtime-context.css' %}?v=2">
 <section class="runtime-context work-panel" aria-labelledby="runtime-context-title" data-refresh-key="runtime-context">
   <div class="runtime-context-heading"><div><h2 id="runtime-context-title">إشغال السياق — {% if capacity_snapshot.thresholds_enabled %}مراقبة العتبات{% else %}مراقبة صامتة{% endif %}</h2><p>تقدير كودكس عند نهاية الخطوة؛ مستقل عن إجمالي الاستهلاك.</p></div><span class="runtime-mode">{% if capacity_snapshot.thresholds_enabled %}العتبتان مفعّلتان{% else %}عرض فقط{% endif %}</span></div>
   <div class="runtime-gauges">

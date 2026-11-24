@@ -5,14 +5,14 @@
 .flow-path{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr)}
 .flow-path li{position:relative;padding-inline:6px}
 .flow-path li:not(:last-child)::after{content:"";position:absolute;inset-block-start:36px;inset-inline-start:calc(50% + 22px);inline-size:calc(100% - 44px);block-size:3px;background:var(--platform-link);z-index:2;animation:flow-pulse 2.4s ease-in-out infinite}
-#flow .flow-path button{inline-size:100%;display:grid;justify-items:center;gap:4px;padding:14px 6px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:12px;color:var(--platform-text);cursor:pointer}
+#flow .flow-path button{inline-size:100%;display:grid;justify-items:center;gap:4px;padding:14px 6px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:2px;color:var(--platform-text);cursor:pointer}
 #flow .flow-path button:hover,#flow .flow-path button[aria-pressed=true]{border-color:var(--platform-link);box-shadow:0 0 0 2px var(--platform-link)}
 .flow :is(a,button,input,select,.flow-table):focus-visible{outline:3px solid var(--platform-focus);outline-offset:2px}
-.flow-node{inline-size:44px;block-size:44px;border-radius:50%;display:grid;place-items:center;background:var(--platform-link);color:var(--platform-on-link);font-weight:700}
+.flow-node{inline-size:44px;block-size:44px;border-radius:2px;display:grid;place-items:center;background:var(--platform-link);color:var(--platform-on-link);font-weight:700}
 .flow-path small{color:var(--platform-muted)}
 .flow-path b{font-size:24px}
 @keyframes flow-pulse{50%{opacity:.4}}
-.flow-chart{overflow-x:auto;display:flex;align-items:flex-end;gap:3px;block-size:120px;padding:8px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:12px}
+.flow-chart{overflow-x:auto;display:flex;align-items:flex-end;gap:3px;block-size:120px;padding:8px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:2px}
 #flow .flow-chart button{flex:1 0 24px;display:flex;flex-direction:column-reverse;block-size:100%;padding:0;background:none;border:0;cursor:pointer}
 .flow-chart i{display:block}
 .flow-chart [data-r=pass],.flow-legend [data-r=pass]::before{background:var(--platform-success)}
@@ -27,11 +27,11 @@
 .flow-filters input,.flow-filters select,.flow-filters button{min-block-size:40px;padding-inline:8px}
 .flow-grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,3fr);gap:20px}
 .flow-cards{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-block-size:560px;overflow:auto}
-#flow .flow-cards button{inline-size:100%;text-align:start;padding:10px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:10px;color:var(--platform-text);cursor:pointer;overflow-wrap:break-word}
+#flow .flow-cards button{inline-size:100%;text-align:start;padding:10px;background:var(--platform-surface);border:1px solid var(--platform-border);border-radius:2px;color:var(--platform-text);cursor:pointer;overflow-wrap:break-word}
 #flow .flow-cards button[aria-pressed=true]{border-color:var(--platform-link);box-shadow:inset 0 0 0 2px var(--platform-link)}
 .flow-cards small{display:block;color:var(--platform-muted)}
 .flow-empty{padding:12px;color:var(--platform-muted)}
-.flow-table{container:flow-events/inline-size;overflow:auto;max-block-size:560px;border:1px solid var(--platform-border);border-radius:12px}
+.flow-table{container:flow-events/inline-size;overflow:auto;max-block-size:560px;border:1px solid var(--platform-border);border-radius:2px}
 .flow-table table{inline-size:100%;border-collapse:collapse}
 .flow-table th{position:sticky;inset-block-start:0;z-index:1;background:var(--platform-surface-muted);text-align:start;white-space:nowrap}
 .flow-table th,.flow-table td{padding:8px 10px;border-block-end:1px solid var(--platform-border);vertical-align:top;overflow-wrap:break-word}
