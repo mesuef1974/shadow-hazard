@@ -7,6 +7,8 @@ from tempfile import TemporaryDirectory
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.core.signals import request_finished
+from django.db import close_old_connections
 from django.test import TestCase, override_settings
 
 from competition import training
@@ -56,7 +58,13 @@ class TrainingPagesTests(TestCase):
 
     def status(self, page):
         response = self.client.get(page)
-        response.close()  # يغلق ملف الصورة المفتوح للبث؛ ويندوز لا يحذف ملفًا مفتوحًا
+        # يغلق ملف الصورة المفتوح للبث؛ ويندوز لا يحذف ملفًا مفتوحًا. ولأن close() يطلق request_finished
+        # فيغلق close_old_connections اتصال postgres داخل معاملة الاختبار، نفصله كما يفعل عميل الاختبار نفسه.
+        request_finished.disconnect(close_old_connections)
+        try:
+            response.close()
+        finally:
+            request_finished.connect(close_old_connections)
         return response.status_code
 
     def test_pages_are_for_the_team_only(self):
