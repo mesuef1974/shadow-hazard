@@ -1,3 +1,4 @@
+from urllib.parse import urlencode
 from pathlib import Path
 import mimetypes
 import hashlib
@@ -48,12 +49,20 @@ def home(request):
                 'title': f'إيصال #{receipt.pk} — {receipt.summary[:100]}',
                 'kind': 'سجل المشروع', 'group': receipt.session_key,
                 'record': receipt, 'receipt': True, 'prior_design': f'__receipts__/{receipt.pk}.md' in PRIOR_NAMES})
-    page_obj = Paginator(documents, 10).get_page(request.GET.get("page"))
+    kinds = sorted({d['kind'] for d in documents})
+    kind = request.GET.get('kind', '')
+    if kind in kinds:
+        documents = [d for d in documents if d['kind'] == kind]
+    else:
+        kind = ''
+    size = int(request.GET['size']) if request.GET.get('size') in {'10', '25', '50'} else 25
+    link_qs = urlencode({k: v for k, v in (('q', query), ('kind', kind), ('size', size if size != 25 else '')) if v})
+    page_obj = Paginator(documents, size).get_page(request.GET.get("page"))
     for item in page_obj.object_list:
         if not item.get('receipt'):
             path = resolve_document(item['name'])
             item['record'] = registered.get(("docs/" + item['name'], hashlib.sha256(path.read_bytes()).hexdigest()))
-    return render(request, "registry/portal.html", {"documents": page_obj.object_list, "page_obj": page_obj, "query": query, "brand": BrandDirection.objects.filter(status="approved").first()})
+    return render(request, "registry/portal.html", {"documents": page_obj.object_list, "page_obj": page_obj, "query": query, "kinds": kinds, "kind": kind, "size": size, "link_qs": link_qs, "brand": BrandDirection.objects.filter(status="approved").first()})
 
 @login_required(login_url="/login/")
 def document(request, name):
