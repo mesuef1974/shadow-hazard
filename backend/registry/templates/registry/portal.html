@@ -7,7 +7,13 @@
   <div class="search">
     <input id="q" name="q" value="{{ query }}" placeholder="مثل: التجربة، الهوية، المتطلبات">
     <button type="submit">بحث</button>
-    {% if query %}<a href="{% url 'project-library' %}#library">مسح البحث</a>{% endif %}
+    {% if query or kind %}<a href="{% url 'project-library' %}#library">مسح البحث</a>{% endif %}
+  </div>
+  <div class="search library-filters">
+    <label for="kind">النوع</label>
+    <select id="kind" name="kind"><option value="">الكل</option>{% for k in kinds %}<option value="{{ k }}"{% if k == kind %} selected{% endif %}>{{ k }}</option>{% endfor %}</select>
+    <label for="size">في الصفحة</label>
+    <select id="size" name="size"><option value="10"{% if size == 10 %} selected{% endif %}>10</option><option value="25"{% if size == 25 %} selected{% endif %}>25</option><option value="50"{% if size == 50 %} selected{% endif %}>50</option></select>
   </div>
 </form>
 
@@ -38,11 +44,11 @@
 {% if page_obj.paginator.num_pages > 1 %}
   <nav class="library-pagination" aria-label="التنقل بين صفحات الوثائق">
     {% if page_obj.has_previous %}
-      <a rel="prev" href="?{% if query %}q={{ query|urlencode }}&amp;{% endif %}page={{ page_obj.previous_page_number }}#library">السابق</a>
+      <a rel="prev" href="?{% if link_qs %}{{ link_qs }}&amp;{% endif %}page={{ page_obj.previous_page_number }}#library">السابق</a>
     {% else %}<span class="pagination-disabled" aria-disabled="true">السابق</span>{% endif %}
     <span class="pagination-current">صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
     {% if page_obj.has_next %}
-      <a rel="next" href="?{% if query %}q={{ query|urlencode }}&amp;{% endif %}page={{ page_obj.next_page_number }}#library">التالي</a>
+      <a rel="next" href="?{% if link_qs %}{{ link_qs }}&amp;{% endif %}page={{ page_obj.next_page_number }}#library">التالي</a>
     {% else %}<span class="pagination-disabled" aria-disabled="true">التالي</span>{% endif %}
   </nav>
 {% endif %}

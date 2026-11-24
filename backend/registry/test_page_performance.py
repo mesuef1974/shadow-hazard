@@ -27,7 +27,7 @@ class LibraryPayloadTests(TestCase):
                     reads.append(path.name)
                 return original(path)
             with patch('registry.portal.ROOT', root), patch.object(Path, 'read_bytes', read):
-                page = self.client.get('/library/')
+                page = self.client.get('/library/', {'size': 10})
                 self.assertEqual(page.status_code, 200)
                 self.assertEqual(len(reads), 10)
                 self.assertEqual(page.context['page_obj'].paginator.count, 26)
